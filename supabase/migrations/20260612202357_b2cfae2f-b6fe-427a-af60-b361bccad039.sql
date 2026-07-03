@@ -1,0 +1,1 @@
+UPDATE public.roles SET description = NULL WHERE slug = 'imitateur' AND description = 'Héritage opportuniste.';

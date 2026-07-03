@@ -1,0 +1,1 @@
+ALTER VIEW public.games_public SET (security_invoker = false);

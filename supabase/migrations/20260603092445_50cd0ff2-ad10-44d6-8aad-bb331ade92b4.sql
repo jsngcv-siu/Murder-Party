@@ -1,0 +1,1 @@
+UPDATE public.roles SET target_mode='double' WHERE slug='facteur';

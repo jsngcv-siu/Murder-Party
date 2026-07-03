@@ -1,0 +1,1 @@
+ALTER TABLE public.games ADD COLUMN IF NOT EXISTS banned_roles text[] NOT NULL DEFAULT '{}'::text[];

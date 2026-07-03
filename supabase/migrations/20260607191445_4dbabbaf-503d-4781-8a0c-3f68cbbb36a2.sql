@@ -1,0 +1,3 @@
+UPDATE public.roles SET capacite_full_text = 'À chaque phase libre, choisis 2 joueurs distincts pour savoir s''ils sont de la même faction.' WHERE slug = 'boussole';
+UPDATE public.roles SET usage_label = '1×/phase libre + 1×/rassemblement', capacite_full_text = 'Une fois par phase libre ET une fois par rassemblement, désigne une cible qui reçoit une relique maudite au hasard. Tu gagnes si une personne reçoit la relique « Le Cœur du Manoir ».' WHERE slug = 'conservateur';
+UPDATE public.roles SET capacite_full_text = 'À la première phase libre, choisis une prophétie parmi 3 (les Civils gagnent / les Méchants gagnent / un Neutre gagne). Tu gagnes si elle se réalise et que tu es en vie à la fin.' WHERE slug = 'oracle';

@@ -1,0 +1,16 @@
+{
+  "name": "Murder Party",
+  "short_name": "Murder Party",
+  "description": "Assistant compagnon pour parties Murder Party à rôles cachés.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a132a",
+  "theme_color": "#1a132a",
+  "icons": [
+    { "src": "/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

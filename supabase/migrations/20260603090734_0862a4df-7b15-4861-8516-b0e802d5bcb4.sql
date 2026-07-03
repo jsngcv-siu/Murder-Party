@@ -1,0 +1,1 @@
+UPDATE public.roles SET usage_label='Setup + 1×/phase libre (T4+)' WHERE slug='stratege';

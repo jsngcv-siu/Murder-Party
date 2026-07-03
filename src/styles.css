@@ -1,0 +1,530 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system — Murder Party PWA
+ * Dark gaming theme. Noir velouté, accent or mystique, flush rouge sang pour danger.
+ * Tous les tokens en oklch.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-citoyens: var(--citoyens);
+  --color-mechants: var(--mechants);
+  --color-neutres: var(--neutres);
+  --color-vampires: var(--vampires);
+  --color-detective: var(--detective);
+
+  /* Phase identity + niveaux de suspicion (Step 1 — design tokens) */
+  --color-phase-jour: var(--phase-jour);
+  --color-phase-rassemblement: var(--phase-rassemblement);
+  --color-phase-annonce: var(--phase-annonce);
+  --color-phase-vote: var(--phase-vote);
+  --color-suspicion-0: var(--suspicion-0);
+  --color-suspicion-1: var(--suspicion-1);
+  --color-suspicion-2: var(--suspicion-2);
+  --color-suspicion-3: var(--suspicion-3);
+
+  /* Surfaces signature « tableau d'enquête » (DA The Board) */
+  --color-cork: var(--cork);
+  --color-cork-edge: var(--cork-edge);
+  --color-wood: var(--wood);
+  --color-wood-dark: var(--wood-dark);
+  --color-paper: var(--paper);
+  --color-paper-ink: var(--paper-ink);
+  --color-paper-ink-soft: var(--paper-ink-soft);
+}
+
+/* Familles typographiques (DA The Board) — émises en :root ET en utilitaires
+ * Tailwind (font-display / font-hand / font-body). */
+@theme {
+  --font-display: 'Special Elite', ui-monospace, monospace;
+  --font-hand: 'Caveat', ui-rounded, cursive;
+  --font-body: 'Archivo', system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* ── Surfaces : nuit chaude, bois, papier (DA « tableau d'enquête ») ── */
+  --background: oklch(0.16 0.03 30);     /* nuit chaude (remplace le violet froid) */
+  --foreground: oklch(0.93 0.02 85);     /* crème lisible */
+  --card: oklch(0.22 0.035 35);          /* panneau bois sombre */
+  --card-foreground: oklch(0.93 0.02 85);
+  --popover: oklch(0.19 0.03 32);
+  --popover-foreground: oklch(0.93 0.02 85);
+
+  /* Surfaces signature « enquête » — cartes papier, fond liège, cadres bois. */
+  --cork: oklch(0.38 0.07 38);
+  --cork-edge: oklch(0.30 0.06 36);
+  --wood: oklch(0.45 0.08 50);
+  --wood-dark: oklch(0.30 0.06 45);
+  --paper: oklch(0.93 0.02 85);
+  --paper-ink: oklch(0.28 0.02 45);
+  --paper-ink-soft: oklch(0.50 0.02 50);
+
+  /* ── Action = ficelle rouge · accent = or détective ── */
+  --primary: oklch(0.55 0.22 18);        /* ficelle rouge / CTA principal */
+  --primary-foreground: oklch(0.98 0.01 90);
+  --primary-glow: oklch(0.62 0.23 20);
+
+  --secondary: oklch(0.26 0.04 38);
+  --secondary-foreground: oklch(0.93 0.02 85);
+
+  --muted: oklch(0.24 0.03 38);
+  --muted-foreground: oklch(0.72 0.03 55);
+
+  --accent: oklch(0.80 0.15 78);         /* or détective (highlights, actif) */
+  --accent-foreground: oklch(0.20 0.03 40);
+
+  --destructive: oklch(0.55 0.22 18);    /* danger = même rouge que la ficelle */
+  --destructive-foreground: oklch(0.98 0.01 90);
+
+  --success: oklch(0.68 0.16 150);
+  --success-foreground: oklch(0.16 0.03 30);
+
+  --warning: oklch(0.80 0.15 70);
+  --warning-foreground: oklch(0.20 0.03 40);
+
+  --border: oklch(0.32 0.04 40);
+  --input: oklch(0.26 0.035 38);
+  --ring: oklch(0.55 0.22 18);
+
+  /* Tokens factions (teintes conservées) */
+  --citoyens: oklch(0.72 0.16 230);
+  --mechants: oklch(0.62 0.24 22);
+  --neutres: oklch(0.80 0.12 300);
+  --vampires: oklch(0.66 0.20 340);
+  --detective: oklch(0.85 0.16 90);
+
+  /* Post-its (intitulés manuscrits / tags de statut) */
+  --sticky-yellow: oklch(0.86 0.14 92);
+  --sticky-pink: oklch(0.78 0.13 0);
+  --sticky-cyan: oklch(0.82 0.08 200);
+  --sticky-orange: oklch(0.78 0.15 55);
+
+  /* Gradients & ombres signature (DA The Board) */
+  --gradient-night:  linear-gradient(180deg, oklch(0.24 0.04 30), oklch(0.14 0.025 28));
+  --gradient-cork:   radial-gradient(circle at 40% 22%, oklch(0.42 0.08 38), oklch(0.30 0.06 36) 80%);
+  --gradient-wood:   linear-gradient(135deg, oklch(0.45 0.08 50), oklch(0.30 0.06 45));
+  --gradient-string: linear-gradient(90deg, oklch(0.45 0.20 18), oklch(0.60 0.23 20), oklch(0.45 0.20 18));
+  --gradient-gold:   linear-gradient(135deg, oklch(0.74 0.14 65), var(--accent) 45%, oklch(0.88 0.16 85));
+  /* Alias conservés pour compat (anciens noms encore référencés ailleurs). */
+  --gradient-mystic: var(--gradient-night);
+  --gradient-blood:  linear-gradient(135deg, oklch(0.45 0.22 18), oklch(0.30 0.16 18));
+
+  --shadow-pin:     0 4px 6px oklch(0 0 0 / 0.5);
+  --shadow-paper:   0 12px 26px -10px oklch(0 0 0 / 0.7);
+  --shadow-glow:    0 0 24px -4px oklch(0.55 0.22 18 / 0.55);
+  --shadow-card:    0 16px 40px -18px oklch(0 0 0 / 0.7);
+  --shadow-elegant: var(--shadow-card);
+  --shadow-raised:  0 1px 0 0 oklch(1 0 0 / 0.05) inset, 0 1px 2px oklch(0 0 0 / 0.45), 0 14px 32px -14px oklch(0 0 0 / 0.6);
+
+  /* ── Identité de phase — re-mappée sur l'ambiance « dossier » ── */
+  --phase-jour:               oklch(0.80 0.15 78);   /* or : le jour, le mur */
+  --phase-jour-wash:          oklch(0.60 0.13 60 / 0.16);
+  --phase-rassemblement:      oklch(0.66 0.13 300);  /* violet nuit */
+  --phase-rassemblement-wash: oklch(0.55 0.11 300 / 0.18);
+  --phase-annonce:            oklch(0.82 0.08 200);  /* cyan : le journal */
+  --phase-annonce-wash:       oklch(0.60 0.08 200 / 0.16);
+  --phase-vote:               oklch(0.55 0.22 18);   /* rouge : le verdict */
+  --phase-vote-wash:          oklch(0.45 0.20 18 / 0.22);
+
+  /* ── Niveaux de suspicion — neutre · innocent · doute · suspect ── */
+  --suspicion-0: oklch(0.72 0.03 55);
+  --suspicion-1: oklch(0.68 0.16 150);
+  --suspicion-2: oklch(0.80 0.15 78);
+  --suspicion-3: oklch(0.55 0.22 18);
+
+  /* ── Durées d'animation — exit ≈ 65% de enter ── */
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  --dur-cinematic: 800ms;
+}
+
+.dark {
+  /* Identique : on force ce même thème « dossier » partout (app dark-only). */
+  --background: oklch(0.16 0.03 30);
+  --foreground: oklch(0.93 0.02 85);
+  --card: oklch(0.22 0.035 35);
+  --card-foreground: oklch(0.93 0.02 85);
+  --popover: oklch(0.19 0.03 32);
+  --popover-foreground: oklch(0.93 0.02 85);
+  --cork: oklch(0.38 0.07 38);
+  --cork-edge: oklch(0.30 0.06 36);
+  --wood: oklch(0.45 0.08 50);
+  --wood-dark: oklch(0.30 0.06 45);
+  --paper: oklch(0.93 0.02 85);
+  --paper-ink: oklch(0.28 0.02 45);
+  --paper-ink-soft: oklch(0.50 0.02 50);
+  --primary: oklch(0.55 0.22 18);
+  --primary-foreground: oklch(0.98 0.01 90);
+  --primary-glow: oklch(0.62 0.23 20);
+  --secondary: oklch(0.26 0.04 38);
+  --secondary-foreground: oklch(0.93 0.02 85);
+  --muted: oklch(0.24 0.03 38);
+  --muted-foreground: oklch(0.72 0.03 55);
+  --accent: oklch(0.80 0.15 78);
+  --accent-foreground: oklch(0.20 0.03 40);
+  --destructive: oklch(0.55 0.22 18);
+  --destructive-foreground: oklch(0.98 0.01 90);
+  --success: oklch(0.68 0.16 150);
+  --success-foreground: oklch(0.16 0.03 30);
+  --warning: oklch(0.80 0.15 70);
+  --warning-foreground: oklch(0.20 0.03 40);
+  --border: oklch(0.32 0.04 40);
+  --input: oklch(0.26 0.035 38);
+  --ring: oklch(0.55 0.22 18);
+  --citoyens: oklch(0.72 0.16 230);
+  --mechants: oklch(0.62 0.24 22);
+  --neutres: oklch(0.80 0.12 300);
+  --vampires: oklch(0.66 0.20 340);
+  --detective: oklch(0.85 0.16 90);
+  --sticky-yellow: oklch(0.86 0.14 92);
+  --sticky-pink: oklch(0.78 0.13 0);
+  --sticky-cyan: oklch(0.82 0.08 200);
+  --sticky-orange: oklch(0.78 0.15 55);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--background);
+    /* Nuit chaude + grain papier discret (DA « tableau d'enquête »). */
+    background-image:
+      radial-gradient(120% 60% at 50% 115%, oklch(0 0 0 / 0.42), transparent 60%),
+      repeating-linear-gradient(0deg, oklch(0.95 0.02 85 / 0.016) 0 1px, transparent 1px 3px),
+      radial-gradient(130% 90% at 50% -10%, oklch(0.24 0.05 330) 0%, oklch(0.17 0.03 30) 45%, oklch(0.13 0.025 28) 100%);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Vignette de profondeur : assombrit très légèrement les bords pour
+   * concentrer le regard au centre. Fixe, derrière tout, non interactive. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 100% 80% at 50% 35%, transparent 55%, oklch(0.06 0.02 30 / 0.55) 100%);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+
+  /* Focus clavier visible sur tous les éléments interactifs custom.
+   * :where() = spécificité nulle → n'écrase jamais un focus déjà défini
+   * par un composant (ex. Button Radix). WCAG 2.4.7. */
+  :where(button, a, [role="button"], [role="tab"], input, textarea, select):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Respect de prefers-reduced-motion : neutralise les animations infinies
+ * (pulse-gold, animate-pulse, shimmer…) pour les utilisateurs sensibles. WCAG 2.3.3 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer utilities {
+  .bg-mystic {
+    background: var(--gradient-mystic);
+  }
+  .bg-gold {
+    background: var(--gradient-gold);
+  }
+  .text-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .ring-gold {
+    box-shadow: 0 0 0 1px oklch(0.78 0.16 75 / 0.4), inset 0 1px 0 oklch(1 0 0 / 0.05);
+  }
+  .pulse-gold {
+    animation: pulseGold 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseGold {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.78 0.16 75 / 0.6); }
+    50% { box-shadow: 0 0 0 8px oklch(0.78 0.16 75 / 0); }
+  }
+  .last-result-anim {
+    animation: lastResultIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @keyframes lastResultIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+  }
+
+  /* ─── Pack Vie : entrées & cascade ─── */
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Transition de contenu au changement d'onglet. */
+  .anim-tab-in {
+    animation: fadeSlideIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  /* Apparition en cascade : il suffit d'ajouter .stagger au conteneur,
+   * chaque enfant direct entre avec un délai croissant (aucune modif par item). */
+  .stagger > * {
+    animation: fadeSlideIn 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .stagger > *:nth-child(1)  { animation-delay: 30ms; }
+  .stagger > *:nth-child(2)  { animation-delay: 75ms; }
+  .stagger > *:nth-child(3)  { animation-delay: 120ms; }
+  .stagger > *:nth-child(4)  { animation-delay: 165ms; }
+  .stagger > *:nth-child(5)  { animation-delay: 210ms; }
+  .stagger > *:nth-child(6)  { animation-delay: 255ms; }
+  .stagger > *:nth-child(7)  { animation-delay: 300ms; }
+  .stagger > *:nth-child(8)  { animation-delay: 345ms; }
+  .stagger > *:nth-child(9)  { animation-delay: 390ms; }
+  .stagger > *:nth-child(n+10) { animation-delay: 430ms; }
+
+  /* Révélation marquée d'un nouveau résultat de capacité : entrée + flash de halo. */
+  @keyframes resultReveal {
+    0%   { opacity: 0; transform: translateY(10px) scale(0.96); box-shadow: 0 0 0 0 oklch(0.80 0.16 78 / 0); }
+    55%  { opacity: 1; transform: translateY(0)    scale(1.015); box-shadow: 0 0 0 3px oklch(0.80 0.16 78 / 0.20); }
+    100% { opacity: 1; transform: translateY(0)    scale(1); box-shadow: 0 0 0 0 oklch(0.80 0.16 78 / 0); }
+  }
+  .result-reveal {
+    animation: resultReveal 440ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  }
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* ─── Primitives d'interaction réutilisables (socle DA) ─── */
+
+  /* Retour tactile homogène : léger enfoncement au press, transition courte. */
+  .press {
+    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 140ms ease, filter 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Surface élevée : profondeur multi-couche + liseré supérieur lumineux. */
+  .elevate {
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* Panneau « verre » : fond translucide + flou, pour overlays et cartes héro. */
+  .glass-panel {
+    background: oklch(0.21 0.03 35 / 0.74);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid oklch(1 0 0 / 0.06);
+  }
+
+  /* Entrée de marque : fondu + montée + dilatation des lettres (une fois). */
+  .brand-title {
+    animation: brandIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @keyframes brandIn {
+    from { opacity: 0; transform: translateY(8px); letter-spacing: 0.35em; filter: blur(3px); }
+    to   { opacity: 1; transform: translateY(0);   letter-spacing: normal; filter: blur(0); }
+  }
+
+  /* Halo doré sur du texte (titres « moments forts »). L'or détective reste or,
+   * même si --primary est désormais la ficelle rouge. */
+  .text-glow-gold {
+    color: oklch(0.88 0.15 84);
+    text-shadow: 0 0 24px oklch(0.80 0.16 78 / 0.45), 0 0 2px oklch(0.80 0.16 78 / 0.6);
+  }
+
+  /* Balayage lumineux qui traverse un élément (CTA premium). Ajoute la classe
+   * + un ::after via `.sheen` sur un conteneur en position:relative;overflow:hidden. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, oklch(1 0 0 / 0.35) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: sheenSweep 3.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes sheenSweep {
+    0%, 22% { transform: translateX(-120%); }
+    52%, 100% { transform: translateX(120%); }
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ═══ Grammaire visuelle « tableau d'enquête » (DA The Board) ═══ */
+
+  /* Texte manuscrit (post-its, annotations, titres feutre). */
+  .font-hand { font-family: var(--font-hand); }
+
+  /* Carte papier épinglée — révélations, capacité, vote, annonces. */
+  .paper {
+    background: var(--paper);
+    color: var(--paper-ink);
+    border-radius: 3px;
+    box-shadow: var(--shadow-paper);
+    position: relative;
+  }
+  /* Épingle (sur un .pin en :before, ou un <span> dédié). */
+  .pin::before {
+    content: "";
+    position: absolute; top: -6px; left: 50%;
+    width: 12px; height: 12px; border-radius: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle at 35% 30%, oklch(0.78 0.16 18), oklch(0.50 0.20 18));
+    box-shadow: var(--shadow-pin);
+  }
+
+  /* Post-it — statuts, tags, intitulés manuscrits.
+   * NB : surtout PAS nommé `.sticky` — ce nom est l'utilitaire position:sticky
+   * de Tailwind ; la collision faisait pivoter en-têtes et footers collants. */
+  .sticky-note {
+    font-family: var(--font-hand);
+    font-weight: 700;
+    color: oklch(0.30 0.05 60);
+    background: var(--sticky-yellow);
+    padding: 3px 12px;
+    box-shadow: 0 6px 14px -5px oklch(0 0 0 / 0.5);
+    transform: rotate(-2deg);
+  }
+
+  /* Étiquette « carton scotché » manuscrite (libellé de cadre/dossier). */
+  .tape-label {
+    position: relative;
+    display: inline-block;
+    background: linear-gradient(180deg, oklch(0.95 0.03 85), oklch(0.90 0.035 80));
+    border: 1px solid oklch(0.82 0.06 70);
+    border-radius: 2px;
+    box-shadow: 0 9px 18px -9px oklch(0 0 0 / 0.65);
+    color: var(--paper-ink);
+  }
+  .tape-label::before {
+    content: "";
+    position: absolute; top: -7px; left: 30%;
+    width: 50px; height: 15px;
+    transform: translateX(-50%) rotate(3deg);
+    background: oklch(0.82 0.02 80 / 0.34);
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
+  }
+
+  /* Fond liège — écrans immersifs (suspicions, variantes capacité). */
+  .cork-board {
+    background: var(--gradient-cork);
+    box-shadow: inset 0 0 0 7px var(--wood), inset 0 0 40px oklch(0 0 0 / 0.55);
+    border-radius: var(--radius);
+  }
+
+  /* Tampon (TOP SECRET, AFFAIRE CLASSÉE, CELLULE…). */
+  .stamp {
+    font-family: var(--font-display);
+    letter-spacing: 0.1em;
+    color: var(--primary);
+    border: 2.5px solid var(--primary);
+    border-radius: 3px;
+    padding: 4px 10px;
+    transform: rotate(-5deg);
+    opacity: 0.88;
+  }
+}
+
+/* ── Toasts système (sonner) — codifiés à la DA ───────────────────────────
+   Tous les toasts « système » (succès / erreur / info / alerte) reçoivent une
+   barre d'accent colorée à gauche selon leur nature, exactement comme le
+   GameToast des événements de jeu. Objectif : une seule grammaire visuelle pour
+   TOUTES les notifs. On ne cible QUE les toasts stylés (data-styled="true") :
+   les cartes GameToast sont rendues `unstyled` (data-styled="false") et gardent
+   leur propre cadre. */
+[data-sonner-toast]:not([data-styled="false"]) {
+  position: relative;
+  overflow: hidden;
+}
+[data-sonner-toast]:not([data-styled="false"])::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--muted-foreground);
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
+[data-sonner-toast]:not([data-styled="false"])[data-type="success"]::before { background: var(--success); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="error"]::before { background: var(--destructive); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="warning"]::before { background: var(--warning); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="info"]::before { background: var(--citoyens); }
+/* Icône de type teintée comme la barre d'accent. */
+[data-sonner-toast]:not([data-styled="false"])[data-type="success"] [data-icon] { color: var(--success); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="error"] [data-icon] { color: var(--destructive); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="warning"] [data-icon] { color: var(--warning); }
+[data-sonner-toast]:not([data-styled="false"])[data-type="info"] [data-icon] { color: var(--citoyens); }

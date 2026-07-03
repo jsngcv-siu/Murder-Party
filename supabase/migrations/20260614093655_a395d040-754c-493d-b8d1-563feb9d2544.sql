@@ -1,0 +1,1 @@
+GRANT SELECT ON public.games_public TO anon, authenticated;

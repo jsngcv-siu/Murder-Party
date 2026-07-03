@@ -1,0 +1,1 @@
+UPDATE public.roles SET target_mode='single', usage_label='1×/phase libre', instruction_verb='Désigne une cible qui recevra une relique' WHERE slug='conservateur';

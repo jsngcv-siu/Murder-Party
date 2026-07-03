@@ -1,0 +1,1 @@
+ALTER TYPE public.phase_t ADD VALUE IF NOT EXISTS 'annonce' BEFORE 'gathering';

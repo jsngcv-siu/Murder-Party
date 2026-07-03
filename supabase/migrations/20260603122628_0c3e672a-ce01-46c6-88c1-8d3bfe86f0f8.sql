@@ -1,0 +1,1 @@
+UPDATE public.roles SET instruction_verb = 'Choisis ton être cher', capacite_full_text = 'À la 1ère phase libre, désigne ton être cher (un Civil ≠ toi). Choix définitif. Si ton être cher meurt, tu reçois un couteau pour te venger une seule fois.', usage_label = '1×/partie', target_mode = 'single' WHERE slug = 'vengeur';

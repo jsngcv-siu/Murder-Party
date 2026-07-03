@@ -1,0 +1,1 @@
+UPDATE public.roles SET capacite_full_text = 'Une fois par partie lors d''un rassemblement, désigne 1 joueur pour le manipuler. Tu prends le contrôle de sa capacité. La cible voit le statut « Manipulé » et sa capacité est bloquée pour ce tour.', usage_label = '1×/partie', frequency_label = '1×/partie' WHERE slug = 'marionnettiste';

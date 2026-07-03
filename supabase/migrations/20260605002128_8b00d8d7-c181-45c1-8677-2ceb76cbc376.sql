@@ -1,0 +1,1 @@
+UPDATE roles SET phase_activation = 'phase_libre', frequency_label = 'phase libre', usage_label = '1×/phase libre', capacite_full_text = 'A chaque phase libre, cible une personne à protéger. Si protection réussie : la cible survit, tu meurs, et la personne qui l''a visée meurt aussi.' WHERE slug = 'majordome';

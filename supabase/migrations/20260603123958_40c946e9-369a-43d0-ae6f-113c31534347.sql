@@ -1,0 +1,1 @@
+DELETE FROM public.roles WHERE slug = 'tueur_isole';

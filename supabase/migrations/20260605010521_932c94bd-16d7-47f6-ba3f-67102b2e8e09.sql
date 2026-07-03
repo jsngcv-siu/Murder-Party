@@ -1,0 +1,1 @@
+UPDATE roles SET capacite_full_text = capacite_full_text || ' Immunisé contre la morsure du Vampire et ne peut pas être converti.' WHERE slug = 'chasseur_de_vampire';

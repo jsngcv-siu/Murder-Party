@@ -1,0 +1,1 @@
+UPDATE public.roles SET faction='Neutre' WHERE slug='vampire';

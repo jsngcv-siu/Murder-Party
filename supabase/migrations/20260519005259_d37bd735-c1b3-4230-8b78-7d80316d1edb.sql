@@ -1,0 +1,1 @@
+UPDATE roles SET name_fr = 'Le Policier' WHERE slug = 'policier_modifie';
