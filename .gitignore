@@ -20,6 +20,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Staging temporaire pour upload Storage (images rôles/avatars) — jamais commité
+_images/
+*.ai.bak
+
 # Vercel
 .vercel
 

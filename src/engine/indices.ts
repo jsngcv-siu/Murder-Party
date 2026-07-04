@@ -41,8 +41,8 @@ const ALWAYS_PRESENT = new Set(["tueur", "majordome", "assistant_du_detective", 
 
 // Rôles civils « de pouvoir » dont la présence est un 🔴 (force cachée de la ville).
 const POWER_CIVILS = new Set([
-  "policier", "policier_modifie", "detective", "medium", "medecin_legiste",
-  "vengeur", "cuisinier", "juge", "notaire", "scientifique", "guetteur", "boussole", "facteur",
+  "policier", "medium", "medecin_legiste",
+  "vengeur", "cuisinier", "juge", "guetteur", "boussole", "facteur",
 ]);
 
 function shuffle<T>(arr: readonly T[]): T[] {

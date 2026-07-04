@@ -428,12 +428,8 @@ export async function drawRoles(
   banned.delete("tueur");
   banned.delete("majordome");
   banned.delete("assistant_du_detective");
-  // Rôles retirés du set (defensive — les rôles désactivés sont déjà filtrés via is_disabled).
-  for (const s of [
-    "comptable","notaire","reveur","fidele","loup_garou","ivrogne",
-    "mort_vivant","scientifique","taupe","pelerin","voisin_coupable","non_coupable",
-    "tueur_isole",
-  ]) banned.add(s);
+  // Les rôles retirés/désactivés sont déjà exclus via `is_disabled` dans la
+  // requête ci-dessus (source de vérité unique) — pas de liste en dur à maintenir.
   // Référence au paramètre conservé pour signature stable.
   void modeDetectivePlayer;
 
@@ -556,7 +552,6 @@ export async function rollRoles(gameId: string): Promise<string[]> {
       const { data: rolesData } = await supabase.from("roles").select("*").eq("set_id", "set1").eq("emergent", false);
       const allRoles = (rolesData ?? []) as RoleRow[];
       const bannedSet = new Set(allBanned);
-      bannedSet.add("detective");
       // Base MUST jamais bannissable, même dans un pool configuré à la main
       // (parité avec drawRoles) : la base Assistant/Majordome + Tueur reste garantie.
       bannedSet.delete("tueur");
@@ -1434,16 +1429,9 @@ export async function tallyVote(gameId: string): Promise<{
   const tour = (g as { current_tour: number } | null)?.current_tour ?? 1;
   const { data: vs } = await supabase.from("votes")
     .select("voter_player_id, target_player_id").eq("game_id", gameId).eq("tour", tour);
-  // Notaire weight
-  const { data: voters } = await supabase.from("players").select("id, role_meta").eq("game_id", gameId);
-  const weight = new Map<string, number>();
-  for (const v of (voters ?? []) as Array<{ id: string; role_meta: Meta }>) {
-    weight.set(v.id, (v.role_meta?.double_vote_for_cycle as number | undefined) === tour ? 2 : 1);
-  }
   const counts: Record<string, number> = {};
   for (const v of (vs ?? []) as Array<{ voter_player_id: string; target_player_id: string }>) {
-    const w = weight.get(v.voter_player_id) ?? 1;
-    counts[v.target_player_id] = (counts[v.target_player_id] ?? 0) + w;
+    counts[v.target_player_id] = (counts[v.target_player_id] ?? 0) + 1;
   }
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   if (sorted.length === 0) return { targetId: null, counts, tied: false, tiedIds: [] };
@@ -1603,13 +1591,6 @@ export async function closeVote(gameId: string) {
 
 
 
-    // Consume notaire heir flag
-    const { data: voters } = await supabase.from("players").select("id, role_meta").eq("game_id", gameId);
-    for (const v of (voters ?? []) as Array<{ id: string; role_meta: Meta }>) {
-      if ((v.role_meta?.double_vote_for_cycle as number | undefined) === tour) {
-        await patchMeta(v.id, { double_vote_for_cycle: null });
-      }
-    }
   } else {
     // Aucun vote : notifier
     const { data: allPs } = await supabase.from("players").select("id").eq("game_id", gameId);
