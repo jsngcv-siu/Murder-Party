@@ -14,10 +14,10 @@ type Level = 0 | 1 | 2 | 3;
 
 // Chaque niveau : libellé de post-it + couleur (token suspicion) + couleur d'encre.
 const LEVELS = [
-  { label: "",         token: "var(--suspicion-0)", ink: "" },
+  { label: "", token: "var(--suspicion-0)", ink: "" },
   { label: "innocent", token: "var(--suspicion-1)", ink: "oklch(0.22 0.05 150)" },
   { label: "un doute", token: "var(--suspicion-2)", ink: "oklch(0.30 0.06 70)" },
-  { label: "suspect",  token: "var(--suspicion-3)", ink: "oklch(0.98 0.02 20)" },
+  { label: "suspect", token: "var(--suspicion-3)", ink: "oklch(0.98 0.02 20)" },
 ] as const;
 
 // Petite dispersion « épinglé à la main » déterministe par position.
@@ -60,11 +60,43 @@ function PrisonChains() {
       <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
         <g strokeLinecap="round" style={{ filter: "drop-shadow(0 1px 2px oklch(0 0 0 / 0.7))" }}>
           {/* Ombre sous les maillons pour le relief */}
-          <line x1="-6" y1="34" x2="106" y2="64" stroke="oklch(0.20 0.01 250)" strokeWidth="11" strokeDasharray="1 10" />
-          <line x1="-6" y1="70" x2="106" y2="40" stroke="oklch(0.20 0.01 250)" strokeWidth="11" strokeDasharray="1 10" />
+          <line
+            x1="-6"
+            y1="34"
+            x2="106"
+            y2="64"
+            stroke="oklch(0.20 0.01 250)"
+            strokeWidth="11"
+            strokeDasharray="1 10"
+          />
+          <line
+            x1="-6"
+            y1="70"
+            x2="106"
+            y2="40"
+            stroke="oklch(0.20 0.01 250)"
+            strokeWidth="11"
+            strokeDasharray="1 10"
+          />
           {/* Maillons métalliques */}
-          <line x1="-6" y1="34" x2="106" y2="64" stroke="oklch(0.74 0.015 250)" strokeWidth="8" strokeDasharray="1 10" />
-          <line x1="-6" y1="70" x2="106" y2="40" stroke="oklch(0.74 0.015 250)" strokeWidth="8" strokeDasharray="1 10" />
+          <line
+            x1="-6"
+            y1="34"
+            x2="106"
+            y2="64"
+            stroke="oklch(0.74 0.015 250)"
+            strokeWidth="8"
+            strokeDasharray="1 10"
+          />
+          <line
+            x1="-6"
+            y1="70"
+            x2="106"
+            y2="40"
+            stroke="oklch(0.74 0.015 250)"
+            strokeWidth="8"
+            strokeDasharray="1 10"
+          />
         </g>
       </svg>
     </span>
@@ -91,13 +123,15 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
     try {
       const raw = window.localStorage.getItem(key);
       if (raw) setLevels(JSON.parse(raw));
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   async function bump(pid: string) {
     const cur = levels[pid] ?? 0;
-    const next = (((cur + 1) % 4) as Level);
+    const next = ((cur + 1) % 4) as Level;
     const nx = { ...levels, [pid]: next };
     setLevels(nx);
     window.localStorage.setItem(key, JSON.stringify(nx));
@@ -133,7 +167,11 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
           }}
         >
           {/* Ficelle rouge décorative reliant le mur */}
-          <svg aria-hidden className="pointer-events-none absolute inset-0 w-full h-full" style={{ opacity: 0.45 }}>
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute inset-0 w-full h-full"
+            style={{ opacity: 0.45 }}
+          >
             <polyline
               points="20%,12% 52%,34% 28%,56% 74%,50% 46%,78%"
               fill="none"
@@ -147,7 +185,10 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
             {others.map((p, i) => {
               const lvl = (levels[p.id] ?? 0) as Level;
               const L = LEVELS[lvl];
-              const av = avatarOf((p.role_meta as Record<string, unknown>)?.avatar as string | undefined, p.id);
+              const av = avatarOf(
+                (p.role_meta as Record<string, unknown>)?.avatar as string | undefined,
+                p.id,
+              );
               const dim = !p.is_alive;
               const rot = ROT[i % ROT.length];
               const pinColor = lvl > 0 ? L.token : "oklch(0.80 0.15 78)";
@@ -163,23 +204,31 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                   <div
                     className="relative p-1 pb-2"
                     style={{
-                      background: "linear-gradient(180deg, oklch(0.95 0.02 90), oklch(0.90 0.03 82))",
-                      boxShadow: lvl > 0
-                        ? `0 0 0 2.5px ${L.token}, 0 0 16px -2px ${L.token}, 0 7px 14px -8px oklch(0 0 0 / 0.7)`
-                        : "0 7px 14px -8px oklch(0 0 0 / 0.7)",
+                      background:
+                        "linear-gradient(180deg, oklch(0.95 0.02 90), oklch(0.90 0.03 82))",
+                      boxShadow:
+                        lvl > 0
+                          ? `0 0 0 2.5px ${L.token}, 0 0 16px -2px ${L.token}, 0 7px 14px -8px oklch(0 0 0 / 0.7)`
+                          : "0 7px 14px -8px oklch(0 0 0 / 0.7)",
                     }}
                   >
                     {/* Épingle */}
                     <span
                       aria-hidden
                       className="absolute left-1/2 -translate-x-1/2 -top-1 size-2.5 rounded-full z-10"
-                      style={{ background: `radial-gradient(circle at 35% 30%, color-mix(in oklab, ${pinColor} 70%, white), ${pinColor})`, boxShadow: "0 2px 3px oklch(0 0 0 / 0.5)" }}
+                      style={{
+                        background: `radial-gradient(circle at 35% 30%, color-mix(in oklab, ${pinColor} 70%, white), ${pinColor})`,
+                        boxShadow: "0 2px 3px oklch(0 0 0 / 0.5)",
+                      }}
                     />
                     {/* Photo (carrée) + post-it à cheval sur son bord bas */}
                     <div className="relative">
                       <div
                         className="relative aspect-square w-full overflow-hidden grid place-items-center"
-                        style={{ background: "repeating-linear-gradient(45deg, oklch(0.72 0.04 240), oklch(0.72 0.04 240) 6px, oklch(0.78 0.04 240) 6px, oklch(0.78 0.04 240) 12px)" }}
+                        style={{
+                          background:
+                            "repeating-linear-gradient(45deg, oklch(0.72 0.04 240), oklch(0.72 0.04 240) 6px, oklch(0.78 0.04 240) 6px, oklch(0.78 0.04 240) 12px)",
+                        }}
                       >
                         <AvatarImg avatar={av} fill rounded="none" className="w-full h-full" />
                         {/* Tampon ALLIÉ (vue Méchant) */}
@@ -210,38 +259,61 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                     {/* Nom manuscrit — abaissé, centré sous le post-it */}
                     <div
                       className="text-center mt-2.5 leading-none truncate px-1"
-                      style={{ fontFamily: "var(--font-hand)", fontWeight: 700, fontSize: 13, color: "oklch(0.28 0.03 45)" }}
+                      style={{
+                        fontFamily: "var(--font-hand)",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: "oklch(0.28 0.03 45)",
+                      }}
                     >
                       {p.pseudo}
                     </div>
 
                     {/* Doute : ? agrandis, posés sur les coins (partie blanche) */}
-                    {lvl === 2 && DOUTE_MARKS.map((m, k) => {
-                      const { size, rot: r, ...pos } = m;
-                      return (
-                        <span
-                          key={k}
-                          aria-hidden
-                          className="absolute font-bold pointer-events-none z-20"
-                          style={{ ...pos, fontFamily: "var(--font-display)", fontSize: size, color: "oklch(0.72 0.19 55)", textShadow: "0 1px 3px oklch(0 0 0 / 0.6)", transform: `rotate(${r}deg)` }}
-                        >
-                          ?
-                        </span>
-                      );
-                    })}
+                    {lvl === 2 &&
+                      DOUTE_MARKS.map((m, k) => {
+                        const { size, rot: r, ...pos } = m;
+                        return (
+                          <span
+                            key={k}
+                            aria-hidden
+                            className="absolute font-bold pointer-events-none z-20"
+                            style={{
+                              ...pos,
+                              fontFamily: "var(--font-display)",
+                              fontSize: size,
+                              color: "oklch(0.72 0.19 55)",
+                              textShadow: "0 1px 3px oklch(0 0 0 / 0.6)",
+                              transform: `rotate(${r}deg)`,
+                            }}
+                          >
+                            ?
+                          </span>
+                        );
+                      })}
 
                     {/* Suspect : taches de sang agrandies, sur les coins (partie blanche) */}
-                    {lvl === 3 && BLOOD.map((b, k) => {
-                      const { w, h, rot: r, o, ...pos } = b;
-                      return (
-                        <span
-                          key={k}
-                          aria-hidden
-                          className="absolute pointer-events-none z-20"
-                          style={{ ...pos, width: w, height: h, background: "radial-gradient(circle at 40% 35%, oklch(0.46 0.22 25), oklch(0.34 0.20 22) 55%, transparent 74%)", borderRadius: "60% 40% 55% 45%", transform: `rotate(${r}deg)`, opacity: o }}
-                        />
-                      );
-                    })}
+                    {lvl === 3 &&
+                      BLOOD.map((b, k) => {
+                        const { w, h, rot: r, o, ...pos } = b;
+                        return (
+                          <span
+                            key={k}
+                            aria-hidden
+                            className="absolute pointer-events-none z-20"
+                            style={{
+                              ...pos,
+                              width: w,
+                              height: h,
+                              background:
+                                "radial-gradient(circle at 40% 35%, oklch(0.46 0.22 25), oklch(0.34 0.20 22) 55%, transparent 74%)",
+                              borderRadius: "60% 40% 55% 45%",
+                              transform: `rotate(${r}deg)`,
+                              opacity: o,
+                            }}
+                          />
+                        );
+                      })}
                   </div>
                 </button>
               );

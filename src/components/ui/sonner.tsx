@@ -12,7 +12,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
         // S'applique aux toasts système (succès/erreur). Les notifs de jeu
         // utilisent leur propre carte custom (GameToast).
         style: {
-          background: "linear-gradient(135deg, oklch(0.20 0.025 35 / 0.88), oklch(0.16 0.02 35 / 0.88))",
+          background:
+            "linear-gradient(135deg, oklch(0.20 0.025 35 / 0.88), oklch(0.16 0.02 35 / 0.88))",
           backdropFilter: "blur(12px) saturate(1.15)",
           WebkitBackdropFilter: "blur(12px) saturate(1.15)",
           border: "1px solid oklch(1 0 0 / 0.07)",

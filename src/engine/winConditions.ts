@@ -1,15 +1,16 @@
 // Détection de fin de partie. Lit l'état brut, pas de mock.
 import { supabase } from "@/integrations/supabase/client";
 import type { PlayerRow, RoleRow } from "./actions";
+import { getMeta } from "./roleMeta";
 
 export type Winner = string | null;
 export type WinResult = { winner: Winner; reason: string };
 
 // Map: faction code stored on Oracle → label de victoire de cette faction.
 const ORACLE_FACTION_TO_WINNER: Record<string, string> = {
-  "Civil": "Civil",
-  "Méchant": "Méchants",
-  "Neutre": "Neutres",
+  Civil: "Civil",
+  Méchant: "Méchants",
+  Neutre: "Neutres",
 };
 
 function withOracleWinners(result: WinResult, players: PlayerRow[]): WinResult {
@@ -17,12 +18,14 @@ function withOracleWinners(result: WinResult, players: PlayerRow[]): WinResult {
   const winners = players.filter((p) => {
     if (p.role_slug !== "oracle") return false;
     if (!p.is_alive) return false;
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    const proph = m.prophecy as string | undefined;
+    const proph = getMeta(p).prophecy;
     return proph ? ORACLE_FACTION_TO_WINNER[proph] === result.winner : false;
   });
   if (winners.length === 0) return result;
-  return { winner: result.winner, reason: `${result.reason} (🔮 Oracle ${winners.map((w) => w.pseudo).join(", ")} a vu juste.)` };
+  return {
+    winner: result.winner,
+    reason: `${result.reason} (🔮 Oracle ${winners.map((w) => w.pseudo).join(", ")} a vu juste.)`,
+  };
 }
 
 // Entremetteur — REPLI SURVIE : si son couple est BRISÉ (au moins un amoureux
@@ -35,15 +38,17 @@ function withEntremetteurWinner(result: WinResult, players: PlayerRow[]): WinRes
   const survivors = players.filter((p) => {
     if (p.role_slug !== "entremetteur") return false;
     if (!p.is_alive || p.is_imprisoned) return false;
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    const pair = (m.linked_pair as string[] | undefined) ?? [];
+    const pair = getMeta(p).linked_pair ?? [];
     if (pair.length < 2) return true; // jamais lié (ou lien perdu) → survie suffit
     const lovers = players.filter((q) => pair.includes(q.id));
     const coupleIntact = lovers.length === 2 && lovers.every((q) => q.is_alive && !q.is_imprisoned);
     return !coupleIntact; // couple brisé → la survie de l'Entremetteur paie
   });
   if (survivors.length === 0) return result;
-  return { winner: result.winner, reason: `${result.reason} (💞 L'Entremetteur ${survivors.map((w) => w.pseudo).join(", ")} survit : son pari est tenu.)` };
+  return {
+    winner: result.winner,
+    reason: `${result.reason} (💞 L'Entremetteur ${survivors.map((w) => w.pseudo).join(", ")} survit : son pari est tenu.)`,
+  };
 }
 
 export async function evaluateWin(gameId: string): Promise<WinResult | null> {
@@ -54,8 +59,7 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   for (const r of (rs ?? []) as RoleRow[]) rolesBySlug.set(r.slug, r);
 
   const real = players.filter((p) => {
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    return m.immortal !== true && !p.is_mj;
+    return getMeta(p).immortal !== true && !p.is_mj;
   });
   const alive = real.filter((p) => p.is_alive && !p.is_imprisoned);
   if (alive.length === 0) return { winner: null, reason: "Aucun survivant" };
@@ -72,13 +76,11 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
     return isRealMechant(p);
   };
   const isVampire = (p: PlayerRow) => {
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    return p.role_slug === "vampire" || m.converted === true;
+    return p.role_slug === "vampire" || getMeta(p).converted === true;
   };
   // Faction Entremetteur : les 2 amoureux liés + l'entremetteur (s'il vit)
   const isLover = (p: PlayerRow) => {
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    return typeof m.linked_with === "string";
+    return typeof getMeta(p).linked_with === "string";
   };
   const isEntremetteurFaction = (p: PlayerRow) => p.role_slug === "entremetteur" || isLover(p);
   // Neutres "bloquants" qui empêchent la victoire des Civils.
@@ -137,11 +139,11 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const empoisonneur = alive.find((p) => p.role_slug === "empoisonneur");
   if (empoisonneur) {
     const others = alive.filter((p) => p.id !== empoisonneur.id);
-    if (
-      others.length > 0 &&
-      others.every((p) => ((p.role_meta ?? {}) as Record<string, unknown>).poisoned === true)
-    ) {
-      return { winner: "Empoisonneur", reason: `${empoisonneur.pseudo} a empoisonné tous les survivants libres.` };
+    if (others.length > 0 && others.every((p) => getMeta(p).poisoned === true)) {
+      return {
+        winner: "Empoisonneur",
+        reason: `${empoisonneur.pseudo} a empoisonné tous les survivants libres.`,
+      };
     }
   }
 
@@ -160,7 +162,10 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   // camps réunis. À l'égalité (ex. 2v2), la ville garde sa chance — c'est le
   // dernier tour pour lyncher un Méchant ou utiliser un pouvoir de tueur civil.
   if (mechantsAlive > 0 && mechantsAlive > mechantOpponentsAlive) {
-    return { winner: "Méchants", reason: "Les Méchants surpassent en nombre tous les autres camps réunis." };
+    return {
+      winner: "Méchants",
+      reason: "Les Méchants surpassent en nombre tous les autres camps réunis.",
+    };
   }
 
   // ── Faction Entremetteur : les 2 amoureux + éventuellement l'entremetteur, seuls vivants.
@@ -169,7 +174,10 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
     if (others.length === 0) {
       const [a, b] = loversAlive;
       const entAlive = alive.some((p) => p.role_slug === "entremetteur");
-      return { winner: "Amoureux", reason: `${a.pseudo} et ${b.pseudo} survivent ensemble${entAlive ? " avec l'Entremetteur" : ""}.` };
+      return {
+        winner: "Amoureux",
+        reason: `${a.pseudo} et ${b.pseudo} survivent ensemble${entAlive ? " avec l'Entremetteur" : ""}.`,
+      };
     }
   }
 
@@ -192,14 +200,20 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   let r = await evaluateWin(gameId);
   if (!r) return null;
   const { data: ps2 } = await supabase.from("players").select().eq("game_id", gameId);
-  r = withOracleWinners(r, ((ps2 ?? []) as PlayerRow[]));
-  r = withEntremetteurWinner(r, ((ps2 ?? []) as PlayerRow[]));
-  await supabase.from("games").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", gameId);
+  r = withOracleWinners(r, (ps2 ?? []) as PlayerRow[]);
+  r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
+  await supabase
+    .from("games")
+    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .eq("id", gameId);
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p: { id: string }) => ({
-    game_id: gameId, player_id: p.id, type: "game_end",
+    game_id: gameId,
+    player_id: p.id,
+    type: "game_end",
     title: r!.winner ? `🏆 ${r!.winner} a gagné` : "Partie terminée",
-    body: r!.reason, payload: { winner: r!.winner } as never,
+    body: r!.reason,
+    payload: { winner: r!.winner } as never,
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
   return r;

@@ -21,18 +21,18 @@ function bracket(n: number): "small" | "mid" | "large" {
 const ACOLYTE_QUOTAS: Record<"small" | "mid" | "large", FactionQuotas> = {
   small: {
     INVESTIGATION: { min: 0, max: 1 },
-    TROMPERIE:     { min: 0, max: 1 },
-    SUPPORT:       { min: 0, max: 1 },
+    TROMPERIE: { min: 0, max: 1 },
+    SUPPORT: { min: 0, max: 1 },
   },
   mid: {
     INVESTIGATION: { min: 1, max: 1 },
-    TROMPERIE:     { min: 0, max: 1 },
-    SUPPORT:       { min: 0, max: 1 },
+    TROMPERIE: { min: 0, max: 1 },
+    SUPPORT: { min: 0, max: 1 },
   },
   large: {
     INVESTIGATION: { min: 1, max: 1 },
-    TROMPERIE:     { min: 1, max: 2 },
-    SUPPORT:       { min: 0, max: 1 },
+    TROMPERIE: { min: 1, max: 2 },
+    SUPPORT: { min: 0, max: 1 },
   },
 };
 
@@ -40,24 +40,24 @@ const ACOLYTE_QUOTAS: Record<"small" | "mid" | "large", FactionQuotas> = {
 const CIVIL_QUOTAS: Record<"small" | "mid" | "large", FactionQuotas> = {
   small: {
     INVESTIGATION: { min: 1, max: 2 },
-    PROTECTEUR:    { min: 0, max: 1 },
-    TUEUR:         { min: 0, max: 1 },
-    SUPPORT:       { min: 1, max: 2 },
-    BOULET:        { min: 0, max: 0 },
+    PROTECTEUR: { min: 0, max: 1 },
+    TUEUR: { min: 0, max: 1 },
+    SUPPORT: { min: 1, max: 2 },
+    BOULET: { min: 0, max: 0 },
   },
   mid: {
     INVESTIGATION: { min: 2, max: 2 },
-    PROTECTEUR:    { min: 1, max: 1 },
-    TUEUR:         { min: 1, max: 1 },
-    SUPPORT:       { min: 1, max: 2 },
-    BOULET:        { min: 0, max: 1 },
+    PROTECTEUR: { min: 1, max: 1 },
+    TUEUR: { min: 1, max: 1 },
+    SUPPORT: { min: 1, max: 2 },
+    BOULET: { min: 0, max: 1 },
   },
   large: {
     INVESTIGATION: { min: 2, max: 3 },
-    PROTECTEUR:    { min: 1, max: 2 },
-    TUEUR:         { min: 1, max: 1 },
-    SUPPORT:       { min: 2, max: 2 },
-    BOULET:        { min: 0, max: 1 },
+    PROTECTEUR: { min: 1, max: 2 },
+    TUEUR: { min: 1, max: 1 },
+    SUPPORT: { min: 2, max: 2 },
+    BOULET: { min: 0, max: 1 },
   },
 };
 
@@ -93,4 +93,3 @@ export function acolytesCountFor(playerCount: number): number {
   if (playerCount <= 9) return 1;
   return 2;
 }
-

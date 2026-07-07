@@ -7,7 +7,7 @@
 // Robustesse : chaque scène est montée avec un `key` unique (remount propre des
 // hooks à chaque changement) et enveloppée dans un ErrorBoundary, donc une frame
 // qui plante affiche une carte d'erreur isolée au lieu de tuer toute la page.
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow, RoleRow } from "@/engine/actions";
@@ -25,7 +25,13 @@ import { P1Prison } from "@/components/frames/screens/P1Prison";
 import { C1Council } from "@/components/frames/screens/C1Council";
 import { V1Vote } from "@/components/frames/screens/V1Vote";
 import { V1VoteSuspicion } from "@/components/frames/screens/V1VoteSuspicion";
-import { T1Transition, T2VoteIntro, T3FreeIntro, FreeEntry, AnnonceScreen } from "@/components/frames/screens/T1Transition";
+import {
+  T1Transition,
+  T2VoteIntro,
+  T3FreeIntro,
+  FreeEntry,
+  AnnonceScreen,
+} from "@/components/frames/screens/T1Transition";
 import { O5Reveal } from "@/components/frames/screens/O5Reveal";
 import { GM1Dashboard } from "@/components/frames/screens/GM1Dashboard";
 import { P11HelpMenu } from "@/components/frames/screens/P11HelpMenu";
@@ -33,7 +39,13 @@ import { E1EndGame } from "@/components/frames/screens/E1EndGame";
 import { EventCard, type EventKind, type QueuedEvent } from "@/components/PlayerEventModal";
 import { DuelScene } from "@/components/DiceDuelModal";
 
-export const Route = createFileRoute("/dev")({ component: DevGallery });
+export const Route = createFileRoute("/dev")({
+  // Galerie d'écrans en états synthétiques : outil de dev. En prod, redirection accueil.
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw redirect({ to: "/" });
+  },
+  component: DevGallery,
+});
 
 // ──────────────────────────────────────────────────────────────────────────
 // Fabrique d'état synthétique
@@ -72,8 +84,8 @@ function baseGame(over: Partial<GameRow> = {}): GameRow {
 
 type CastSpec = {
   pseudo: string;
-  slugs: string[];          // préférences de rôle (premier présent gagne)
-  faction: string;          // fallback si aucun slug présent
+  slugs: string[]; // préférences de rôle (premier présent gagne)
+  faction: string; // fallback si aucun slug présent
   dead?: boolean;
   imprisoned?: boolean;
   meta?: Record<string, unknown>;
@@ -86,11 +98,28 @@ const CAST: CastSpec[] = [
   { pseudo: "Cléo", slugs: ["vampire"], faction: "Méchant", meta: { converted: false } },
   { pseudo: "Dré", slugs: ["oracle"], faction: "Civil", meta: { prophecy: "Civil" } },
   { pseudo: "Émile", slugs: ["empoisonneur"], faction: "Neutre" },
-  { pseudo: "Faye", slugs: ["veuve_noire"], faction: "Neutre", dead: true, meta: { death_cycle: 2, death_phase: "annonce", death_reason: "Retrouvée au petit matin — aucune trace de l'arme.", testament: "Vous vous trompez de coupable…" } },
+  {
+    pseudo: "Faye",
+    slugs: ["veuve_noire"],
+    faction: "Neutre",
+    dead: true,
+    meta: {
+      death_cycle: 2,
+      death_phase: "annonce",
+      death_reason: "Retrouvée au petit matin — aucune trace de l'arme.",
+      testament: "Vous vous trompez de coupable…",
+    },
+  },
   { pseudo: "Gus", slugs: ["parieur_tricheur"], faction: "Neutre" },
   { pseudo: "Hana", slugs: ["conservateur"], faction: "Neutre" },
   { pseudo: "Ivo", slugs: ["entremetteur"], faction: "Neutre" },
-  { pseudo: "Jin", slugs: ["assistant_du_detective", "journaliste", "policier"], faction: "Civil", imprisoned: true, meta: { imprisoned_since_cycle: 2 } },
+  {
+    pseudo: "Jin",
+    slugs: ["assistant_du_detective", "journaliste", "policier"],
+    faction: "Civil",
+    imprisoned: true,
+    meta: { imprisoned_since_cycle: 2 },
+  },
   { pseudo: "Kya", slugs: ["medium", "voyante"], faction: "Civil" },
   { pseudo: "Léo", slugs: ["chasseur_de_vampire"], faction: "Neutre" },
 ];
@@ -106,19 +135,22 @@ function pickSlug(roles: Map<string, RoleRow>, spec: CastSpec): string | null {
 type Roster = { players: PlayerRow[]; mj: PlayerRow; byPseudo: (p: string) => PlayerRow };
 
 function buildRoster(game: GameRow, roles: Map<string, RoleRow>): Roster {
-  const players: PlayerRow[] = CAST.map((spec) => ({
-    id: uid(),
-    game_id: game.id,
-    session_id: "dev",
-    user_id: null,
-    pseudo: spec.pseudo,
-    is_mj: false,
-    is_alive: !spec.dead,
-    is_imprisoned: !!spec.imprisoned,
-    role_slug: pickSlug(roles, spec),
-    role_meta: { avatar: "av-" + spec.pseudo.toLowerCase(), ...(spec.meta ?? {}) },
-    joined_at: game.created_at,
-  }) as PlayerRow);
+  const players: PlayerRow[] = CAST.map(
+    (spec) =>
+      ({
+        id: uid(),
+        game_id: game.id,
+        session_id: "dev",
+        user_id: null,
+        pseudo: spec.pseudo,
+        is_mj: false,
+        is_alive: !spec.dead,
+        is_imprisoned: !!spec.imprisoned,
+        role_slug: pickSlug(roles, spec),
+        role_meta: { avatar: "av-" + spec.pseudo.toLowerCase(), ...(spec.meta ?? {}) },
+        joined_at: game.created_at,
+      }) as PlayerRow,
+  );
 
   // Amoureux : on lie deux survivants pour la scène "victoire des Amoureux".
   const a = players.find((p) => p.pseudo === "Alice");
@@ -172,7 +204,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     const base = meOf(roster);
     const me = { ...base, ...meOver } as PlayerRow;
     const players = roster.players.map((p) => (p.id === me.id ? me : p));
-    const myRole = me.role_slug ? roles.get(me.role_slug) ?? null : null;
+    const myRole = me.role_slug ? (roles.get(me.role_slug) ?? null) : null;
     return { game, me, myRole, players, roles, gameId: game.id, ...extra };
   };
 
@@ -183,60 +215,232 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   const add = (s: Scene) => scenes.push(s);
 
   // ── Joueur vivant
-  add({ id: "P1", group: "Joueur — vivant", label: "Écran de garde", render: () => <Frame node={<P1Garde {...ctxFor(civil)} />} /> });
-  add({ id: "PA2", group: "Joueur — vivant", label: "Capacité (rôle courant)", render: () => <Frame node={<PA2Capability {...ctxFor(tueur)} />} /> });
-  add({ id: "PA3", group: "Joueur — vivant", label: "Suspicions", render: () => <Frame node={<PA3Suspicions {...ctxFor(civil)} />} /> });
-  add({ id: "PA4", group: "Joueur — vivant", label: "Inventaire / Journal", render: () => <Frame node={<PA4Notebook {...ctxFor(civil)} />} /> });
-  add({ id: "PA6", group: "Joueur — vivant", label: "Annonces / Cimetière", render: () => <Frame node={<PA6Announces {...ctxFor(civil)} />} /> });
-  add({ id: "P15", group: "Joueur — vivant", label: "Testament", render: () => <Frame node={<P15Testament {...ctxFor(civil)} />} /> });
+  add({
+    id: "P1",
+    group: "Joueur — vivant",
+    label: "Écran de garde",
+    render: () => <Frame node={<P1Garde {...ctxFor(civil)} />} />,
+  });
+  add({
+    id: "PA2",
+    group: "Joueur — vivant",
+    label: "Capacité (rôle courant)",
+    render: () => <Frame node={<PA2Capability {...ctxFor(tueur)} />} />,
+  });
+  add({
+    id: "PA3",
+    group: "Joueur — vivant",
+    label: "Suspicions",
+    render: () => <Frame node={<PA3Suspicions {...ctxFor(civil)} />} />,
+  });
+  add({
+    id: "PA4",
+    group: "Joueur — vivant",
+    label: "Inventaire / Journal",
+    render: () => <Frame node={<PA4Notebook {...ctxFor(civil)} />} />,
+  });
+  add({
+    id: "PA6",
+    group: "Joueur — vivant",
+    label: "Annonces / Cimetière",
+    render: () => <Frame node={<PA6Announces {...ctxFor(civil)} />} />,
+  });
+  add({
+    id: "P15",
+    group: "Joueur — vivant",
+    label: "Testament",
+    render: () => <Frame node={<P15Testament {...ctxFor(civil)} />} />,
+  });
 
   // ── Écrans de référence (dossier 10) — annuaire, cimetière, codex des rôles.
-  add({ id: "PA5", group: "Référence", label: "Liste des joueurs", render: () => <Frame node={<PA5Players {...ctxFor(civil, {}, {}, {})} />} /> });
-  add({ id: "P10", group: "Référence", label: "Les rôles (codex)", render: () => <Frame node={<P10Roles {...ctxFor(civil)} />} /> });
+  add({
+    id: "PA5",
+    group: "Référence",
+    label: "Liste des joueurs",
+    render: () => <Frame node={<PA5Players {...ctxFor(civil, {}, {}, {})} />} />,
+  });
+  add({
+    id: "P10",
+    group: "Référence",
+    label: "Les rôles (codex)",
+    render: () => <Frame node={<P10Roles {...ctxFor(civil)} />} />,
+  });
 
   // ── États particuliers
-  add({ id: "P1Prison", group: "Joueur — états", label: "Prison (emprisonné)", render: () => <Frame node={<P1Prison {...ctxFor((r) => r.byPseudo("Jin"), {}, { is_imprisoned: true })} />} /> });
-  add({ id: "C1", group: "Joueur — états", label: "Conseil des morts", render: () => <Frame node={<C1Council {...ctxFor((r) => r.byPseudo("Faye"), {}, { is_alive: false })} />} /> });
+  add({
+    id: "P1Prison",
+    group: "Joueur — états",
+    label: "Prison (emprisonné)",
+    render: () => (
+      <Frame
+        node={<P1Prison {...ctxFor((r) => r.byPseudo("Jin"), {}, { is_imprisoned: true })} />}
+      />
+    ),
+  });
+  add({
+    id: "C1",
+    group: "Joueur — états",
+    label: "Conseil des morts",
+    render: () => (
+      <Frame node={<C1Council {...ctxFor((r) => r.byPseudo("Faye"), {}, { is_alive: false })} />} />
+    ),
+  });
 
   // ── Phases & transitions
-  add({ id: "T3", group: "Phases", label: "Intro — Phase libre", render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, { current_phase: "free" })} />} /> });
-  add({ id: "T0", group: "Phases", label: "Annonce (dénouement)", render: () => <Frame node={<AnnonceScreen {...ctxFor(civil, { current_phase: "annonce" })} />} /> });
-  add({ id: "T1", group: "Phases", label: "Rassemblement", render: () => <Frame node={<T1Transition {...ctxFor(civil, { current_phase: "gathering" })} />} /> });
-  add({ id: "T2", group: "Phases", label: "Intro — Vote", render: () => <Frame node={<T2VoteIntro {...ctxFor(civil, { current_phase: "vote" })} />} /> });
-  add({ id: "VR", group: "Phases", label: "Résultat du vote → phase libre", render: () => <Frame node={<FreeEntry {...ctxFor(civil, { current_phase: "free", current_tour: 3 })} />} /> });
-  add({ id: "V1", group: "Phases", label: "Vote", render: () => <Frame node={<V1Vote {...ctxFor(civil, { current_phase: "vote" })} />} /> });
-  add({ id: "V1s", group: "Phases", label: "Vote — variante Suspicion", render: () => <Frame node={<V1VoteSuspicion {...ctxFor(civil, { current_phase: "vote", variant: "suspicion" })} />} /> });
+  add({
+    id: "T3",
+    group: "Phases",
+    label: "Intro — Phase libre",
+    render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, { current_phase: "free" })} />} />,
+  });
+  add({
+    id: "T0",
+    group: "Phases",
+    label: "Annonce (dénouement)",
+    render: () => (
+      <Frame node={<AnnonceScreen {...ctxFor(civil, { current_phase: "annonce" })} />} />
+    ),
+  });
+  add({
+    id: "T1",
+    group: "Phases",
+    label: "Rassemblement",
+    render: () => (
+      <Frame node={<T1Transition {...ctxFor(civil, { current_phase: "gathering" })} />} />
+    ),
+  });
+  add({
+    id: "T2",
+    group: "Phases",
+    label: "Intro — Vote",
+    render: () => <Frame node={<T2VoteIntro {...ctxFor(civil, { current_phase: "vote" })} />} />,
+  });
+  add({
+    id: "VR",
+    group: "Phases",
+    label: "Résultat du vote → phase libre",
+    render: () => (
+      <Frame node={<FreeEntry {...ctxFor(civil, { current_phase: "free", current_tour: 3 })} />} />
+    ),
+  });
+  add({
+    id: "V1",
+    group: "Phases",
+    label: "Vote",
+    render: () => <Frame node={<V1Vote {...ctxFor(civil, { current_phase: "vote" })} />} />,
+  });
+  add({
+    id: "V1s",
+    group: "Phases",
+    label: "Vote — variante Suspicion",
+    render: () => (
+      <Frame
+        node={
+          <V1VoteSuspicion {...ctxFor(civil, { current_phase: "vote", variant: "suspicion" })} />
+        }
+      />
+    ),
+  });
 
   // ── Modales d'événement (fenêtres « dossier » The Board) — rendues `embedded`
   // pour tenir dans le cadre téléphone (en jeu elles s'affichent en plein écran).
   const evt = (kind: EventKind, byRoleSlug?: string | null, body?: string): QueuedEvent => ({
-    id: uid(), kind, byRoleSlug, body, createdAt: Date.now(),
+    id: uid(),
+    kind,
+    byRoleSlug,
+    body,
+    createdAt: Date.now(),
   });
   const tueurRole = roles.get("tueur") ?? null;
   const vampRole = roles.get("vampire") ?? null;
-  const modal = (node: ReactNode) => <Frame node={<div className="relative h-full w-full bg-background">{node}</div>} />;
-  add({ id: "M-duel", group: "Modales", label: "Duel de dés", render: () => modal(
-    <DuelScene embedded meId="dev-actor" players={[]} onClose={() => {}}
-      duel={{ duelId: uid(), actorId: "dev-actor", actorPseudo: "Dany", targetId: "dev-target", targetPseudo: "Marco", rounds: [{ a: 6, b: 4, c: 2, best: 6, them: 3 }], winnerId: "dev-actor", loserId: "dev-target" }} />
-  ) });
-  add({ id: "M-mordu", group: "Modales", label: "Tu as été mordu", render: () => modal(<EventCard embedded ev={evt("bitten", "vampire")} role={vampRole} onClose={() => {}} />) });
-  add({ id: "M-cible", group: "Modales", label: "Mort (avis de décès)", render: () => modal(<EventCard embedded ev={evt("killed", "tueur")} role={tueurRole} onClose={() => {}} />) });
-  add({ id: "M-prison", group: "Modales", label: "Prison", render: () => modal(<EventCard embedded ev={evt("imprisoned")} role={null} onClose={() => {}} />) });
-  add({ id: "M-msg", group: "Modales", label: "Message du MJ", render: () => modal(<EventCard embedded ev={evt("mj_message", null, "Rejoins-moi près de la bibliothèque, discrètement.")} role={null} onClose={() => {}} />) });
+  const modal = (node: ReactNode) => (
+    <Frame node={<div className="relative h-full w-full bg-background">{node}</div>} />
+  );
+  add({
+    id: "M-duel",
+    group: "Modales",
+    label: "Duel de dés",
+    render: () =>
+      modal(
+        <DuelScene
+          embedded
+          meId="dev-actor"
+          players={[]}
+          onClose={() => {}}
+          duel={{
+            duelId: uid(),
+            actorId: "dev-actor",
+            actorPseudo: "Dany",
+            targetId: "dev-target",
+            targetPseudo: "Marco",
+            rounds: [{ a: 6, b: 4, c: 2, best: 6, them: 3 }],
+            winnerId: "dev-actor",
+            loserId: "dev-target",
+          }}
+        />,
+      ),
+  });
+  add({
+    id: "M-mordu",
+    group: "Modales",
+    label: "Tu as été mordu",
+    render: () =>
+      modal(
+        <EventCard embedded ev={evt("bitten", "vampire")} role={vampRole} onClose={() => {}} />,
+      ),
+  });
+  add({
+    id: "M-cible",
+    group: "Modales",
+    label: "Mort (avis de décès)",
+    render: () =>
+      modal(<EventCard embedded ev={evt("killed", "tueur")} role={tueurRole} onClose={() => {}} />),
+  });
+  add({
+    id: "M-prison",
+    group: "Modales",
+    label: "Prison",
+    render: () =>
+      modal(<EventCard embedded ev={evt("imprisoned")} role={null} onClose={() => {}} />),
+  });
+  add({
+    id: "M-msg",
+    group: "Modales",
+    label: "Message du MJ",
+    render: () =>
+      modal(
+        <EventCard
+          embedded
+          ev={evt("mj_message", null, "Rejoins-moi près de la bibliothèque, discrètement.")}
+          role={null}
+          onClose={() => {}}
+        />,
+      ),
+  });
 
   // ── Capacité de chaque rôle : on incarne un joueur vivant à qui on assigne
   // le rôle, et on rend l'onglet Capacité réel. Groupé par faction.
-  const factionRank = (f: string) => (f === "Civil" ? 0 : f === "Méchant" ? 1 : f === "Neutre" ? 2 : 3);
+  const factionRank = (f: string) =>
+    f === "Civil" ? 0 : f === "Méchant" ? 1 : f === "Neutre" ? 2 : 3;
   const capRoles = [...roles.values()]
     .filter((r) => !r.is_special)
-    .sort((a, b) => factionRank(a.faction) - factionRank(b.faction) || a.name_fr.localeCompare(b.name_fr));
+    .sort(
+      (a, b) =>
+        factionRank(a.faction) - factionRank(b.faction) || a.name_fr.localeCompare(b.name_fr),
+    );
   for (const r of capRoles) {
     add({
       id: `CAP-${r.slug}`,
       group: `Capacité — ${r.faction}`,
       label: r.name_fr,
       render: () => (
-        <Frame node={<PA2Capability {...ctxFor(civil, {}, { role_slug: r.slug, is_alive: true, is_imprisoned: false })} />} />
+        <Frame
+          node={
+            <PA2Capability
+              {...ctxFor(civil, {}, { role_slug: r.slug, is_alive: true, is_imprisoned: false })}
+            />
+          }
+        />
       ),
     });
   }
@@ -263,8 +467,18 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   }
 
   // ── MJ & aide
-  add({ id: "GM1", group: "MJ & aide", label: "Dashboard MJ", render: () => <Frame node={<GM1Dashboard {...ctxFor((r) => r.mj)} />} /> });
-  add({ id: "P11", group: "MJ & aide", label: "Menu d'aide / Paramètres", render: () => <Frame node={<P11HelpMenu ctx={ctxFor(civil)} onClose={() => {}} />} /> });
+  add({
+    id: "GM1",
+    group: "MJ & aide",
+    label: "Dashboard MJ",
+    render: () => <Frame node={<GM1Dashboard {...ctxFor((r) => r.mj)} />} />,
+  });
+  add({
+    id: "P11",
+    group: "MJ & aide",
+    label: "Menu d'aide / Paramètres",
+    render: () => <Frame node={<P11HelpMenu ctx={ctxFor(civil)} onClose={() => {}} />} />,
+  });
 
   // ── Fin de partie — une scène par camp gagnant
   const winners: Array<[string, string]> = [
@@ -283,7 +497,20 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
       id: `E1-${winner}`,
       group: "Fin de partie",
       label,
-      render: () => <Frame node={<E1EndGame {...ctxFor(civil, { status: "ended", current_phase: "ended" }, {}, { devWinner: winner })} />} />,
+      render: () => (
+        <Frame
+          node={
+            <E1EndGame
+              {...ctxFor(
+                civil,
+                { status: "ended", current_phase: "ended" },
+                {},
+                { devWinner: winner },
+              )}
+            />
+          }
+        />
+      ),
     });
   }
 
@@ -329,13 +556,20 @@ function DevGallery() {
 
   useEffect(() => {
     const t = setTimeout(() => setLoadTimeout(true), 10000);
-    void supabase.from("roles").select().eq("set_id", "set1").then(({ data, error }) => {
-      clearTimeout(t);
-      if (error) { setLoadError(error.message); return; }
-      const m = new Map<string, RoleRow>();
-      for (const r of (data ?? []) as RoleRow[]) m.set(r.slug, r);
-      setRoles(m);
-    });
+    void supabase
+      .from("roles")
+      .select()
+      .eq("set_id", "set1")
+      .then(({ data, error }) => {
+        clearTimeout(t);
+        if (error) {
+          setLoadError(error.message);
+          return;
+        }
+        const m = new Map<string, RoleRow>();
+        for (const r of (data ?? []) as RoleRow[]) m.set(r.slug, r);
+        setRoles(m);
+      });
     return () => clearTimeout(t);
   }, []);
 
@@ -348,8 +582,15 @@ function DevGallery() {
     const order: string[] = [];
     const map = new Map<string, Scene[]>();
     for (const s of scenes) {
-      if (!s.label.toLowerCase().includes(search.toLowerCase()) && !s.group.toLowerCase().includes(search.toLowerCase())) continue;
-      if (!map.has(s.group)) { map.set(s.group, []); order.push(s.group); }
+      if (
+        !s.label.toLowerCase().includes(search.toLowerCase()) &&
+        !s.group.toLowerCase().includes(search.toLowerCase())
+      )
+        continue;
+      if (!map.has(s.group)) {
+        map.set(s.group, []);
+        order.push(s.group);
+      }
       map.get(s.group)!.push(s);
     }
     return order.map((g) => ({ group: g, items: map.get(g)! }));
@@ -363,7 +604,8 @@ function DevGallery() {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       const i = scenes.findIndex((s) => s.id === activeId);
       if (i < 0) return;
-      const next = e.key === "ArrowRight" ? (i + 1) % scenes.length : (i - 1 + scenes.length) % scenes.length;
+      const next =
+        e.key === "ArrowRight" ? (i + 1) % scenes.length : (i - 1 + scenes.length) % scenes.length;
       setActiveId(scenes[next].id);
     }
     window.addEventListener("keydown", onKey);
@@ -372,7 +614,10 @@ function DevGallery() {
 
   if (roles.size === 0) {
     return (
-      <div className="min-h-dvh bg-background text-muted-foreground p-8 flex flex-col items-center justify-center gap-4 text-center" style={{ fontFamily: "var(--font-display)" }}>
+      <div
+        className="min-h-dvh bg-background text-muted-foreground p-8 flex flex-col items-center justify-center gap-4 text-center"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
         {loadError ? (
           <>
             <div className="text-destructive text-sm">Impossible de charger les rôles</div>
@@ -386,8 +631,15 @@ function DevGallery() {
         ) : (
           <>Chargement des rôles…</>
         )}
-        <button onClick={() => location.reload()} className="px-3 py-1.5 text-xs rounded border border-border hover:border-gold">Recharger</button>
-        <Link to="/" className="text-[11px] text-muted-foreground hover:text-gold">← Accueil</Link>
+        <button
+          onClick={() => location.reload()}
+          className="px-3 py-1.5 text-xs rounded border border-border hover:border-gold"
+        >
+          Recharger
+        </button>
+        <Link to="/" className="text-[11px] text-muted-foreground hover:text-gold">
+          ← Accueil
+        </Link>
       </div>
     );
   }
@@ -397,8 +649,15 @@ function DevGallery() {
       {/* Sélecteur de scènes */}
       <aside className="w-[268px] border-r border-border flex flex-col h-dvh bg-card/30">
         <div className="px-3 py-2.5 border-b border-border flex items-center justify-between shrink-0">
-          <Link to="/" className="text-muted-foreground hover:text-gold transition-colors">← exit</Link>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Galerie · Dossier</span>
+          <Link to="/" className="text-muted-foreground hover:text-gold transition-colors">
+            ← exit
+          </Link>
+          <span
+            className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Galerie · Dossier
+          </span>
         </div>
         <input
           value={search}
@@ -409,7 +668,12 @@ function DevGallery() {
         <div className="flex-1 overflow-y-auto pb-6">
           {groups.map(({ group, items }) => (
             <div key={group} className="mt-3">
-              <div className="px-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80" style={{ fontFamily: "var(--font-display)" }}>{group}</div>
+              <div
+                className="px-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {group}
+              </div>
               {items.map((s) => (
                 <button
                   key={s.id}
@@ -430,14 +694,17 @@ function DevGallery() {
 
       {/* Aperçu */}
       <main className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto">
-        <div className="mb-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>{active?.group} · <span className="text-gold">{active?.label}</span></div>
+        <div
+          className="mb-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {active?.group} · <span className="text-gold">{active?.label}</span>
+        </div>
         {/* transform-gpu : fait du cadre le bloc conteneur des `position:fixed`
             internes (O5 révélation, menu d'aide…), donc les overlays plein écran
             des frames restent confinés au téléphone — rendu identique au live. */}
         <div className="w-[390px] h-[844px] shrink-0 bg-background overflow-hidden rounded-[40px] shadow-2xl border border-zinc-800 relative transform-gpu">
-          {active ? (
-            <SceneBoundary key={active.id}>{active.render()}</SceneBoundary>
-          ) : null}
+          {active ? <SceneBoundary key={active.id}>{active.render()}</SceneBoundary> : null}
         </div>
       </main>
     </div>

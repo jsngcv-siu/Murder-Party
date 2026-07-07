@@ -12,12 +12,15 @@ import { createGame, joinGame } from "@/lib/game";
 import { setStoredPseudo, getStoredPseudo } from "@/lib/session";
 import { useBackButtonGuard } from "@/hooks/useBackButtonGuard";
 
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Murder Party — assistant de jeu" },
-      { name: "description", content: "Application compagnon pour parties Murder Party à rôles cachés. 6 à 15 joueurs + 1 Maître du Jeu." },
+      {
+        name: "description",
+        content:
+          "Application compagnon pour parties Murder Party à rôles cachés. 6 à 15 joueurs + 1 Maître du Jeu.",
+      },
     ],
   }),
   component: HomePage,
@@ -27,18 +30,23 @@ function HomePage() {
   useBackButtonGuard();
   return (
     <div className="min-h-dvh flex flex-col relative">
-      <Link
-        to="/dev"
-        className="absolute top-[max(0.5rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
-      >
-        🧪 Dev
-      </Link>
-      <Link
-        to="/demo"
-        className="absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
-      >
-        🎬 Démo
-      </Link>
+      {/* Liens outillage : dev uniquement — jamais exposés aux joueurs en prod. */}
+      {import.meta.env.DEV && (
+        <>
+          <Link
+            to="/dev"
+            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
+          >
+            🧪 Dev
+          </Link>
+          <Link
+            to="/demo"
+            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
+          >
+            🎬 Démo
+          </Link>
+        </>
+      )}
       <BrandHeader subtitle="Assistant de partie" />
       <main className="flex-1 px-5 pb-10 max-w-md mx-auto w-full">
         <ResumeBanner />
@@ -77,7 +85,9 @@ function ResumeBanner() {
   return (
     <Card className="bg-mystic ring-gold/60 elevate p-4 mb-4 flex items-center justify-between gap-3">
       <div className="text-sm">
-        <div className="text-xs text-muted-foreground uppercase tracking-wider">Dernière partie</div>
+        <div className="text-xs text-muted-foreground uppercase tracking-wider">
+          Dernière partie
+        </div>
         <div className="font-mono font-bold tracking-[0.3em] text-gold">{code}</div>
       </div>
       <div className="flex gap-2">
@@ -85,7 +95,12 @@ function ResumeBanner() {
           variant="ghost"
           size="sm"
           className="text-xs text-muted-foreground"
-          onClick={() => { try { window.localStorage.removeItem("mp_last_game"); } catch {}; setCode(null); }}
+          onClick={() => {
+            try {
+              window.localStorage.removeItem("mp_last_game");
+            } catch {}
+            setCode(null);
+          }}
         >
           Effacer
         </Button>
@@ -126,7 +141,9 @@ function JoinForm() {
     <Card className="bg-mystic ring-gold elevate p-6 shadow-card">
       <form onSubmit={submit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="code" className="uppercase tracking-wider text-xs text-muted-foreground">Code de partie</Label>
+          <Label htmlFor="code" className="uppercase tracking-wider text-xs text-muted-foreground">
+            Code de partie
+          </Label>
           <Input
             id="code"
             value={code}
@@ -139,7 +156,12 @@ function JoinForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="pseudo" className="uppercase tracking-wider text-xs text-muted-foreground">Ton pseudo</Label>
+          <Label
+            htmlFor="pseudo"
+            className="uppercase tracking-wider text-xs text-muted-foreground"
+          >
+            Ton pseudo
+          </Label>
           <Input
             id="pseudo"
             value={pseudo}
@@ -150,7 +172,11 @@ function JoinForm() {
             autoComplete="off"
           />
         </div>
-        <Button type="submit" disabled={loading} className="w-full h-12 bg-gold text-primary-foreground font-semibold shadow-glow press">
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 bg-gold text-primary-foreground font-semibold shadow-glow press"
+        >
           {loading ? "Connexion…" : "Rejoindre la partie"}
         </Button>
       </form>
@@ -200,7 +226,9 @@ function CreateForm() {
         </button>
         <div className="text-center space-y-1">
           <h2 className="text-lg font-semibold">Choisis ton mode</h2>
-          <p className="text-xs text-muted-foreground">Tu peux le changer plus tard en recréant une partie.</p>
+          <p className="text-xs text-muted-foreground">
+            Tu peux le changer plus tard en recréant une partie.
+          </p>
         </div>
 
         <button
@@ -215,8 +243,8 @@ function CreateForm() {
             {loading === "mj" && <span className="text-xs text-muted-foreground ml-auto">…</span>}
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Tu pilotes la partie depuis un dashboard. Tu ne joues pas, tu fais les annonces et arbitres.
-            Le rôle MJ peut être transféré à un autre joueur depuis le salon.
+            Tu pilotes la partie depuis un dashboard. Tu ne joues pas, tu fais les annonces et
+            arbitres. Le rôle MJ peut être transféré à un autre joueur depuis le salon.
           </p>
         </button>
 
@@ -229,11 +257,13 @@ function CreateForm() {
           <div className="flex items-center gap-2">
             <span className="text-2xl">🎲</span>
             <span className="font-semibold text-base">Mode Joueur Only</span>
-            {loading === "player_only" && <span className="text-xs text-muted-foreground ml-auto">…</span>}
+            {loading === "player_only" && (
+              <span className="text-xs text-muted-foreground ml-auto">…</span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Pas de MJ. Tu paramètres la partie depuis le salon puis tu reçois un rôle comme les autres.
-            Tu peux servir de lead à la table pour rythmer les annonces.
+            Pas de MJ. Tu paramètres la partie depuis le salon puis tu reçois un rôle comme les
+            autres. Tu peux servir de lead à la table pour rythmer les annonces.
           </p>
         </button>
       </Card>
@@ -244,7 +274,12 @@ function CreateForm() {
     <Card className="bg-mystic ring-gold elevate p-6 shadow-card">
       <form onSubmit={continueToMode} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="mj-pseudo" className="uppercase tracking-wider text-xs text-muted-foreground">Ton pseudo</Label>
+          <Label
+            htmlFor="mj-pseudo"
+            className="uppercase tracking-wider text-xs text-muted-foreground"
+          >
+            Ton pseudo
+          </Label>
           <Input
             id="mj-pseudo"
             value={pseudo}
@@ -256,7 +291,11 @@ function CreateForm() {
           />
         </div>
 
-        <Button type="submit" disabled={!pseudo.trim()} className="w-full h-12 bg-gold text-primary-foreground font-semibold shadow-glow press disabled:opacity-50">
+        <Button
+          type="submit"
+          disabled={!pseudo.trim()}
+          className="w-full h-12 bg-gold text-primary-foreground font-semibold shadow-glow press disabled:opacity-50"
+        >
           Continuer →
         </Button>
         <p className="text-xs text-muted-foreground text-center">

@@ -27,18 +27,18 @@ type WinnerGroup = { label: string; players: PlayerRow[]; tone: string };
 // ─────────────────────────────────────────────────────────────────────────────
 type Motion = "rise" | "fall" | "float";
 type VictoryTheme = {
-  title: string;            // titre court affiché au-dessus de VICTOIRE
-  accent: string;          // couleur d'accent (oklch)
-  accentSoft: string;       // accent translucide
-  titleColor: string;       // couleur du mot VICTOIRE
-  pageBg: string;           // fond plein écran
-  headerBg: string;         // fond de l'en-tête
+  title: string; // titre court affiché au-dessus de VICTOIRE
+  accent: string; // couleur d'accent (oklch)
+  accentSoft: string; // accent translucide
+  titleColor: string; // couleur du mot VICTOIRE
+  pageBg: string; // fond plein écran
+  headerBg: string; // fond de l'en-tête
   motion: Motion;
   // Effets renforcés (optionnels) pour les ambiances les plus marquées :
   pulse?: "heartbeat" | "breathe"; // halo pulsant derrière l'emblème
-  glow?: string;            // couleur du halo pulsant
-  vignette?: string;        // teinte du vignettage sombre sur les bords
-  particleCount?: number;   // densité de particules (défaut 16)
+  glow?: string; // couleur du halo pulsant
+  vignette?: string; // teinte du vignettage sombre sur les bords
+  particleCount?: number; // densité de particules (défaut 16)
 };
 
 const NEUTRAL_THEME: VictoryTheme = {
@@ -57,7 +57,8 @@ const THEMES: Record<string, VictoryTheme> = {
     accent: "oklch(0.72 0.16 230)",
     accentSoft: "oklch(0.72 0.16 230 / 0.16)",
     titleColor: "oklch(0.82 0.14 230)",
-    pageBg: "radial-gradient(ellipse at top, oklch(0.30 0.10 235 / 0.55), oklch(0.13 0.03 260) 70%)",
+    pageBg:
+      "radial-gradient(ellipse at top, oklch(0.30 0.10 235 / 0.55), oklch(0.13 0.03 260) 70%)",
     headerBg: "linear-gradient(to bottom, oklch(0.34 0.12 235 / 0.45), transparent)",
     motion: "rise",
   },
@@ -99,7 +100,8 @@ const THEMES: Record<string, VictoryTheme> = {
     accent: "oklch(0.78 0.19 140)",
     accentSoft: "oklch(0.78 0.19 140 / 0.16)",
     titleColor: "oklch(0.84 0.19 140)",
-    pageBg: "radial-gradient(ellipse at top, oklch(0.30 0.14 145 / 0.55), oklch(0.11 0.04 150) 72%)",
+    pageBg:
+      "radial-gradient(ellipse at top, oklch(0.30 0.14 145 / 0.55), oklch(0.11 0.04 150) 72%)",
     headerBg: "linear-gradient(to bottom, oklch(0.32 0.16 145 / 0.5), transparent)",
     motion: "rise",
   },
@@ -151,15 +153,24 @@ function emblemRolesFor(winner: string, roles: Map<string, RoleRow>): RoleRow[] 
     slugs.map((s) => roles.get(s)).filter((r): r is RoleRow => !!r);
 
   switch (winner) {
-    case "Civil": return ofFaction("Civil");
-    case "Méchants": return ofFaction("Méchant");
-    case "Vampires": return pick("vampire");
-    case "Amoureux": return pick("entremetteur");
-    case "Empoisonneur": return pick("empoisonneur");
-    case "Veuve noire": return pick("veuve_noire");
-    case "Parieur tricheur": return pick("parieur_tricheur");
-    case "Conservateur": return pick("conservateur");
-    case "Neutres": return ofFaction("Neutre");
+    case "Civil":
+      return ofFaction("Civil");
+    case "Méchants":
+      return ofFaction("Méchant");
+    case "Vampires":
+      return pick("vampire");
+    case "Amoureux":
+      return pick("entremetteur");
+    case "Empoisonneur":
+      return pick("empoisonneur");
+    case "Veuve noire":
+      return pick("veuve_noire");
+    case "Parieur tricheur":
+      return pick("parieur_tricheur");
+    case "Conservateur":
+      return pick("conservateur");
+    case "Neutres":
+      return ofFaction("Neutre");
     default: {
       const named = all.find((r) => r.name_fr === winner);
       return named ? [named] : [];
@@ -182,7 +193,11 @@ function computeGroups(
     return p.role_slug === "vampire" || m.converted === true;
   };
   const isMechant = (p: PlayerRow) => {
-    if (p.role_slug === "heritier_dechu" && real.some((x) => fac(x) === "Méchant" && x.is_alive && !x.is_imprisoned)) return true;
+    if (
+      p.role_slug === "heritier_dechu" &&
+      real.some((x) => fac(x) === "Méchant" && x.is_alive && !x.is_imprisoned)
+    )
+      return true;
     return fac(p) === "Méchant";
   };
 
@@ -201,7 +216,9 @@ function computeGroups(
     case "Civil": {
       mainTone = "text-primary";
       // Le Chasseur de Vampire (Neutre) est allié des Civils : il gagne avec eux.
-      const civils = real.filter((p) => fac(p) === "Civil" || p.role_slug === "chasseur_de_vampire");
+      const civils = real.filter(
+        (p) => fac(p) === "Civil" || p.role_slug === "chasseur_de_vampire",
+      );
       if (civils.length) groups.push({ label: "Les Civils", players: civils, tone: mainTone });
       break;
     }
@@ -265,7 +282,11 @@ function computeGroups(
   }
 
   if (oracleWinners.length > 0) {
-    groups.push({ label: oracleWinners.length > 1 ? "Les Oracles" : "L'Oracle", players: oracleWinners, tone: "text-fuchsia-300" });
+    groups.push({
+      label: oracleWinners.length > 1 ? "Les Oracles" : "L'Oracle",
+      players: oracleWinners,
+      tone: "text-fuchsia-300",
+    });
   }
 
   return { groups, tone: mainTone };
@@ -291,7 +312,10 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
       .then(({ data }) => {
         const payload = (data as { payload?: { winner?: string } } | null)?.payload;
         if (payload?.winner) {
-          setResult({ winner: payload.winner, reason: (data as { body?: string } | null)?.body ?? "" });
+          setResult({
+            winner: payload.winner,
+            reason: (data as { body?: string } | null)?.body ?? "",
+          });
         } else {
           void evaluateWin(gameId).then(setResult);
         }
@@ -307,16 +331,14 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
   const theme = themeFor(winner);
 
   // Rôles emblématiques du camp (icônes PNG) — emblème + particules.
-  const emblemRoles = useMemo(
-    () => (winner ? emblemRolesFor(winner, roles) : []),
-    [winner, roles],
-  );
+  const emblemRoles = useMemo(() => (winner ? emblemRolesFor(winner, roles) : []), [winner, roles]);
   const heroRoles = emblemRoles.slice(0, 3);
 
   // Champ de particules : chaque particule = l'icône d'un rôle du camp (cyclée),
   // position stable tant que le camp ne change pas.
   const particles = useMemo(() => {
-    if (!winner || emblemRoles.length === 0) return [] as Array<{ id: number; role: RoleRow; left: number; size: number }>;
+    if (!winner || emblemRoles.length === 0)
+      return [] as Array<{ id: number; role: RoleRow; left: number; size: number }>;
     const count = theme.particleCount ?? 16;
     return Array.from({ length: count }, (_, i) => ({
       id: i,
@@ -341,8 +363,13 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
       let split: SplitText | null = null;
 
       gsap.from(".vic-hero-icon", {
-        scale: 0.2, opacity: 0, rotate: -25, y: 12, stagger: 0.12,
-        duration: 0.9, ease: "back.out(1.7)",
+        scale: 0.2,
+        opacity: 0,
+        rotate: -25,
+        y: 12,
+        stagger: 0.12,
+        duration: 0.9,
+        ease: "back.out(1.7)",
       });
 
       // Halo pulsant derrière l'emblème (ambiances renforcées : Vampires, Conservateur).
@@ -358,21 +385,33 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
           .to(glowEl, { duration: 0.7 });
       } else if (glowEl && theme.pulse === "breathe") {
         // Respiration lente et dorée — relique vivante.
-        gsap.fromTo(glowEl,
+        gsap.fromTo(
+          glowEl,
           { scale: 0.9, opacity: 0.4 },
-          { scale: 1.15, opacity: 0.8, duration: 2.6, ease: "sine.inOut", repeat: -1, yoyo: true });
+          { scale: 1.15, opacity: 0.8, duration: 2.6, ease: "sine.inOut", repeat: -1, yoyo: true },
+        );
       }
 
       if (titleRef.current) {
         split = SplitText.create(titleRef.current, { type: "chars" });
         gsap.from(split.chars, {
-          yPercent: 120, opacity: 0, rotateX: -90, stagger: 0.045,
-          duration: 0.7, ease: "back.out(1.6)", delay: 0.25,
+          yPercent: 120,
+          opacity: 0,
+          rotateX: -90,
+          stagger: 0.045,
+          duration: 0.7,
+          ease: "back.out(1.6)",
+          delay: 0.25,
         });
       }
 
       gsap.from(".vic-card", {
-        y: 22, opacity: 0, stagger: 0.07, duration: 0.5, ease: "power2.out", delay: 0.55,
+        y: 22,
+        opacity: 0,
+        stagger: 0.07,
+        duration: 0.5,
+        ease: "power2.out",
+        delay: 0.55,
       });
 
       // Ambiance : chaque icône de rôle dérive en boucle selon le mood du camp.
@@ -383,36 +422,61 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
         const spin = gsap.utils.random(-60, 60);
         if (theme.motion === "float") {
           gsap.set(el, { opacity: 0 });
-          gsap.to(el, { keyframes: { opacity: [0, 0.55, 0.55, 0] }, duration: dur, delay, repeat: -1, ease: "none" });
-          gsap.to(el, { y: gsap.utils.random(-30, -70), x: drift, rotation: spin, duration: dur / 2, delay, yoyo: true, repeat: -1, ease: "sine.inOut" });
+          gsap.to(el, {
+            keyframes: { opacity: [0, 0.55, 0.55, 0] },
+            duration: dur,
+            delay,
+            repeat: -1,
+            ease: "none",
+          });
+          gsap.to(el, {
+            y: gsap.utils.random(-30, -70),
+            x: drift,
+            rotation: spin,
+            duration: dur / 2,
+            delay,
+            yoyo: true,
+            repeat: -1,
+            ease: "sine.inOut",
+          });
         } else {
           const fromY = theme.motion === "rise" ? "115%" : "-135%";
           const toY = theme.motion === "rise" ? "-135%" : "115%";
           gsap.set(el, { y: fromY, opacity: 0, rotation: spin * 0.3 });
           gsap.to(el, {
-            y: toY, x: `+=${drift}`, rotation: `+=${spin}`,
-            duration: dur, delay, repeat: -1, ease: "none",
+            y: toY,
+            x: `+=${drift}`,
+            rotation: `+=${spin}`,
+            duration: dur,
+            delay,
+            repeat: -1,
+            ease: "none",
             keyframes: { opacity: [0, 0.55, 0.55, 0] },
           });
         }
       });
 
-      return () => { split?.revert(); };
+      return () => {
+        split?.revert();
+      };
     });
     return () => mm.revert();
   }, [winner, theme.motion]);
 
-  const headline = groups.length > 0
-    ? groups.map((g) => g.label).join(", ")
-    : (theme.title || winner || "—");
+  const headline =
+    groups.length > 0 ? groups.map((g) => g.label).join(", ") : theme.title || winner || "—";
 
   // Liste plate des vainqueurs (tous groupes confondus, dédupliquée par id).
   const winners = useMemo(() => {
     const seen = new Set<string>();
     const list: PlayerRow[] = [];
-    for (const g of groups) for (const p of g.players) {
-      if (!seen.has(p.id)) { seen.add(p.id); list.push(p); }
-    }
+    for (const g of groups)
+      for (const p of g.players) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          list.push(p);
+        }
+      }
     return list;
   }, [groups]);
   const factionLabel = groups[0]?.label ?? (theme.title || winner || "—");
@@ -443,7 +507,9 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
         <div
           className="pointer-events-none absolute inset-0 z-0"
           aria-hidden
-          style={{ background: `radial-gradient(ellipse at center, transparent 42%, ${theme.vignette ?? "oklch(0.06 0.02 30)"} 100%)` }}
+          style={{
+            background: `radial-gradient(ellipse at center, transparent 42%, ${theme.vignette ?? "oklch(0.06 0.02 30)"} 100%)`,
+          }}
         />
       )}
 
@@ -455,7 +521,12 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
               className="text-[8px] uppercase tracking-[0.18em] flex items-center justify-center gap-1.5"
               style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
             >
-              <span className="size-1.5 rounded-full" style={{ background: theme.accent }} aria-hidden /> Issue · Faction
+              <span
+                className="size-1.5 rounded-full"
+                style={{ background: theme.accent }}
+                aria-hidden
+              />{" "}
+              Issue · Faction
             </div>
             <div
               className="text-lg leading-tight text-center"
@@ -469,37 +540,58 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
 
       <header className="relative z-10 px-6 pt-4 pb-4 text-center">
         {result === null ? (
-          <h1 className="text-2xl font-bold mt-3 text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Calcul…</h1>
+          <h1
+            className="text-2xl font-bold mt-3 text-muted-foreground"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Calcul…
+          </h1>
         ) : (
           <>
             {/* Emblème dans un cercle nimbé de la couleur du camp */}
-            <div className="relative mx-auto grid place-items-center" style={{ width: 132, height: 132 }}>
+            <div
+              className="relative mx-auto grid place-items-center"
+              style={{ width: 132, height: 132 }}
+            >
               {theme.glow && (
                 <div
                   className="vic-glow pointer-events-none absolute inset-0 rounded-full"
                   aria-hidden
-                  style={{ background: `radial-gradient(circle, ${theme.glow} 0%, transparent 68%)` }}
+                  style={{
+                    background: `radial-gradient(circle, ${theme.glow} 0%, transparent 68%)`,
+                  }}
                 />
               )}
               <div
                 className="vic-hero-icon relative grid place-items-center rounded-full overflow-hidden"
                 style={{
-                  width: 116, height: 116,
-                  background: "radial-gradient(circle at 50% 35%, oklch(0.22 0.03 35), oklch(0.12 0.02 30))",
+                  width: 116,
+                  height: 116,
+                  background:
+                    "radial-gradient(circle at 50% 35%, oklch(0.22 0.03 35), oklch(0.12 0.02 30))",
                   boxShadow: `0 0 0 2px ${theme.accent}, 0 0 42px -4px ${theme.accent}`,
                 }}
               >
-                {heroRoles[0] && <RoleIcon role={heroRoles[0]} size={116} className="w-full h-full object-cover" />}
+                {heroRoles[0] && (
+                  <RoleIcon role={heroRoles[0]} size={116} className="w-full h-full object-cover" />
+                )}
               </div>
             </div>
 
-            <div className="mt-4 text-lg" style={{ fontFamily: "var(--font-hand)", color: theme.titleColor }}>
+            <div
+              className="mt-4 text-lg"
+              style={{ fontFamily: "var(--font-hand)", color: theme.titleColor }}
+            >
               {theme.title || headline}
             </div>
             <h1
               ref={titleRef}
               className="text-5xl font-bold mt-1 tracking-[0.12em]"
-              style={{ fontFamily: "var(--font-display)", color: theme.titleColor, textShadow: `0 0 30px ${theme.accentSoft}` }}
+              style={{
+                fontFamily: "var(--font-display)",
+                color: theme.titleColor,
+                textShadow: `0 0 30px ${theme.accentSoft}`,
+              }}
             >
               VICTOIRE
             </h1>
@@ -509,7 +601,13 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
 
       {/* Panneau Vainqueurs · Rôles révélés */}
       <div className="relative z-10 flex-1 px-5 pb-2">
-        <div className="rounded-2xl p-4" style={{ background: "oklch(0.16 0.02 35 / 0.5)", boxShadow: `inset 0 0 0 1px ${theme.accentSoft}` }}>
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            background: "oklch(0.16 0.02 35 / 0.5)",
+            boxShadow: `inset 0 0 0 1px ${theme.accentSoft}`,
+          }}
+        >
           <div
             className="text-[10px] uppercase tracking-[0.18em] font-semibold mb-3"
             style={{ fontFamily: "var(--font-display)", color: "var(--muted-foreground)" }}
@@ -518,12 +616,17 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
           </div>
 
           {winners.length === 0 && result !== null ? (
-            <div className="text-center text-sm text-muted-foreground italic py-6">Aucun gagnant désigné.</div>
+            <div className="text-center text-sm text-muted-foreground italic py-6">
+              Aucun gagnant désigné.
+            </div>
           ) : (
             <div className="flex flex-col gap-2.5">
               {winners.map((p) => {
                 const r = p.role_slug ? roles.get(p.role_slug) : null;
-                const av = avatarOf((p.role_meta as Record<string, unknown>)?.avatar as string | undefined, p.id);
+                const av = avatarOf(
+                  (p.role_meta as Record<string, unknown>)?.avatar as string | undefined,
+                  p.id,
+                );
                 const meta = (p.role_meta ?? {}) as Record<string, unknown>;
                 const converted = meta.converted === true && p.role_slug !== "vampire";
                 const originalSlug = meta.original_slug as string | undefined;
@@ -531,16 +634,23 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
                 let pillLabel = converted ? "Converti·e" : (r?.name_fr ?? "?");
                 if (originalRole && !converted) pillLabel += ` (${originalRole.name_fr})`;
                 // Héritier déchu = transfuge minoritaire → couleur or distincte.
-                const pillColor = (p.role_slug === "heritier_dechu" && winner === "Méchants")
-                  ? "oklch(0.82 0.16 85)"
-                  : theme.accent;
+                const pillColor =
+                  p.role_slug === "heritier_dechu" && winner === "Méchants"
+                    ? "oklch(0.82 0.16 85)"
+                    : theme.accent;
                 return (
                   <div
                     key={p.id}
                     className="vic-card rounded-xl px-3 py-2.5 flex items-center gap-3"
-                    style={{ background: "oklch(0.20 0.03 35 / 0.6)", boxShadow: `inset 0 0 0 1px ${theme.accentSoft}` }}
+                    style={{
+                      background: "oklch(0.20 0.03 35 / 0.6)",
+                      boxShadow: `inset 0 0 0 1px ${theme.accentSoft}`,
+                    }}
                   >
-                    <div className="size-10 overflow-hidden shrink-0 grid place-items-center" style={{ background: "oklch(0.32 0.02 240)" }}>
+                    <div
+                      className="size-10 overflow-hidden shrink-0 grid place-items-center"
+                      style={{ background: "oklch(0.32 0.02 240)" }}
+                    >
                       <AvatarImg avatar={av} size={40} rounded="none" />
                     </div>
                     <div className="flex-1 min-w-0 font-bold truncate">{p.pseudo}</div>
@@ -573,7 +683,12 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
         <a
           href="/"
           className="block h-14 rounded-xl flex items-center justify-center font-bold uppercase tracking-wider"
-          style={{ background: theme.accent, color: "oklch(0.16 0.02 35)", fontFamily: "var(--font-display)", boxShadow: `0 12px 26px -8px ${theme.accentSoft}` }}
+          style={{
+            background: theme.accent,
+            color: "oklch(0.16 0.02 35)",
+            fontFamily: "var(--font-display)",
+            boxShadow: `0 12px 26px -8px ${theme.accentSoft}`,
+          }}
         >
           Nouvelle enquête
         </a>

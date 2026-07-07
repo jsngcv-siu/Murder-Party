@@ -55,7 +55,12 @@ export function RegieView({
       .channel(`regie-${gameId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `game_id=eq.${gameId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `game_id=eq.${gameId}`,
+        },
         (p) => {
           const row = p.new as Notif;
           setNotifs((prev) => [row, ...prev].slice(0, 1200));
@@ -84,10 +89,7 @@ export function RegieView({
   }, [notifs]);
 
   const realPlayers = useMemo(
-    () =>
-      players
-        .filter((p) => !p.is_mj)
-        .sort((a, b) => a.pseudo.localeCompare(b.pseudo)),
+    () => players.filter((p) => !p.is_mj).sort((a, b) => a.pseudo.localeCompare(b.pseudo)),
     [players],
   );
 
@@ -103,15 +105,26 @@ export function RegieView({
       <div className="shrink-0 px-4 h-12 border-b border-border flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Radio className="size-4 text-gold" />
-          <span className="text-[10px] uppercase tracking-[0.3em] text-gold font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+          <span
+            className="text-[10px] uppercase tracking-[0.3em] text-gold font-semibold"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             Régie temps réel
           </span>
           {gameCode && (
-            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/30">{gameCode}</span>
+            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/30">
+              {gameCode}
+            </span>
           )}
-          <span className="text-xs text-muted-foreground">— ce que voit chaque joueur, en direct</span>
+          <span className="text-xs text-muted-foreground">
+            — ce que voit chaque joueur, en direct
+          </span>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded hover:bg-secondary/40" title="Fermer la régie">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded hover:bg-secondary/40"
+          title="Fermer la régie"
+        >
           <X className="size-4" />
         </button>
       </div>
@@ -128,7 +141,7 @@ export function RegieView({
           />
 
           {realPlayers.map((p) => {
-            const role = p.role_slug ? roles.get(p.role_slug) ?? null : null;
+            const role = p.role_slug ? (roles.get(p.role_slug) ?? null) : null;
             const st = statusOf(p);
             const feed = (byPlayer.m.get(p.id) ?? []).slice(0, PER_CARD_LIMIT);
             return (
@@ -178,27 +191,45 @@ function FeedCard({
         {role !== undefined && role && <RoleIcon role={role} size={18} />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold text-sm truncate" style={accent ? { color: accent } : undefined}>
+            <span
+              className="font-semibold text-sm truncate"
+              style={accent ? { color: accent } : undefined}
+            >
               {title}
             </span>
-            {statusLabel && <span className={`text-[10px] shrink-0 ${statusTone ?? ""}`}>{statusLabel}</span>}
+            {statusLabel && (
+              <span className={`text-[10px] shrink-0 ${statusTone ?? ""}`}>{statusLabel}</span>
+            )}
           </div>
           {subtitle && <div className="text-[10px] text-muted-foreground truncate">{subtitle}</div>}
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-1.5 space-y-1 min-h-0">
         {notifs.length === 0 ? (
-          <div className="text-[10px] text-muted-foreground italic px-1.5 py-2 text-center">aucun évènement</div>
+          <div className="text-[10px] text-muted-foreground italic px-1.5 py-2 text-center">
+            aucun évènement
+          </div>
         ) : (
           notifs.map((n) => (
-            <div key={n.id} className="rounded border border-border/40 bg-background/40 px-2 py-1.5 text-[11px] leading-snug">
+            <div
+              key={n.id}
+              className="rounded border border-border/40 bg-background/40 px-2 py-1.5 text-[11px] leading-snug"
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-medium text-foreground/90 truncate">{n.title}</span>
                 <span className="text-[9px] text-muted-foreground font-mono shrink-0">
-                  {new Date(n.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  {new Date(n.created_at).toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
                 </span>
               </div>
-              {n.body && <div className="text-foreground/70 mt-0.5 whitespace-pre-wrap break-words">{n.body}</div>}
+              {n.body && (
+                <div className="text-foreground/70 mt-0.5 whitespace-pre-wrap break-words">
+                  {n.body}
+                </div>
+              )}
             </div>
           ))
         )}

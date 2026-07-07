@@ -61,7 +61,10 @@ export function PA5Players({ players, me, roles }: FrameContext) {
             reveal = cleaned ? (
               <span className="italic text-muted-foreground text-[10px]">Identité effacée</span>
             ) : (
-              <span className="text-[10px] font-medium" style={{ color: factionTone(role.faction) }}>
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: factionTone(role.faction) }}
+              >
                 {role.faction}
               </span>
             );
@@ -87,9 +90,15 @@ export function PA5Players({ players, me, roles }: FrameContext) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className={`font-semibold text-sm leading-tight truncate ${!p.is_alive ? "line-through opacity-70" : ""}`}>
+                <div
+                  className={`font-semibold text-sm leading-tight truncate ${!p.is_alive ? "line-through opacity-70" : ""}`}
+                >
                   {p.pseudo}
-                  {isMe && <span className="ml-1.5 text-[9px] uppercase tracking-wider text-primary align-middle">toi</span>}
+                  {isMe && (
+                    <span className="ml-1.5 text-[9px] uppercase tracking-wider text-primary align-middle">
+                      toi
+                    </span>
+                  )}
                 </div>
                 {reveal && <div className="mt-0.5">{reveal}</div>}
               </div>

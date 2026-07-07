@@ -39,7 +39,12 @@ export async function probeCapability(opts: {
   // Tamponne chaque finding avec sa partie (code + id) et préfixe la dédup par
   // l'id de partie → un même souci dans 2 parties = 2 entrées distinctes.
   const add = (f: FindingInput) =>
-    pushFinding({ ...f, gameId: opts.gameId, gameCode: opts.gameCode ?? null, dedupeKey: `${opts.gameId}:${f.dedupeKey}` });
+    pushFinding({
+      ...f,
+      gameId: opts.gameId,
+      gameCode: opts.gameCode ?? null,
+      dedupeKey: `${opts.gameId}:${f.dedupeKey}`,
+    });
 
   const baseFinding = {
     roleSlug: role.slug,
@@ -59,7 +64,8 @@ export async function probeCapability(opts: {
       category: "bug",
       dedupeKey: `bug:capability-throw:${role.slug}`,
       title: `${role.name_fr} : executeCapability a levé une exception`,
-      detail: "L'exécution de la capacité a planté au lieu de renvoyer un résultat propre {ok,message}. Un humain verrait l'action échouer sans explication.",
+      detail:
+        "L'exécution de la capacité a planté au lieu de renvoyer un résultat propre {ok,message}. Un humain verrait l'action échouer sans explication.",
       evidence: { error: String((e as Error)?.message ?? e) },
     });
     throw e;
@@ -95,7 +101,8 @@ export async function probeCapability(opts: {
         category: "bug",
         dedupeKey: `bug:pending-no-intent:${role.slug}:${tour}`,
         title: `${role.name_fr} : « effet en cours » annoncé sans intention soumise`,
-        detail: "La capacité a renvoyé pending=true (effet différé au rassemblement) mais aucune ligne role_actions DEFERRED n'existe pour ce tour. L'effet promis ne se résoudra jamais.",
+        detail:
+          "La capacité a renvoyé pending=true (effet différé au rassemblement) mais aucune ligne role_actions DEFERRED n'existe pour ce tour. L'effet promis ne se résoudra jamais.",
         evidence: { tour },
       });
     }
@@ -109,7 +116,8 @@ export async function probeCapability(opts: {
       category: "ux",
       dedupeKey: `ux:empty-refusal:${role.slug}`,
       title: `${role.name_fr} : capacité refusée sans message`,
-      detail: "executeCapability a renvoyé ok=false avec un message vide — l'écran n'expliquera pas pourquoi l'action ne marche pas.",
+      detail:
+        "executeCapability a renvoyé ok=false avec un message vide — l'écran n'expliquera pas pourquoi l'action ne marche pas.",
       evidence: {},
     });
   }

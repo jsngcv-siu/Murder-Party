@@ -35,7 +35,13 @@ export function gameToast(opts: {
       // On neutralise le cadre par défaut du Toaster (toastOptions.style, prévu pour
       // les toasts système) sinon il dépasse derrière la carte.
       unstyled: true,
-      style: { background: "transparent", border: "none", boxShadow: "none", padding: 0, backdropFilter: "none" },
+      style: {
+        background: "transparent",
+        border: "none",
+        boxShadow: "none",
+        padding: 0,
+        backdropFilter: "none",
+      },
     },
   );
 }

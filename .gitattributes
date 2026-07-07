@@ -1,0 +1,14 @@
+# Normalise les fins de ligne en LF dans le repo (évite les 42k faux positifs
+# Prettier CRLF sous Windows). Les fichiers texte sont commités en LF ;
+# git peut restituer en CRLF sur le poste local si core.autocrlf le demande.
+* text=auto eol=lf
+
+# Binaires : jamais de conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ai.bak binary

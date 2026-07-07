@@ -49,9 +49,12 @@ export function getAuthUserIdSync(): string | null {
   // Lecture instantanée depuis le storage Supabase (sans round-trip réseau).
   // useAuthUserId() ci-dessous est plus fiable côté React.
   try {
-    const raw = typeof window !== "undefined"
-      ? window.localStorage.getItem("sb-" + (import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "") + "-auth-token")
-      : null;
+    const raw =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(
+            "sb-" + (import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "") + "-auth-token",
+          )
+        : null;
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { user?: { id?: string } };
     return parsed?.user?.id ?? null;

@@ -30,10 +30,13 @@ export function AvatarImg({
 }: Props) {
   const av = avatar ?? avatarOf(id);
   const roundedCls =
-    rounded === "full" ? "rounded-full"
-    : rounded === "lg" ? "rounded-lg"
-    : rounded === "md" ? "rounded-md"
-    : "";
+    rounded === "full"
+      ? "rounded-full"
+      : rounded === "lg"
+        ? "rounded-lg"
+        : rounded === "md"
+          ? "rounded-md"
+          : "";
   const dims = fill ? { width: "100%", height: "100%" } : { width: size, height: size };
   if (av.image_url) {
     return (

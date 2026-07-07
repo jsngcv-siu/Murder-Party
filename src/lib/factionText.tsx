@@ -29,9 +29,7 @@ export function roleColor(role: RoleRow | null | undefined): string {
   if (role.faction === "Méchant") return "var(--mechants)";
   if (role.slug === "vampire") return "var(--vampires)";
   if (role.faction === "Neutre") {
-    return /subversif/i.test(role.type ?? "")
-      ? "oklch(0.60 0.22 305)"
-      : "oklch(0.78 0.10 305)";
+    return /subversif/i.test(role.type ?? "") ? "oklch(0.60 0.22 305)" : "oklch(0.78 0.10 305)";
   }
   return "var(--foreground)";
 }

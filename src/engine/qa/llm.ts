@@ -45,7 +45,11 @@ export function serializeContext(ctx: ChatContext, model?: string) {
     channel: ctx.channel,
     phase: ctx.phase,
     tour: ctx.tour,
-    self: { pseudo: ctx.bot.pseudo, role: ctx.role?.name_fr ?? null, faction: ctx.role?.faction ?? null },
+    self: {
+      pseudo: ctx.bot.pseudo,
+      role: ctx.role?.name_fr ?? null,
+      faction: ctx.role?.faction ?? null,
+    },
     alive: ctx.alive.filter((p) => !p.is_mj).map((p) => p.pseudo),
     recent: ctx.recent.map((m) => ({ from: m.author_pseudo, text: m.body })),
   };

@@ -55,7 +55,7 @@ export async function maybeBotChat(opts: {
 
   const ctx: ChatContext = {
     bot,
-    role: bot.role_slug ? opts.rolesBySlug.get(bot.role_slug) ?? null : null,
+    role: bot.role_slug ? (opts.rolesBySlug.get(bot.role_slug) ?? null) : null,
     channel,
     game: opts.game,
     phase: opts.game.current_phase,

@@ -2,7 +2,18 @@
 // Marque automatiquement comme "lues" les annonces quand l'onglet est ouvert,
 // et expose un hook pour afficher un badge / des toasts ailleurs dans l'app.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Crosshair, Droplet, Flame, Lock, Pen, Scroll, Skull, Sprout, Users, type LucideIcon } from "lucide-react";
+import {
+  Crosshair,
+  Droplet,
+  Flame,
+  Lock,
+  Pen,
+  Scroll,
+  Skull,
+  Sprout,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { FrameContext } from "../registry";
 import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
@@ -39,7 +50,7 @@ function eventId(e: Event): string {
 // par la teinte : chaque tour partage la même grammaire visuelle.
 export function tourAccent(_tour: number) {
   return {
-    text: "oklch(0.82 0.13 82)",         // or parchemin
+    text: "oklch(0.82 0.13 82)", // or parchemin
     border: "oklch(0.62 0.12 80 / 0.45)",
     bg: "oklch(0.30 0.06 70 / 0.18)",
     dot: "oklch(0.78 0.15 78)",
@@ -76,10 +87,20 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     }
   }
   for (const tour of biteCycles) {
-    events.push({ kind: "special", tour, icon: <Droplet className="size-5" aria-hidden />, text: "Un joueur a été mordu cette nuit.." });
+    events.push({
+      kind: "special",
+      tour,
+      icon: <Droplet className="size-5" aria-hidden />,
+      text: "Un joueur a été mordu cette nuit..",
+    });
   }
   for (const tour of chasseurCycles) {
-    events.push({ kind: "special", tour, icon: <Crosshair className="size-5" aria-hidden />, text: "Un joueur devient Chasseur de Vampire.." });
+    events.push({
+      kind: "special",
+      tour,
+      icon: <Crosshair className="size-5" aria-hidden />,
+      text: "Un joueur devient Chasseur de Vampire..",
+    });
   }
   // Indices distribués au setup → annonce générique au tour 1 (jamais QUI).
   const hasIndices = players.some((p) => {
@@ -89,7 +110,12 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     return inv.some((it) => it?.slug === "indice");
   });
   if (hasIndices) {
-    events.push({ kind: "special", tour: 1, icon: <Scroll className="size-5" aria-hidden />, text: "Certains invités ont reçu des indices. Enquêtez." });
+    events.push({
+      kind: "special",
+      tour: 1,
+      icon: <Scroll className="size-5" aria-hidden />,
+      text: "Certains invités ont reçu des indices. Enquêtez.",
+    });
   }
   return events;
 }
@@ -102,9 +128,9 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
 // (morts, puis prisons, puis specials), ce qui inversait la chronologie.
 const PHASE_RANK: Record<string, number> = { free: 0, annonce: 1, gathering: 2, vote: 3 };
 function eventRecency(e: Event): number {
-  if (e.kind === "prison") return PHASE_RANK.vote;      // le verdict ferme le tour
+  if (e.kind === "prison") return PHASE_RANK.vote; // le verdict ferme le tour
   if (e.kind === "death") return PHASE_RANK[e.phase] ?? PHASE_RANK.gathering;
-  return -1;                                             // annonces « de nuit »/setup en premier
+  return -1; // annonces « de nuit »/setup en premier
 }
 
 /** Trie les événements d'un même tour du plus récent (haut) au plus ancien (bas). */
@@ -125,11 +151,15 @@ function readSeen(gameId: string, meId: string): Set<string> {
     const raw = localStorage.getItem(storageKey(gameId, meId));
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as string[]);
-  } catch { return new Set(); }
+  } catch {
+    return new Set();
+  }
 }
 
 function writeSeen(gameId: string, meId: string, seen: Set<string>) {
-  try { localStorage.setItem(storageKey(gameId, meId), JSON.stringify(Array.from(seen))); } catch {}
+  try {
+    localStorage.setItem(storageKey(gameId, meId), JSON.stringify(Array.from(seen)));
+  } catch {}
 }
 
 /** Hook utilisé par PlayerShell pour afficher un badge sur l'onglet Annonces. */
@@ -177,13 +207,18 @@ export function PA6Announces(ctx: FrameContext) {
   const [filter, setFilter] = useState<"alive" | "prison" | "dead">("alive");
 
   // Marquer "vu" tout ce qui est affiché à l'ouverture (et à l'arrivée de nouveaux events).
-  const [seenAtMount, setSeenAtMount] = useState<Set<string>>(() => readSeen(ctx.game.id, ctx.me.id));
+  const [seenAtMount, setSeenAtMount] = useState<Set<string>>(() =>
+    readSeen(ctx.game.id, ctx.me.id),
+  );
   useEffect(() => {
     const seen = readSeen(ctx.game.id, ctx.me.id);
     let changed = false;
     for (const e of events) {
       const id = eventId(e);
-      if (!seen.has(id)) { seen.add(id); changed = true; }
+      if (!seen.has(id)) {
+        seen.add(id);
+        changed = true;
+      }
     }
     if (changed) {
       writeSeen(ctx.game.id, ctx.me.id, seen);
@@ -235,7 +270,10 @@ export function PA6Announces(ctx: FrameContext) {
                 );
               })}
               {all.length > 3 && (
-                <span className="relative inline-flex size-5 items-center justify-center rounded-full bg-border/60 border border-border text-[8px] font-bold text-muted-foreground" style={{ zIndex: 0 }}>
+                <span
+                  className="relative inline-flex size-5 items-center justify-center rounded-full bg-border/60 border border-border text-[8px] font-bold text-muted-foreground"
+                  style={{ zIndex: 0 }}
+                >
                   +{all.length - 3}
                 </span>
               )}
@@ -248,7 +286,9 @@ export function PA6Announces(ctx: FrameContext) {
         <div className="mt-4">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
             <span>Survivants</span>
-            <span className="tabular-nums">{alive.length}/{totalPlayers}</span>
+            <span className="tabular-nums">
+              {alive.length}/{totalPlayers}
+            </span>
           </div>
           <div className="h-1.5 rounded-full bg-card overflow-hidden">
             <div
@@ -259,9 +299,30 @@ export function PA6Announces(ctx: FrameContext) {
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Stat Icon={Sprout} label="En vie" value={alive.length} tone="emerald" active={filter === "alive"} onClick={() => setFilter("alive")} />
-          <Stat Icon={Lock} label="Prison" value={imprisoned.length} tone="amber" active={filter === "prison"} onClick={() => setFilter("prison")} />
-          <Stat Icon={Skull} label="Morts" value={dead.length} tone="rose" active={filter === "dead"} onClick={() => setFilter("dead")} />
+          <Stat
+            Icon={Sprout}
+            label="En vie"
+            value={alive.length}
+            tone="emerald"
+            active={filter === "alive"}
+            onClick={() => setFilter("alive")}
+          />
+          <Stat
+            Icon={Lock}
+            label="Prison"
+            value={imprisoned.length}
+            tone="amber"
+            active={filter === "prison"}
+            onClick={() => setFilter("prison")}
+          />
+          <Stat
+            Icon={Skull}
+            label="Morts"
+            value={dead.length}
+            tone="rose"
+            active={filter === "dead"}
+            onClick={() => setFilter("dead")}
+          />
         </div>
 
         {/* Récap joueurs filtrés */}
@@ -337,21 +398,32 @@ export function PA6Announces(ctx: FrameContext) {
       {/* Modal testament */}
       {openPlayerId && openPlayer && (
         <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur flex flex-col p-6 max-w-md mx-auto">
-          <button onClick={() => setOpenPlayerId(null)} className="self-start text-sm text-muted-foreground hover:text-foreground transition">
+          <button
+            onClick={() => setOpenPlayerId(null)}
+            className="self-start text-sm text-muted-foreground hover:text-foreground transition"
+          >
             ← retour
           </button>
           <div className="mt-4 text-center">
-            <div className="flex justify-center drop-shadow-lg"><AvatarImg avatar={openAv} size={80} /></div>
+            <div className="flex justify-center drop-shadow-lg">
+              <AvatarImg avatar={openAv} size={80} />
+            </div>
             <h2 className="mt-3 text-2xl font-bold font-display">{openPlayer.pseudo}</h2>
-            <div className="text-xs text-muted-foreground mt-1 uppercase tracking-widest flex items-center justify-center gap-1.5"><Skull className="size-3.5" aria-hidden /> Défunt</div>
+            <div className="text-xs text-muted-foreground mt-1 uppercase tracking-widest flex items-center justify-center gap-1.5">
+              <Skull className="size-3.5" aria-hidden /> Défunt
+            </div>
           </div>
           {openTestament ? (
             <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm italic relative">
-              <div className="absolute -top-2 left-3 px-2 bg-background text-[10px] uppercase tracking-widest text-amber-400">Testament</div>
+              <div className="absolute -top-2 left-3 px-2 bg-background text-[10px] uppercase tracking-widest text-amber-400">
+                Testament
+              </div>
               « {openTestament} »
             </div>
           ) : (
-            <p className="mt-6 text-center text-xs text-muted-foreground italic">Aucun testament laissé.</p>
+            <p className="mt-6 text-center text-xs text-muted-foreground italic">
+              Aucun testament laissé.
+            </p>
           )}
         </div>
       )}
@@ -376,7 +448,12 @@ export function PA6Announces(ctx: FrameContext) {
 
 // ---------- Event card ----------
 export function EventCard({
-  event, roles, accent, isNew, onPlayerClick, className = "",
+  event,
+  roles,
+  accent,
+  isNew,
+  onPlayerClick,
+  className = "",
 }: {
   event: Event;
   roles: Map<string, RoleRow>;
@@ -391,7 +468,9 @@ export function EventCard({
         className={`elevate rounded-lg border p-3 flex items-center gap-3 relative ${className}`}
         style={{ borderColor: accent.border, background: accent.bg }}
       >
-        <div className="grid size-9 shrink-0 place-items-center" style={{ color: accent.text }}>{event.icon}</div>
+        <div className="grid size-9 shrink-0 place-items-center" style={{ color: accent.text }}>
+          {event.icon}
+        </div>
         <div className="flex-1 text-sm font-medium italic">{event.text}</div>
         {isNew && <NewPill />}
       </li>
@@ -405,9 +484,12 @@ export function EventCard({
     const role = roles.get(event.player.role_slug ?? "");
     const faction = cleaned ? "Effacé" : (role?.faction ?? "Inconnue");
     const color = cleaned ? "var(--muted-foreground)" : roleColor(role);
-    const hasTestament = typeof meta.testament === "string" && (meta.testament as string).length > 0;
+    const hasTestament =
+      typeof meta.testament === "string" && (meta.testament as string).length > 0;
     return (
-      <li className={`elevate rounded-lg border border-destructive/30 bg-destructive/5 p-3 relative ${className}`}>
+      <li
+        className={`elevate rounded-lg border border-destructive/30 bg-destructive/5 p-3 relative ${className}`}
+      >
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="size-10 rounded-full bg-card flex items-center justify-center overflow-hidden grayscale opacity-80">
@@ -424,7 +506,9 @@ export function EventCard({
             </div>
             <div className="text-[11px] text-muted-foreground">
               n'est plus en vie{" "}
-              <span className="font-medium" style={{ color }}>· {faction}</span>
+              <span className="font-medium" style={{ color }}>
+                · {faction}
+              </span>
             </div>
           </div>
           {hasTestament && (
@@ -443,7 +527,9 @@ export function EventCard({
 
   // prison
   return (
-    <li className={`elevate rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 relative ${className}`}>
+    <li
+      className={`elevate rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 relative ${className}`}
+    >
       <div className="flex items-center gap-3">
         <div className="relative">
           <div className="size-10 rounded-full bg-card flex items-center justify-center overflow-hidden">
@@ -473,14 +559,32 @@ function NewPill() {
   );
 }
 
-function Stat({ Icon, label, value, tone, active, onClick }: { Icon: LucideIcon; label: string; value: number; tone: "emerald" | "amber" | "rose"; active?: boolean; onClick?: () => void }) {
+function Stat({
+  Icon,
+  label,
+  value,
+  tone,
+  active,
+  onClick,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  value: number;
+  tone: "emerald" | "amber" | "rose";
+  active?: boolean;
+  onClick?: () => void;
+}) {
   const styles = {
     emerald: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
     amber: "border-amber-500/30 bg-amber-500/5 text-amber-300",
     rose: "border-destructive/30 bg-destructive/5 text-destructive",
   }[tone];
   const activeRing = active
-    ? { emerald: "ring-2 ring-emerald-400/70", amber: "ring-2 ring-amber-400/70", rose: "ring-2 ring-destructive/70" }[tone]
+    ? {
+        emerald: "ring-2 ring-emerald-400/70",
+        amber: "ring-2 ring-amber-400/70",
+        rose: "ring-2 ring-destructive/70",
+      }[tone]
     : "opacity-70 hover:opacity-100";
   return (
     <button
@@ -498,7 +602,10 @@ function Stat({ Icon, label, value, tone, active, onClick }: { Icon: LucideIcon;
 }
 
 function PlayersRecap({
-  players, roles, filter, onPlayerClick,
+  players,
+  roles,
+  filter,
+  onPlayerClick,
 }: {
   players: AnyPlayer[];
   roles: Map<string, RoleRow>;
@@ -506,7 +613,12 @@ function PlayersRecap({
   onPlayerClick: (id: string) => void;
 }) {
   if (players.length === 0) {
-    const empty = filter === "alive" ? "Aucun survivant." : filter === "prison" ? "Personne en prison." : "Aucun mort.";
+    const empty =
+      filter === "alive"
+        ? "Aucun survivant."
+        : filter === "prison"
+          ? "Personne en prison."
+          : "Aucun mort.";
     return (
       <div className="rounded-lg border border-dashed border-border bg-card/30 p-3 text-center text-[11px] text-muted-foreground italic">
         {empty}
@@ -524,7 +636,10 @@ function PlayersRecap({
         if (filter === "dead") {
           color = cleaned ? "var(--muted-foreground)" : roleColor(role);
         }
-        const hasTestament = filter === "dead" && typeof meta.testament === "string" && (meta.testament as string).length > 0;
+        const hasTestament =
+          filter === "dead" &&
+          typeof meta.testament === "string" &&
+          (meta.testament as string).length > 0;
         return (
           <li key={p.id}>
             <button
@@ -533,7 +648,9 @@ function PlayersRecap({
               disabled={!hasTestament}
               className={`w-full flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-2 py-1.5 ${hasTestament ? "hover:bg-card/70 active:scale-95 transition" : "cursor-default"}`}
             >
-              <span className={`inline-flex size-7 rounded-full overflow-hidden bg-background border border-border shrink-0 ${filter === "dead" ? "grayscale opacity-80" : ""}`}>
+              <span
+                className={`inline-flex size-7 rounded-full overflow-hidden bg-background border border-border shrink-0 ${filter === "dead" ? "grayscale opacity-80" : ""}`}
+              >
                 <AvatarImg avatar={av} size={28} />
               </span>
               <span className="min-w-0 flex-1 text-left">

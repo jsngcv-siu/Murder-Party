@@ -46,8 +46,12 @@ export function QASeverityCounts({
       title="Ouvrir le rapport QA"
     >
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Rapport QA</span>
-        <span className="text-[10px] text-muted-foreground">{findings.length} problème{findings.length > 1 ? "s" : ""}</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          Rapport QA
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {findings.length} problème{findings.length > 1 ? "s" : ""}
+        </span>
       </div>
       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
         {SEVERITY_ORDER.map((s) => (
@@ -76,14 +80,20 @@ function toMarkdown(findings: QAFinding[]): string {
     else games.set(code, [f]);
   }
   const ordered = [...games.entries()].sort(
-    (a, b) => Math.max(...b[1].map((i) => i.lastSeenAt)) - Math.max(...a[1].map((i) => i.lastSeenAt)),
+    (a, b) =>
+      Math.max(...b[1].map((i) => i.lastSeenAt)) - Math.max(...a[1].map((i) => i.lastSeenAt)),
   );
   for (const [code, items] of ordered) {
     lines.push(`# Partie ${code} (${items.length})`, "");
     for (const cat of CATEGORY_ORDER) {
-      const inCat = items.filter((f) => f.category === cat).sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
+      const inCat = items
+        .filter((f) => f.category === cat)
+        .sort((a, b) => sevRank(a.severity) - sevRank(b.severity));
       if (inCat.length === 0) continue;
-      lines.push(`## ${CATEGORY_META[cat].emoji} ${CATEGORY_META[cat].label} (${inCat.length})`, "");
+      lines.push(
+        `## ${CATEGORY_META[cat].emoji} ${CATEGORY_META[cat].label} (${inCat.length})`,
+        "",
+      );
       for (const f of inCat) {
         const sev = SEVERITY_META[f.severity];
         const role = f.roleName ? ` · _${f.roleName}_` : "";
@@ -99,13 +109,7 @@ function toMarkdown(findings: QAFinding[]): string {
 }
 
 // ── Full report view (modal body) ──────────────────────────────────────────
-export function QAReport({
-  findings,
-  onClear,
-}: {
-  findings: QAFinding[];
-  onClear?: () => void;
-}) {
+export function QAReport({ findings, onClear }: { findings: QAFinding[]; onClear?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   // Journal PAR PARTIE : on regroupe d'abord par code de partie (la plus récente
@@ -128,7 +132,9 @@ export function QAReport({
           cat,
           items: items
             .filter((f) => f.category === cat)
-            .sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.lastSeenAt - a.lastSeenAt),
+            .sort(
+              (a, b) => sevRank(a.severity) - sevRank(b.severity) || b.lastSeenAt - a.lastSeenAt,
+            ),
         })).filter((g) => g.items.length > 0),
       }))
       .sort((a, b) => b.last - a.last);
@@ -156,7 +162,8 @@ export function QAReport({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs text-muted-foreground">
-          {findings.length} problème{findings.length > 1 ? "s" : ""} · {byGame.length} partie{byGame.length > 1 ? "s" : ""} · récente en tête
+          {findings.length} problème{findings.length > 1 ? "s" : ""} · {byGame.length} partie
+          {byGame.length > 1 ? "s" : ""} · récente en tête
         </div>
         <div className="flex items-center gap-2">
           {onClear && (
@@ -171,7 +178,15 @@ export function QAReport({
             onClick={copy}
             className="px-2 py-1 text-[11px] rounded border border-gold/40 text-gold hover:bg-gold/10 flex items-center gap-1.5"
           >
-            {copied ? <><Check className="size-3" /> Copié</> : <><ClipboardCopy className="size-3" /> Copier (Markdown)</>}
+            {copied ? (
+              <>
+                <Check className="size-3" /> Copié
+              </>
+            ) : (
+              <>
+                <ClipboardCopy className="size-3" /> Copier (Markdown)
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -180,11 +195,21 @@ export function QAReport({
         <div key={game.code} className="rounded-lg border border-border/60 bg-background/30 p-2.5">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-gold font-semibold">Partie</span>
-              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/30">{game.code}</span>
-              {gi === 0 && <span className="text-[9px] uppercase tracking-wider text-emerald-300/80">la plus récente</span>}
+              <span className="text-[10px] uppercase tracking-widest text-gold font-semibold">
+                Partie
+              </span>
+              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/30">
+                {game.code}
+              </span>
+              {gi === 0 && (
+                <span className="text-[9px] uppercase tracking-wider text-emerald-300/80">
+                  la plus récente
+                </span>
+              )}
             </div>
-            <span className="text-[10px] text-muted-foreground">{game.items.length} problème{game.items.length > 1 ? "s" : ""}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {game.items.length} problème{game.items.length > 1 ? "s" : ""}
+            </span>
           </div>
           <div className="space-y-3">
             {game.cats.map((g) => (
@@ -212,18 +237,23 @@ function FindingCard({ f }: { f: QAFinding }) {
   const sev = SEVERITY_META[f.severity];
   return (
     <div className={`rounded-lg border px-3 py-2 ${SEVERITY_TONE[f.severity]}`}>
-      <button onClick={() => setOpen((v) => !v)} className="w-full text-left flex items-start gap-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left flex items-start gap-2"
+      >
         <span className="mt-0.5 shrink-0">{sev.emoji}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-medium text-foreground/95 leading-snug">{f.title}</span>
             <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
-              t{f.tour}/{f.phase}{f.count > 1 ? ` ×${f.count}` : ""}
+              t{f.tour}/{f.phase}
+              {f.count > 1 ? ` ×${f.count}` : ""}
             </span>
           </div>
           {f.roleName && (
             <div className="text-[10px] text-muted-foreground mt-0.5">
-              Rôle : {f.roleName}{f.botPseudo ? ` · ${f.botPseudo}` : ""}
+              Rôle : {f.roleName}
+              {f.botPseudo ? ` · ${f.botPseudo}` : ""}
             </div>
           )}
         </div>

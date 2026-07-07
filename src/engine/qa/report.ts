@@ -28,7 +28,10 @@ if (_hot) {
   _hot.data.listeners = listeners;
 }
 const isLoaded = () => (_hot ? _hot.data.loaded === true : _localLoaded);
-const setLoaded = () => { if (_hot) _hot.data.loaded = true; else _localLoaded = true; };
+const setLoaded = () => {
+  if (_hot) _hot.data.loaded = true;
+  else _localLoaded = true;
+};
 let _localLoaded = false;
 
 let _seq = 0;
@@ -80,7 +83,11 @@ export function initReport(_gameId?: string) {
         if (k && k !== STORE_KEY && k.startsWith(LEGACY_PREFIX)) legacy.push(k);
       }
       for (const k of legacy) {
-        try { mergeArray(JSON.parse(localStorage.getItem(k) ?? "[]")); } catch { /* skip */ }
+        try {
+          mergeArray(JSON.parse(localStorage.getItem(k) ?? "[]"));
+        } catch {
+          /* skip */
+        }
         localStorage.removeItem(k);
       }
       if (legacy.length) persist();
@@ -116,7 +123,13 @@ export function addFinding(input: FindingInput): boolean {
     emit();
     return false;
   }
-  const finding: QAFinding = { ...input, id: nextId(), firstSeenAt: now, lastSeenAt: now, count: 1 };
+  const finding: QAFinding = {
+    ...input,
+    id: nextId(),
+    firstSeenAt: now,
+    lastSeenAt: now,
+    count: 1,
+  };
   findings.set(input.dedupeKey, finding);
   persist();
   emit();
@@ -137,7 +150,13 @@ export function addFindings(inputs: FindingInput[]): number {
       existing.phase = input.phase;
       if (input.evidence) existing.evidence = input.evidence;
     } else {
-      findings.set(input.dedupeKey, { ...input, id: nextId(), firstSeenAt: now, lastSeenAt: now, count: 1 });
+      findings.set(input.dedupeKey, {
+        ...input,
+        id: nextId(),
+        firstSeenAt: now,
+        lastSeenAt: now,
+        count: 1,
+      });
       added += 1;
     }
   }

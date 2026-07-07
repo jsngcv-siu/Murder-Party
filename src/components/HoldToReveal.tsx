@@ -56,13 +56,20 @@ export function HoldToReveal({
   // Re-masque dès que l'app n'est plus au premier plan.
   useEffect(() => {
     if (!revealed) return;
-    const onVis = () => { if (document.visibilityState === "hidden") setRevealed(false); };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") setRevealed(false);
+    };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [revealed]);
 
   // Nettoyage du rAF au démontage.
-  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
 
   if (revealed) return <>{children}</>;
 
@@ -79,7 +86,12 @@ export function HoldToReveal({
       onPointerUp={stopHold}
       onPointerLeave={stopHold}
       onPointerCancel={stopHold}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setRevealed(true); } }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setRevealed(true);
+        }
+      }}
       style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
       className="relative w-full flex flex-col items-center justify-center text-center px-6 py-14 min-h-full select-none cursor-pointer overflow-hidden"
       aria-label="Maintenir pour révéler ta capacité"
@@ -88,16 +100,31 @@ export function HoldToReveal({
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 85% 55% at 50% 40%, oklch(0.24 0.06 60 / 0.6), transparent 72%)" }}
+        style={{
+          background:
+            "radial-gradient(ellipse 85% 55% at 50% 40%, oklch(0.24 0.06 60 / 0.6), transparent 72%)",
+        }}
       />
 
       {/* Empreintes fantômes en fond — motif signature de la DA, opacité faible,
           disposées autour du sceau central. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <Fingerprint className="absolute left-[6%] top-[14%] size-28 -rotate-12 opacity-[0.05]" style={{ color: "var(--primary)" }} />
-        <Fingerprint className="absolute right-[4%] top-[26%] size-32 rotate-[14deg] opacity-[0.055]" style={{ color: "oklch(0.70 0.08 75)" }} />
-        <Fingerprint className="absolute left-[14%] bottom-[10%] size-24 rotate-6 opacity-[0.045]" style={{ color: "oklch(0.70 0.08 75)" }} />
-        <Fingerprint className="absolute right-[12%] bottom-[14%] size-20 -rotate-[8deg] opacity-[0.05]" style={{ color: "var(--primary)" }} />
+        <Fingerprint
+          className="absolute left-[6%] top-[14%] size-28 -rotate-12 opacity-[0.05]"
+          style={{ color: "var(--primary)" }}
+        />
+        <Fingerprint
+          className="absolute right-[4%] top-[26%] size-32 rotate-[14deg] opacity-[0.055]"
+          style={{ color: "oklch(0.70 0.08 75)" }}
+        />
+        <Fingerprint
+          className="absolute left-[14%] bottom-[10%] size-24 rotate-6 opacity-[0.045]"
+          style={{ color: "oklch(0.70 0.08 75)" }}
+        />
+        <Fingerprint
+          className="absolute right-[12%] bottom-[14%] size-20 -rotate-[8deg] opacity-[0.05]"
+          style={{ color: "var(--primary)" }}
+        />
       </div>
 
       {/* En-tête « dossier confidentiel » */}
@@ -116,10 +143,19 @@ export function HoldToReveal({
 
       {/* Sceau / cadran de laiton à presser — agrandi pour devenir la cible
           principale du geste « pose ton pouce ». */}
-      <div className={`relative mt-9 grid place-items-center size-44 rounded-full ${holding ? "" : "pulse-gold"}`}>
+      <div
+        className={`relative mt-9 grid place-items-center size-44 rounded-full ${holding ? "" : "pulse-gold"}`}
+      >
         {/* Anneau de progression */}
         <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 80 80" aria-hidden>
-          <circle cx="40" cy="40" r={R} fill="none" stroke="oklch(0.42 0.05 60 / 0.6)" strokeWidth="3" />
+          <circle
+            cx="40"
+            cy="40"
+            r={R}
+            fill="none"
+            stroke="oklch(0.42 0.05 60 / 0.6)"
+            strokeWidth="3"
+          />
           <circle
             cx="40"
             cy="40"
@@ -130,7 +166,10 @@ export function HoldToReveal({
             strokeLinecap="round"
             strokeDasharray={CIRC}
             strokeDashoffset={CIRC * (1 - progress)}
-            style={{ filter: "drop-shadow(0 0 5px var(--primary))", transition: holding ? "none" : "stroke-dashoffset 0.2s" }}
+            style={{
+              filter: "drop-shadow(0 0 5px var(--primary))",
+              transition: holding ? "none" : "stroke-dashoffset 0.2s",
+            }}
           />
         </svg>
 
@@ -138,19 +177,27 @@ export function HoldToReveal({
         <span
           className="grid place-items-center size-36 rounded-full transition-transform"
           style={{
-            background: "radial-gradient(circle at 38% 30%, oklch(0.32 0.04 58), oklch(0.15 0.02 40) 78%)",
+            background:
+              "radial-gradient(circle at 38% 30%, oklch(0.32 0.04 58), oklch(0.15 0.02 40) 78%)",
             boxShadow:
               "inset 0 0 0 1px oklch(0.62 0.12 78 / 0.45), inset 0 7px 16px oklch(0 0 0 / 0.65), 0 10px 24px -10px oklch(0 0 0 / 0.85)",
             color: "var(--primary)",
             transform: holding ? "scale(0.96)" : "scale(1)",
           }}
         >
-          <Fingerprint className="size-16" style={{ filter: holding ? "drop-shadow(0 0 8px var(--primary))" : undefined }} aria-hidden />
+          <Fingerprint
+            className="size-16"
+            style={{ filter: holding ? "drop-shadow(0 0 8px var(--primary))" : undefined }}
+            aria-hidden
+          />
         </span>
       </div>
 
       {/* Instruction principale */}
-      <div className="relative mt-8 text-base font-bold text-glow-gold" style={{ fontFamily: "var(--font-display)" }}>
+      <div
+        className="relative mt-8 text-base font-bold text-glow-gold"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
         {hint}
       </div>
 

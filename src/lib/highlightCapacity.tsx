@@ -8,28 +8,36 @@ type Variant = "paper" | "dark";
 
 // Teintes lisibles sur papier crème (L ≈ 0.45, chroma soutenu).
 const PAPER = {
-  time:    "oklch(0.46 0.13 68)",
-  kill:    "oklch(0.50 0.21 25)",
-  guard:   "oklch(0.43 0.15 150)",
-  info:    "oklch(0.45 0.16 252)",
+  time: "oklch(0.46 0.13 68)",
+  kill: "oklch(0.50 0.21 25)",
+  guard: "oklch(0.43 0.15 150)",
+  info: "oklch(0.45 0.16 252)",
   subvert: "oklch(0.46 0.19 320)",
   control: "oklch(0.49 0.16 48)",
 } as const;
 
 // Teintes lumineuses sur fond sombre (L ≈ 0.75).
 const DARK = {
-  time:    "oklch(0.82 0.14 75)",
-  kill:    "oklch(0.70 0.20 25)",
-  guard:   "oklch(0.75 0.16 155)",
-  info:    "oklch(0.74 0.14 240)",
+  time: "oklch(0.82 0.14 75)",
+  kill: "oklch(0.70 0.20 25)",
+  guard: "oklch(0.75 0.16 155)",
+  info: "oklch(0.74 0.14 240)",
   subvert: "oklch(0.76 0.16 320)",
   control: "oklch(0.81 0.15 62)",
 } as const;
 
 const GROUP_KEY: Record<string, keyof typeof PAPER | ""> = {
-  freq: "time", kill: "kill", guard: "guard", info: "info",
-  subvert: "subvert", control: "control", civil: "info",
-  mechant: "kill", vampire: "subvert", neutre: "subvert", num: "",
+  freq: "time",
+  kill: "kill",
+  guard: "guard",
+  info: "info",
+  subvert: "subvert",
+  control: "control",
+  civil: "info",
+  mechant: "kill",
+  vampire: "subvert",
+  neutre: "subvert",
+  num: "",
 };
 
 // Alternative « mot entier » : démarre sur une frontière de mot (pas de lettre
@@ -54,7 +62,10 @@ const CAPACITY_RE = new RegExp(
   "giu",
 );
 
-export function highlightCapacity(text: string | null | undefined, variant: Variant = "paper"): ReactNode {
+export function highlightCapacity(
+  text: string | null | undefined,
+  variant: Variant = "paper",
+): ReactNode {
   if (!text) return text ?? null;
   const palette = variant === "dark" ? DARK : PAPER;
   const out: ReactNode[] = [];

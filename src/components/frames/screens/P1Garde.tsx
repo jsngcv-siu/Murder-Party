@@ -12,7 +12,8 @@ export function P1Garde({ me, game, players }: FrameContext) {
   const phase = phaseLabel(game.current_phase, game.current_tour);
 
   const statuses: { Icon: LucideIcon; label: string; tone: string }[] = [];
-  if (meta.poisoned) statuses.push({ Icon: FlaskConical, label: "Empoisonné", tone: "text-destructive" });
+  if (meta.poisoned)
+    statuses.push({ Icon: FlaskConical, label: "Empoisonné", tone: "text-destructive" });
   if (meta.drunk) statuses.push({ Icon: Wine, label: "Ivre", tone: "text-amber-400" });
   if (meta.protected_until_cycle && (meta.protected_until_cycle as number) >= game.current_tour)
     statuses.push({ Icon: ShieldCheck, label: "Protégé", tone: "text-[oklch(0.72_0.13_230)]" });
@@ -33,8 +34,7 @@ export function P1Garde({ me, game, players }: FrameContext) {
         <div
           className="size-32 overflow-hidden bg-card flex items-center justify-center"
           style={{
-            boxShadow:
-              "0 0 0 2px oklch(0.80 0.15 78 / 0.45), 0 12px 32px -8px oklch(0 0 0 / 0.7)",
+            boxShadow: "0 0 0 2px oklch(0.80 0.15 78 / 0.45), 0 12px 32px -8px oklch(0 0 0 / 0.7)",
           }}
         >
           <AvatarImg avatar={avatar} size={128} rounded="none" />

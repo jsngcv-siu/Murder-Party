@@ -46,11 +46,14 @@ export function useServerTimeOffset(): number {
       if (!off) setOffset(o);
     });
     // Re-sync toutes les 5 minutes pour éviter la dérive longue.
-    const id = setInterval(() => {
-      void fetchOffset().then((o) => {
-        if (!off) setOffset(o);
-      });
-    }, 5 * 60 * 1000);
+    const id = setInterval(
+      () => {
+        void fetchOffset().then((o) => {
+          if (!off) setOffset(o);
+        });
+      },
+      5 * 60 * 1000,
+    );
     return () => {
       off = true;
       clearInterval(id);

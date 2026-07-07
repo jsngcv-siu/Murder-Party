@@ -20,16 +20,18 @@ export type RoleFrequency = {
 
 const BRACKETS = [7, 10, 14];
 
-function avg(a: number, b: number) { return (a + b) / 2; }
+function avg(a: number, b: number) {
+  return (a + b) / 2;
+}
 
 function estimateOptional(role: RoleRow, all: RoleRow[], playerCount: number): number {
   const pool = all.filter(
     (r) =>
-      r.faction === role.faction
-      && r.type === role.type
-      && r.emergent === false
-      && r.is_disabled !== true
-      && (r.min_players ?? 6) <= playerCount,
+      r.faction === role.faction &&
+      r.type === role.type &&
+      r.emergent === false &&
+      r.is_disabled !== true &&
+      (r.min_players ?? 6) <= playerCount,
   );
   const weight = Number(role.draw_weight ?? 1) || 0;
   if (weight <= 0) return 0;
@@ -43,9 +45,12 @@ function estimateOptional(role: RoleRow, all: RoleRow[], playerCount: number): n
     if (role.type === "TUEUR") {
       // Slot tueur méchant principal : 1 seul slot, tirage pondéré entre tous les TUEUR Méchant éligibles.
       const tueurPool = all.filter(
-        (r) => r.faction === "Méchant" && r.type === "TUEUR"
-          && r.emergent === false && r.is_disabled !== true
-          && (r.min_players ?? 6) <= playerCount,
+        (r) =>
+          r.faction === "Méchant" &&
+          r.type === "TUEUR" &&
+          r.emergent === false &&
+          r.is_disabled !== true &&
+          (r.min_players ?? 6) <= playerCount,
       );
       const totalT = tueurPool.reduce((s, r) => s + (Number(r.draw_weight ?? 1) || 0), 0);
       return totalT > 0 ? weight / totalT : 0;
@@ -65,8 +70,14 @@ function estimateOptional(role: RoleRow, all: RoleRow[], playerCount: number): n
     if (nNeutres === 0) return 0;
     const typesPresent = new Set(
       all
-        .filter((r) => r.faction === "Neutre" && r.is_disabled !== true && r.emergent === false
-          && (r.min_players ?? 6) <= playerCount && r.slug !== "chasseur_de_vampire")
+        .filter(
+          (r) =>
+            r.faction === "Neutre" &&
+            r.is_disabled !== true &&
+            r.emergent === false &&
+            (r.min_players ?? 6) <= playerCount &&
+            r.slug !== "chasseur_de_vampire",
+        )
         .map((r) => r.type ?? ""),
     );
     const sumW = Array.from(typesPresent).reduce((s, t) => s + (NEUTRE_TYPE_WEIGHTS[t] ?? 0), 0);
@@ -79,7 +90,10 @@ function estimateOptional(role: RoleRow, all: RoleRow[], playerCount: number): n
     // Slots forcés avant le tirage civil : Tueur principal + base Assistant + Majordome.
     // (L'Exécuteur n'est plus MUST — il est tiré comme civil TUEUR ordinaire.)
     const mustCount = 3;
-    const remaining = Math.max(0, playerCount - mustCount - acolytesCountFor(playerCount) - neutresCountFor(playerCount));
+    const remaining = Math.max(
+      0,
+      playerCount - mustCount - acolytesCountFor(playerCount) - neutresCountFor(playerCount),
+    );
     const q = civilQuotasFor(playerCount)[role.type ?? ""];
     if (!q) return 0;
     expectedSlots = Math.min(avg(q.min, q.max), remaining);
@@ -114,7 +128,11 @@ export function computeRoleFrequency(role: RoleRow, all: RoleRow[]): RoleFrequen
       level: "always",
       label: "Toujours en jeu",
       hint: "Rôle MUST — présent à chaque partie (dès min_players atteint).",
-      brackets: BRACKETS.map((n) => ({ players: n, pct: n >= (role.min_players ?? 6) ? 1 : 0, label: "100%" })),
+      brackets: BRACKETS.map((n) => ({
+        players: n,
+        pct: n >= (role.min_players ?? 6) ? 1 : 0,
+        label: "100%",
+      })),
     };
   }
   if (role.presence === "MUST_CONDITIONAL") {
@@ -122,7 +140,11 @@ export function computeRoleFrequency(role: RoleRow, all: RoleRow[]): RoleFrequen
       level: "always",
       label: "Quasi toujours",
       hint: "Rôle MUST conditionnel — présent dans la quasi-totalité des parties.",
-      brackets: BRACKETS.map((n) => ({ players: n, pct: n >= (role.min_players ?? 6) ? 1 : 0, label: "100%" })),
+      brackets: BRACKETS.map((n) => ({
+        players: n,
+        pct: n >= (role.min_players ?? 6) ? 1 : 0,
+        label: "100%",
+      })),
     };
   }
 
@@ -132,18 +154,30 @@ export function computeRoleFrequency(role: RoleRow, all: RoleRow[]): RoleFrequen
     return { players: n, pct: p, label: `${Math.round(p * 100)}%` };
   });
 
-  const avgPct = brackets.filter((b) => b.pct > 0).reduce((s, b) => s + b.pct, 0) / Math.max(1, brackets.filter((b) => b.pct > 0).length || 1);
+  const avgPct =
+    brackets.filter((b) => b.pct > 0).reduce((s, b) => s + b.pct, 0) /
+    Math.max(1, brackets.filter((b) => b.pct > 0).length || 1);
 
   let level: RoleFrequency["level"];
   let label: string;
-  if (avgPct === 0 || brackets.every((b) => b.pct === 0)) { level = "never"; label = "Jamais tiré"; }
-  else if (avgPct >= 0.6) { level = "frequent"; label = "Fréquent"; }
-  else if (avgPct >= 0.25) { level = "common"; label = "Occasionnel"; }
-  else { level = "rare"; label = "Rare"; }
+  if (avgPct === 0 || brackets.every((b) => b.pct === 0)) {
+    level = "never";
+    label = "Jamais tiré";
+  } else if (avgPct >= 0.6) {
+    level = "frequent";
+    label = "Fréquent";
+  } else if (avgPct >= 0.25) {
+    level = "common";
+    label = "Occasionnel";
+  } else {
+    level = "rare";
+    label = "Rare";
+  }
 
-  const hint = level === "never"
-    ? "Aucun slot ne peut accueillir ce rôle (quotas, draw_weight=0 ou conflit slot Tueur)."
-    : `Estimation basée sur les quotas (acolytes/civils/neutres) et le draw_weight. Moyenne ≈ ${Math.round(avgPct * 100)}% sur les tailles 7/10/14.`;
+  const hint =
+    level === "never"
+      ? "Aucun slot ne peut accueillir ce rôle (quotas, draw_weight=0 ou conflit slot Tueur)."
+      : `Estimation basée sur les quotas (acolytes/civils/neutres) et le draw_weight. Moyenne ≈ ${Math.round(avgPct * 100)}% sur les tailles 7/10/14.`;
 
   return { level, label, hint, brackets };
 }

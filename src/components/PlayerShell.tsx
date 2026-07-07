@@ -10,7 +10,19 @@ import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import type { FrameContext } from "@/components/frames/registry";
 import { phasePalette } from "@/lib/avatars";
-import { Backpack, Check, Clock, Feather, Lock, Megaphone, Pause, Settings, Skull, Target, Zap } from "lucide-react";
+import {
+  Backpack,
+  Check,
+  Clock,
+  Feather,
+  Lock,
+  Megaphone,
+  Pause,
+  Settings,
+  Skull,
+  Target,
+  Zap,
+} from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
@@ -24,11 +36,14 @@ import { PA2Capability as P6Capability } from "@/components/frames/screens/PA2Ca
 import { PA3Suspicions as P4Suspicions } from "@/components/frames/screens/PA3Suspicions";
 import { PA4Notebook as P3Journal } from "@/components/frames/screens/PA4Notebook";
 import { P15Testament } from "@/components/frames/screens/P15Testament";
-import { PA6Announces, useAnnouncementsUnread, collectAnnouncements } from "@/components/frames/screens/PA6Announces";
+import {
+  PA6Announces,
+  useAnnouncementsUnread,
+  collectAnnouncements,
+} from "@/components/frames/screens/PA6Announces";
 import { readInventory, itemFaction, type ItemOrigin } from "@/engine/items";
 import { gameToast } from "@/lib/gameToast";
 import type { Tone } from "@/lib/tones";
-
 
 import { P11HelpMenu } from "@/components/frames/screens/P11HelpMenu";
 import { V1Vote as P7Vote } from "@/components/frames/screens/V1Vote";
@@ -38,7 +53,13 @@ import { C1Council as P14Council } from "@/components/frames/screens/C1Council";
 // CH1LoupsChat retiré du shell : le chat Méchants vit dans l'onglet Capacité (PA2).
 import { GM1Dashboard as M1Dashboard } from "@/components/frames/screens/GM1Dashboard";
 import { E1EndGame } from "@/components/frames/screens/E1EndGame";
-import { T1Transition, T2VoteIntro, FreeEntry, AnnonceScreen, INTRO_MS } from "@/components/frames/screens/T1Transition";
+import {
+  T1Transition,
+  T2VoteIntro,
+  FreeEntry,
+  AnnonceScreen,
+  INTRO_MS,
+} from "@/components/frames/screens/T1Transition";
 import { O5Reveal } from "@/components/frames/screens/O5Reveal";
 import { PlayerEventModal } from "@/components/PlayerEventModal";
 import { DiceDuelModal } from "@/components/DiceDuelModal";
@@ -90,21 +111,38 @@ export function PlayerShell({
   const navigate = useNavigate();
 
   // Handlers du menu Paramètres : disponibles uniquement hors démo.
-  const handleLeave = embedded ? undefined : () => {
-    setHelpOpen(false);
-    void navigate({ to: "/" });
-  };
-  const handleQuit = embedded ? undefined : () => {
-    if (!confirm("Quitter définitivement la partie ? Tu ne pourras pas la reprendre automatiquement.")) return;
-    try { window.localStorage.removeItem("mp_last_game"); } catch { /* noop */ }
-    setHelpOpen(false);
-    void navigate({ to: "/" });
-  };
+  const handleLeave = embedded
+    ? undefined
+    : () => {
+        setHelpOpen(false);
+        void navigate({ to: "/" });
+      };
+  const handleQuit = embedded
+    ? undefined
+    : () => {
+        if (
+          !confirm(
+            "Quitter définitivement la partie ? Tu ne pourras pas la reprendre automatiquement.",
+          )
+        )
+          return;
+        try {
+          window.localStorage.removeItem("mp_last_game");
+        } catch {
+          /* noop */
+        }
+        setHelpOpen(false);
+        void navigate({ to: "/" });
+      };
 
-
-  const setTab = (t: Tab) => { setTabState(t); onTabChange?.(t); };
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    onTabChange?.(t);
+  };
   const tabRef = useRef<Tab>(tab);
-  useEffect(() => { tabRef.current = tab; }, [tab]);
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
 
   // ─── Piège du bouton retour (Android / iOS) ───
   // Tant qu'on est en partie, le retour système ne doit JAMAIS faire quitter
@@ -117,7 +155,13 @@ export function PlayerShell({
     if (game.status !== "in_progress") return;
     if (typeof window === "undefined") return;
     const SENTINEL = { __mpGameTrap: true } as const;
-    const pushTrap = () => { try { window.history.pushState(SENTINEL, ""); } catch { /* noop */ } };
+    const pushTrap = () => {
+      try {
+        window.history.pushState(SENTINEL, "");
+      } catch {
+        /* noop */
+      }
+    };
     // Buffer initial : plusieurs entrées pour absorber un double-back rapide.
     for (let i = 0; i < 3; i++) pushTrap();
     const onPop = () => {
@@ -165,13 +209,25 @@ export function PlayerShell({
   useEffect(() => {
     if (disableHostDrivers || !isHost) return;
     if (game.status !== "in_progress" || game.current_tour !== 1 || game.current_phase !== "free") {
-      restampedRef.current = true; return;
+      restampedRef.current = true;
+      return;
     }
     if (pendingReveals === 0 && !restampedRef.current) {
       restampedRef.current = true;
-      void supabase.from("games").update({ phase_started_at: new Date().toISOString() }).eq("id", game.id);
+      void supabase
+        .from("games")
+        .update({ phase_started_at: new Date().toISOString() })
+        .eq("id", game.id);
     }
-  }, [pendingReveals, isHost, disableHostDrivers, game.status, game.current_phase, game.current_tour, game.id]);
+  }, [
+    pendingReveals,
+    isHost,
+    disableHostDrivers,
+    game.status,
+    game.current_phase,
+    game.current_tour,
+    game.id,
+  ]);
 
   // Auto-tick + bot driver — pilotés par l'host, sauf en démo.
   // En Mode MJ (un MJ + son dashboard), AUCUN avancement automatique : c'est le
@@ -197,7 +253,10 @@ export function PlayerShell({
       getConfig: () => defaultBotConfig,
       embodiedPlayerId: () => me.id,
     });
-    return () => { d?.stop(); stopBotDriver(); };
+    return () => {
+      d?.stop();
+      stopBotDriver();
+    };
   }, [disableHostDrivers, isHost, game.status, game.id, me.id, waitingStart]);
 
   useEffect(() => {
@@ -211,13 +270,22 @@ export function PlayerShell({
     // Live : recharge la liste dès qu'un rôle est ajouté/modifié/supprimé en base.
     const ch = supabase
       .channel("roles-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "roles" }, () => void loadRoles())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "roles" },
+        () => void loadRoles(),
+      )
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      void supabase.removeChannel(ch);
+    };
   }, []);
 
   useEffect(() => {
-    if (skipReveal) { setShowReveal(false); return; }
+    if (skipReveal) {
+      setShowReveal(false);
+      return;
+    }
     if (!me.role_slug) return;
     const meta = me.role_meta as Record<string, unknown>;
     if (!meta?.revealed_at) setShowReveal(true);
@@ -229,7 +297,13 @@ export function PlayerShell({
 
   useEffect(() => {
     const ff = game.forced_frame;
-    if (ff === "capacity" || ff === "journal" || ff === "suspicions" || ff === "cemetery" || ff === "testament") {
+    if (
+      ff === "capacity" ||
+      ff === "journal" ||
+      ff === "suspicions" ||
+      ff === "cemetery" ||
+      ff === "testament"
+    ) {
       setTab(ff as Tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,18 +326,34 @@ export function PlayerShell({
   useEffect(() => {
     let cancelled = false;
     async function check() {
-      const { data } = await supabase.from("role_actions")
+      const { data } = await supabase
+        .from("role_actions")
         .select("id")
-        .eq("game_id", game.id).eq("actor_player_id", me.id)
+        .eq("game_id", game.id)
+        .eq("actor_player_id", me.id)
         .eq("tour", game.current_tour)
-        .limit(1).maybeSingle();
+        .limit(1)
+        .maybeSingle();
       if (!cancelled) setCapacityUsedThisTour(!!data);
     }
     void check();
-    const ch = supabase.channel(`cap-used-${me.id}-${game.current_tour}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "role_actions", filter: `actor_player_id=eq.${me.id}` }, () => void check())
+    const ch = supabase
+      .channel(`cap-used-${me.id}-${game.current_tour}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "role_actions",
+          filter: `actor_player_id=eq.${me.id}`,
+        },
+        () => void check(),
+      )
       .subscribe();
-    return () => { cancelled = true; void supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(ch);
+    };
   }, [game.id, me.id, game.current_tour]);
 
   // Badge "Annonces" + UNE notif volante (carte GameToast) quand une nouvelle
@@ -280,10 +370,12 @@ export function PlayerShell({
     if (tab === "cemetery") return;
     if (game.current_phase !== "free" && game.current_phase !== "gathering") return;
     const events = collectAnnouncements(players);
-    const idOf = (e: typeof events[number]) =>
-      e.kind === "special" ? `s-${e.tour}-${e.text}`
-      : e.kind === "death" ? `d-${e.tour}-${e.player.id}`
-      : `p-${e.tour}-${e.player.id}`;
+    const idOf = (e: (typeof events)[number]) =>
+      e.kind === "special"
+        ? `s-${e.tour}-${e.text}`
+        : e.kind === "death"
+          ? `d-${e.tour}-${e.player.id}`
+          : `p-${e.tour}-${e.player.id}`;
     // Lancement (révélation du rôle / attente du départ) : on ne fait PAS surgir
     // les annonces initiales (ex. « des indices ont été distribués »). Elles
     // vivent dans l'onglet Annonces. On les marque "toastées" pour qu'elles ne
@@ -319,18 +411,40 @@ export function PlayerShell({
       const e = toastable[toastable.length - 1];
       const extra = toastable.length - 1;
       let tone: Tone, icon: ReactNode, title: string;
-      if (e.kind === "special") { tone = "fuchsia"; icon = e.icon; title = e.text; }
-      else if (e.kind === "death") { tone = "rose"; icon = <Skull aria-hidden />; title = `${e.player.pseudo} n'est plus en vie.`; }
-      else { tone = "orange"; icon = <Lock aria-hidden />; title = `${e.player.pseudo} part en prison.`; }
+      if (e.kind === "special") {
+        tone = "fuchsia";
+        icon = e.icon;
+        title = e.text;
+      } else if (e.kind === "death") {
+        tone = "rose";
+        icon = <Skull aria-hidden />;
+        title = `${e.player.pseudo} n'est plus en vie.`;
+      } else {
+        tone = "orange";
+        icon = <Lock aria-hidden />;
+        title = `${e.player.pseudo} part en prison.`;
+      }
       gameToast({
-        tone, icon, title,
+        tone,
+        icon,
+        title,
         label: `Nouvelle annonce${extra > 0 ? ` · +${extra}` : ""}`,
         actionLabel: "Voir",
         onAction: () => setTab("cemetery"),
       });
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, game.id, me.id, tab, game.current_phase, game.phase_started_at, introEndTick, showReveal, waitingStart]);
+  }, [
+    players,
+    game.id,
+    me.id,
+    tab,
+    game.current_phase,
+    game.phase_started_at,
+    introEndTick,
+    showReveal,
+    waitingStart,
+  ]);
 
   // Notif volante quand un nouvel objet arrive dans l'inventaire — pilotée ici
   // (et non dans PA4Notebook) pour se déclencher depuis N'IMPORTE quel onglet.
@@ -343,13 +457,22 @@ export function PlayerShell({
   useEffect(() => {
     const inv = readInventory(me.role_meta as Record<string, unknown> | null);
     const ids = new Set(inv.map((i) => i.id));
-    if (seenItemsRef.current === null) { seenItemsRef.current = ids; return; }
+    if (seenItemsRef.current === null) {
+      seenItemsRef.current = ids;
+      return;
+    }
     const fresh = inv.filter((i) => !seenItemsRef.current!.has(i.id));
-    if (fresh.length === 0) { seenItemsRef.current = ids; return; }
+    if (fresh.length === 0) {
+      seenItemsRef.current = ids;
+      return;
+    }
     // Lancement (révélation du rôle / attente du départ) : le kit de départ
     // (indices, fioles, couteau…) est déjà visible dans l'Inventaire et présenté
     // par l'écran de révélation → on le marque vu SANS notif (sinon avalanche).
-    if (showReveal || waitingStart) { seenItemsRef.current = ids; return; }
+    if (showReveal || waitingStart) {
+      seenItemsRef.current = ids;
+      return;
+    }
     // Écran de transition de phase au premier plan : on diffère (sans consommer
     // `fresh`) pour rejouer après l'intro.
     const introStarted = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
@@ -369,7 +492,12 @@ export function PlayerShell({
       if (items.length === 0 || tabRef.current === "journal") return;
       const it = items[items.length - 1];
       const extra = items.length - 1;
-      const itemToneByOrigin: Partial<Record<ItemOrigin, Tone>> = { Civil: "sky", Méchant: "rose", Neutre: "purple", Système: "amber" };
+      const itemToneByOrigin: Partial<Record<ItemOrigin, Tone>> = {
+        Civil: "sky",
+        Méchant: "rose",
+        Neutre: "purple",
+        Système: "amber",
+      };
       const origin = itemFaction(it);
       const tone: Tone = (origin && itemToneByOrigin[origin]) ?? "stone"; // origine inconnue → taupe
       gameToast({
@@ -385,12 +513,12 @@ export function PlayerShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me.role_meta, showReveal, waitingStart, game.phase_started_at, introEndTick]);
 
-  const myRole = me.role_slug ? roles.get(me.role_slug) ?? null : null;
+  const myRole = me.role_slug ? (roles.get(me.role_slug) ?? null) : null;
   const ctx = useMemo(
     () => ({ game, me, myRole, players, roles, gameId: game.id }) as unknown as FrameContext,
     [game, me, myRole, players, roles],
   );
-  const isLoup =myRole?.faction === "Méchant";
+  const isLoup = myRole?.faction === "Méchant";
   const isJour = game.current_phase === "free";
   const isAnnonce = game.current_phase === "annonce";
   const isRassemblement = game.current_phase === "gathering";
@@ -405,7 +533,9 @@ export function PlayerShell({
     return (
       <div className={rootClass}>
         {embedded ? null : <BrandHeader subtitle="Partie terminée" />}
-        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto"><E1EndGame {...ctx} /></div>
+        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
+          <E1EndGame {...ctx} />
+        </div>
       </div>
     );
   }
@@ -445,8 +575,17 @@ export function PlayerShell({
     return (
       <div className={rootClass}>
         <ShellHeader {...headerProps} />
-        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto"><M1Dashboard {...ctx} /></div>
-        {helpOpen && <P11HelpMenu ctx={ctx} onClose={() => setHelpOpen(false)} onLeave={handleLeave} onQuit={handleQuit} />}
+        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
+          <M1Dashboard {...ctx} />
+        </div>
+        {helpOpen && (
+          <P11HelpMenu
+            ctx={ctx}
+            onClose={() => setHelpOpen(false)}
+            onLeave={handleLeave}
+            onQuit={handleQuit}
+          />
+        )}
         {PhaseIntros}
         {EventModal}
       </div>
@@ -457,22 +596,39 @@ export function PlayerShell({
     return (
       <div className={rootClass}>
         <ShellHeader {...headerProps} />
-        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto"><AnnonceScreen {...ctx} /></div>
-        {helpOpen && <P11HelpMenu ctx={ctx} onClose={() => setHelpOpen(false)} onLeave={handleLeave} onQuit={handleQuit} />}
+        <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
+          <AnnonceScreen {...ctx} />
+        </div>
+        {helpOpen && (
+          <P11HelpMenu
+            ctx={ctx}
+            onClose={() => setHelpOpen(false)}
+            onLeave={handleLeave}
+            onQuit={handleQuit}
+          />
+        )}
         {EventModal}
       </div>
     );
   }
 
   if (isVote && me.is_alive && !me.is_imprisoned && !voteOverlayClosed) {
-    const isSuspicionVariant = (game as unknown as { variant?: string | null }).variant === "suspicion";
+    const isSuspicionVariant =
+      (game as unknown as { variant?: string | null }).variant === "suspicion";
     return (
       <div className={rootClass}>
         <ShellHeader {...headerProps} />
         <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
           {isSuspicionVariant ? <V1VoteSuspicion {...ctx} /> : <P7Vote {...ctx} />}
         </div>
-        {helpOpen && <P11HelpMenu ctx={ctx} onClose={() => setHelpOpen(false)} onLeave={handleLeave} onQuit={handleQuit} />}
+        {helpOpen && (
+          <P11HelpMenu
+            ctx={ctx}
+            onClose={() => setHelpOpen(false)}
+            onLeave={handleLeave}
+            onQuit={handleQuit}
+          />
+        )}
         {PhaseIntros}
         {EventModal}
       </div>
@@ -484,20 +640,35 @@ export function PlayerShell({
       // Onglet "Conseil" (anciennement testament) → C1Council ; Capacité reste accessible
       // pour consulter l'historique des infos récoltées (mode lecture seule).
       if (tab === "testament") return <P14Council {...ctx} />;
-      if (tab === "capacity") return <HoldToReveal><P6Capability {...ctx} /></HoldToReveal>;
+      if (tab === "capacity")
+        return (
+          <HoldToReveal>
+            <P6Capability {...ctx} />
+          </HoldToReveal>
+        );
       if (tab === "cemetery") return <PA6Announces {...ctx} />;
       if (tab === "journal") return <P3Journal {...ctx} />;
       if (tab === "suspicions") return <P4Suspicions {...ctx} />;
       return <P14Council {...ctx} />;
     }
     if (me.is_imprisoned) {
-      if (tab === "capacity") return <HoldToReveal><P13Prison {...ctx} /></HoldToReveal>;
+      if (tab === "capacity")
+        return (
+          <HoldToReveal>
+            <P13Prison {...ctx} />
+          </HoldToReveal>
+        );
       if (tab === "cemetery") return <PA6Announces {...ctx} />;
       if (tab === "journal") return <P3Journal {...ctx} />;
       if (tab === "suspicions") return <P4Suspicions {...ctx} />;
       if (tab === "testament") return <P15Testament {...ctx} />;
     }
-    if (tab === "capacity") return <HoldToReveal><P6Capability {...ctx} /></HoldToReveal>;
+    if (tab === "capacity")
+      return (
+        <HoldToReveal>
+          <P6Capability {...ctx} />
+        </HoldToReveal>
+      );
     if (tab === "journal") return <P3Journal {...ctx} />;
     if (tab === "suspicions") return <P4Suspicions {...ctx} />;
     if (tab === "cemetery") return <PA6Announces {...ctx} />;
@@ -505,18 +676,17 @@ export function PlayerShell({
     return <P1Garde {...ctx} />;
   };
 
-
   // Pour les morts, l'onglet "testament" est réutilisé comme bouton "Conseil" (icône 💀).
 
   // Couleur d'accent par onglet — source UNIQUE consommée par le trait actif (qui
   // glisse) ET par chaque TabBtn, pour qu'ils restent toujours synchrones.
   const TAB_ORDER: Tab[] = ["journal", "suspicions", "cemetery", "testament", "capacity"];
   const tabAccent = (t: Tab): string => {
-    if (t === "journal") return "oklch(0.78 0.15 55)";       // Inventaire — ambre chaud
-    if (t === "suspicions") return "var(--destructive)";     // Suspicions — rouge
-    if (t === "cemetery") return "var(--citoyens)";          // Annonces — bleu
+    if (t === "journal") return "oklch(0.78 0.15 55)"; // Inventaire — ambre chaud
+    if (t === "suspicions") return "var(--destructive)"; // Suspicions — rouge
+    if (t === "cemetery") return "var(--citoyens)"; // Annonces — bleu
     if (t === "testament") return me.is_alive ? "oklch(0.74 0.15 300)" : "var(--success)"; // Testament violet / Conseil vert
-    return "var(--primary)";                                 // Capacité — or
+    return "var(--primary)"; // Capacité — or
   };
   const activeAccent = tabAccent(tab);
 
@@ -527,7 +697,10 @@ export function PlayerShell({
       <StatusBandeau me={me} tour={game.current_tour} players={players} />
       {isLoup && me.is_alive && <KillerTargetBanner game={game} players={players} />}
 
-      <div key={tab} className="anim-tab-in flex-1 min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain">
+      <div
+        key={tab}
+        className="anim-tab-in flex-1 min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain"
+      >
         {renderBody()}
       </div>
 
@@ -543,35 +716,87 @@ export function PlayerShell({
         >
           <span
             className="h-0.5 w-8 rounded-full transition-colors duration-300"
-            style={{ background: activeAccent, boxShadow: `0 0 10px 2px color-mix(in oklab, ${activeAccent} 55%, transparent)` }}
+            style={{
+              background: activeAccent,
+              boxShadow: `0 0 10px 2px color-mix(in oklab, ${activeAccent} 55%, transparent)`,
+            }}
           />
         </span>
-        <TabBtn active={tab === "journal"} onClick={() => setTab("journal")} icon={<Backpack className="size-6" />} label="Inventaire" accent={tabAccent("journal")} badge={unread} />
-        <TabBtn active={tab === "suspicions"} onClick={() => setTab("suspicions")} icon={<Target className="size-6" />} label="Suspicions" accent={tabAccent("suspicions")} />
-        <TabBtn active={tab === "cemetery"} onClick={() => setTab("cemetery")} icon={<Megaphone className="size-6" />} label="Annonces" accent={tabAccent("cemetery")} badge={announcesUnread} />
+        <TabBtn
+          active={tab === "journal"}
+          onClick={() => setTab("journal")}
+          icon={<Backpack className="size-6" />}
+          label="Inventaire"
+          accent={tabAccent("journal")}
+          badge={unread}
+        />
+        <TabBtn
+          active={tab === "suspicions"}
+          onClick={() => setTab("suspicions")}
+          icon={<Target className="size-6" />}
+          label="Suspicions"
+          accent={tabAccent("suspicions")}
+        />
+        <TabBtn
+          active={tab === "cemetery"}
+          onClick={() => setTab("cemetery")}
+          icon={<Megaphone className="size-6" />}
+          label="Annonces"
+          accent={tabAccent("cemetery")}
+          badge={announcesUnread}
+        />
         {me.is_alive ? (
-          <TabBtn active={tab === "testament"} onClick={() => setTab("testament")} icon={<Feather className="size-6" />} label="Testament" accent={tabAccent("testament")} />
+          <TabBtn
+            active={tab === "testament"}
+            onClick={() => setTab("testament")}
+            icon={<Feather className="size-6" />}
+            label="Testament"
+            accent={tabAccent("testament")}
+          />
         ) : (
-          <TabBtn active={tab === "testament"} onClick={() => setTab("testament")} icon={<Skull className="size-6" />} label="Conseil" accent={tabAccent("testament")} />
+          <TabBtn
+            active={tab === "testament"}
+            onClick={() => setTab("testament")}
+            icon={<Skull className="size-6" />}
+            label="Conseil"
+            accent={tabAccent("testament")}
+          />
         )}
         <TabBtn
           active={tab === "capacity"}
           onClick={() => setTab("capacity")}
-          icon={me.is_alive && me.is_imprisoned ? <Lock className="size-6" /> : <Zap className="size-6" />}
+          icon={
+            me.is_alive && me.is_imprisoned ? (
+              <Lock className="size-6" />
+            ) : (
+              <Zap className="size-6" />
+            )
+          }
           accent={tabAccent("capacity")}
           label={!me.is_alive ? "Capacité" : me.is_imprisoned ? "Prison" : "Capacité"}
           shimmer={isJour && me.is_alive && !me.is_imprisoned}
           dim={!me.is_alive && !hasPostMortemAction(myRole)}
           statusDot={
-            me.is_alive && !me.is_imprisoned && myRole && (myRole.target_mode ?? "single") !== "none"
-              ? (capacityUsedThisTour ? "done" : "pending")
+            me.is_alive &&
+            !me.is_imprisoned &&
+            myRole &&
+            (myRole.target_mode ?? "single") !== "none"
+              ? capacityUsedThisTour
+                ? "done"
+                : "pending"
               : null
           }
         />
       </nav>
 
-
-      {helpOpen && <P11HelpMenu ctx={ctx} onClose={() => setHelpOpen(false)} onLeave={handleLeave} onQuit={handleQuit} />}
+      {helpOpen && (
+        <P11HelpMenu
+          ctx={ctx}
+          onClose={() => setHelpOpen(false)}
+          onLeave={handleLeave}
+          onQuit={handleQuit}
+        />
+      )}
       {PhaseIntros}
       {EventModal}
     </div>
@@ -582,9 +807,10 @@ export function PlayerShell({
 // la phase (libre = chaud doré, rassemblement = bleu nuit, vote = rouge tension).
 function AmbientTint({ phase }: { phase: string }) {
   const { wash } = phasePalette(phase);
-  const bg = wash === "transparent"
-    ? "transparent"
-    : `radial-gradient(ellipse 120% 70% at 50% 0%, ${wash}, transparent 65%)`;
+  const bg =
+    wash === "transparent"
+      ? "transparent"
+      : `radial-gradient(ellipse 120% 70% at 50% 0%, ${wash}, transparent 65%)`;
   return (
     <div
       aria-hidden
@@ -613,7 +839,8 @@ function ShellHeader({
   const started = startedRaw ? startedRaw + INTRO_MS : null;
   const dur = game.phase_duration_s ?? 0;
   const isWaiting = waitingCount > 0;
-  const timerActive = !!started && game.status !== "ended" && !isWaiting && !game.paused && (isMjMode || dur > 0);
+  const timerActive =
+    !!started && game.status !== "ended" && !isWaiting && !game.paused && (isMjMode || dur > 0);
 
   const offset = useServerTimeOffset();
   const [now, setNow] = useState(() => Date.now() + (typeof offset === "number" ? offset : 0));
@@ -625,10 +852,13 @@ function ShellHeader({
 
   // Valeur affichée : temps écoulé (Mode MJ) ou temps restant (Joueur Only).
   const elapsed = timerActive && started ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
-  const remaining = timerActive && started ? Math.max(0, Math.ceil((started + dur * 1000 - now) / 1000)) : 0;
+  const remaining =
+    timerActive && started ? Math.max(0, Math.ceil((started + dur * 1000 - now) / 1000)) : 0;
   const displayedRemaining = timerActive ? Math.min(remaining, dur) : 0;
   const shown = isMjMode ? elapsed : displayedRemaining;
-  const mm = Math.floor(shown / 60).toString().padStart(2, "0");
+  const mm = Math.floor(shown / 60)
+    .toString()
+    .padStart(2, "0");
   const ss = (shown % 60).toString().padStart(2, "0");
   const showTimer = timerActive;
   const urgent = !isMjMode && displayedRemaining <= 10;
@@ -638,11 +868,12 @@ function ShellHeader({
   // Progression de la barre : Joueur Only = temps restant / durée (se vide) ;
   // Mode MJ = temps écoulé / repère (se remplit ; ambre si le repère est dépassé).
   const over = isMjMode && dur > 0 && elapsed > dur;
-  const frac = !timerActive || dur <= 0
-    ? 0
-    : isMjMode
-      ? Math.min(1, elapsed / dur)
-      : Math.max(0, Math.min(1, displayedRemaining / dur));
+  const frac =
+    !timerActive || dur <= 0
+      ? 0
+      : isMjMode
+        ? Math.min(1, elapsed / dur)
+        : Math.max(0, Math.min(1, displayedRemaining / dur));
   const fillColor = urgent ? "var(--destructive)" : over ? "var(--warning)" : pal.accent;
 
   // Stepper de phase — toujours droit, contenu fixe : LIBRE · ANNONCE · RASSEMBL. · VOTE.
@@ -675,8 +906,15 @@ function ShellHeader({
 
           <div className="flex items-center gap-2 shrink-0">
             {isWaiting ? (
-              <span role="status" aria-live="polite" className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-amber-300">
-                <span className="inline-block size-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden />
+              <span
+                role="status"
+                aria-live="polite"
+                className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-amber-300"
+              >
+                <span
+                  className="inline-block size-1.5 rounded-full bg-amber-400 animate-pulse"
+                  aria-hidden
+                />
                 {ready}/{waitingTotal}
               </span>
             ) : game.paused ? (
@@ -732,7 +970,10 @@ function ShellHeader({
 
         {/* Ligne 3 — barre de progression de la phase (conservée ; cachée en attente / pause) */}
         {!isWaiting && !game.paused && (
-          <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+          <div
+            className="mt-1.5 h-1.5 rounded-full overflow-hidden"
+            style={{ background: "var(--border)" }}
+          >
             <div
               className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${urgent ? "animate-pulse" : ""}`}
               style={{ width: `${Math.round(frac * 100)}%`, background: fillColor }}
@@ -745,10 +986,26 @@ function ShellHeader({
 }
 
 function TabBtn({
-  active, onClick, icon, label, badge, shimmer, dim, disabled, statusDot, accent,
+  active,
+  onClick,
+  icon,
+  label,
+  badge,
+  shimmer,
+  dim,
+  disabled,
+  statusDot,
+  accent,
 }: {
-  active: boolean; onClick: () => void; icon: ReactNode; label: string; accent?: string;
-  badge?: number; shimmer?: boolean; dim?: boolean; disabled?: boolean;
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+  accent?: string;
+  badge?: number;
+  shimmer?: boolean;
+  dim?: boolean;
+  disabled?: boolean;
   statusDot?: "done" | "pending" | null;
 }) {
   return (
@@ -758,8 +1015,11 @@ function TabBtn({
       aria-current={active ? "page" : undefined}
       style={{ WebkitTapHighlightColor: "transparent" }}
       className={`relative pt-2.5 pb-2 flex flex-col items-center justify-center gap-0.5 text-[10px] uppercase tracking-wider transition touch-manipulation active:scale-[0.94] min-h-[60px] ${
-        disabled ? "opacity-30" :
-        active ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"
+        disabled
+          ? "opacity-30"
+          : active
+            ? "text-foreground"
+            : "text-muted-foreground hover:text-foreground/80"
       } ${dim ? "opacity-50" : ""}`}
     >
       <Sigil
@@ -773,7 +1033,9 @@ function TabBtn({
       <span
         className={`truncate font-medium transition-opacity ${active ? "opacity-100" : "opacity-80"}`}
         style={active && accent ? { color: accent } : undefined}
-      >{label}</span>
+      >
+        {label}
+      </span>
       {badge && badge > 0 ? (
         <span className="absolute top-1 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-card">
           {badge > 9 ? "9+" : badge}
@@ -788,10 +1050,13 @@ function TabBtn({
           }`}
           title={statusDot === "done" ? "Capacité utilisée ce tour" : "Capacité non utilisée"}
         >
-          {statusDot === "done" ? <Check className="size-3" strokeWidth={3} /> : <span className="size-1.5 rounded-full bg-current" aria-hidden />}
+          {statusDot === "done" ? (
+            <Check className="size-3" strokeWidth={3} />
+          ) : (
+            <span className="size-1.5 rounded-full bg-current" aria-hidden />
+          )}
         </span>
       ) : null}
     </button>
   );
 }
-

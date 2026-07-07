@@ -11,7 +11,7 @@ import {
   type Phase,
 } from "./actions";
 import { BOT_TICK_BASE_MS } from "./constants";
-import { readInventory, itemIsUsable, itemNeedsTarget, useItem } from "./items";
+import { readInventory, itemIsUsable, itemNeedsTarget, consumeItem } from "./items";
 import { probeCapability } from "./qa/probes";
 import { maybeBotChat } from "./qa/chat";
 
@@ -62,7 +62,7 @@ function aggressionWeight(a: Aggression): number {
 }
 
 let driver: { stop: () => void } | null = null;
-let lastActions: Map<string, string> = new Map(); // botId -> last action label
+const lastActions: Map<string, string> = new Map(); // botId -> last action label
 const actionListeners = new Set<(map: Map<string, string>) => void>();
 
 export function onBotActionsChange(l: (m: Map<string, string>) => void) {
@@ -75,7 +75,11 @@ function setBotAction(botId: string, label: string) {
   actionListeners.forEach((cb) => cb(new Map(lastActions)));
 }
 
-export function startBotDriver(opts: { gameId: string; getConfig: () => BotConfig; embodiedPlayerId: () => string | null }) {
+export function startBotDriver(opts: {
+  gameId: string;
+  getConfig: () => BotConfig;
+  embodiedPlayerId: () => string | null;
+}) {
   if (driver) driver.stop();
   let stopped = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -127,7 +131,11 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
   // sur la player row). On ne pilote JAMAIS un joueur humain, même si la démo
   // tourne dans un autre onglet : sinon ses capacités s'auto-exécutent.
   const aliveBots = alive.filter(
-    (p) => p.id !== embodiedId && !p.is_mj && p.user_id === null && (cfg.overrides[p.id]?.enabled !== false)
+    (p) =>
+      p.id !== embodiedId &&
+      !p.is_mj &&
+      p.user_id === null &&
+      cfg.overrides[p.id]?.enabled !== false,
   );
 
   const rolesBySlug = await getRolesMap();
@@ -155,7 +163,7 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
         }
       }
     } else if (game.current_phase === "free" || game.current_phase === "gathering") {
-      const role = bot.role_slug ? rolesBySlug.get(bot.role_slug) ?? null : null;
+      const role = bot.role_slug ? (rolesBySlug.get(bot.role_slug) ?? null) : null;
       // Probabilité d'agir : élevée pour que les bots utilisent vraiment leur
       // capacité chaque phase (la fonction executeCapability se charge de
       // refuser proprement si phase/cooldown/épuisement empêche).
@@ -208,16 +216,21 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
       // fiole de mort) se dénoue au rassemblement qui SUIT la phase libre. C'est
       // ce qui ferme la chaîne « l'Armurier arme un allié → l'allié tue ».
       if (game.current_phase === "free") {
-        await maybeUseItem({ gameId, bot, alive, rolesBySlug, tour: game.current_tour, aggressionW: w });
+        await maybeUseItem({
+          gameId,
+          bot,
+          alive,
+          rolesBySlug,
+          tour: game.current_tour,
+          aggressionW: w,
+        });
       }
     }
   }
 
   // Chat des bots : au plus 1 message par appel (throttlé). Inclut les morts
   // (canal Conseil) et les Méchants vivants (canal mechants).
-  const chatBots = players.filter(
-    (p) => p.id !== embodiedId && !p.is_mj && p.user_id === null,
-  );
+  const chatBots = players.filter((p) => p.id !== embodiedId && !p.is_mj && p.user_id === null);
   try {
     await maybeBotChat({ gameId, game, bots: chatBots, alive, rolesBySlug });
   } catch (e) {
@@ -267,7 +280,8 @@ function pickCapabilityTargets(
   if (others.length === 0) return [];
   const isCitizen = (p: PlayerRow) => rolesBySlug.get(p.role_slug ?? "")?.faction === "Civil";
   const isAlly = (p: PlayerRow) => rolesBySlug.get(p.role_slug ?? "")?.faction === role.faction;
-  const sample = <T,>(arr: T[], n: number): T[] => [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+  const sample = <T>(arr: T[], n: number): T[] =>
+    [...arr].sort(() => Math.random() - 0.5).slice(0, n);
   const mostSuspect = (pool: PlayerRow[]): PlayerRow[] =>
     [...pool].sort((a, b) => getSuspicion(bot.id, b.id) - getSuspicion(bot.id, a.id));
 
@@ -298,7 +312,9 @@ function pickCapabilityTargets(
       const allies = others.filter((p) => isVillainRole(p.role_slug, rolesBySlug));
       if (allies.length === 0) return [bot];
       const armed = (p: PlayerRow) =>
-        readInventory(p.role_meta as Record<string, unknown>).some((it) => it.slug === "couteau" && !it.consumed);
+        readInventory(p.role_meta as Record<string, unknown>).some(
+          (it) => it.slug === "couteau" && !it.consumed,
+        );
       const unarmed = allies.filter((p) => !armed(p));
       return [pickRandom(unarmed.length > 0 ? unarmed : allies)];
     }
@@ -350,9 +366,10 @@ function pickCapabilityTargets(
       return sample(others, need);
     }
     case "imitateur": {
-      const deads = alive.length < meWithOthers.length
-        ? meWithOthers.filter((p) => !p.is_alive && !p.is_mj && p.id !== bot.id)
-        : [];
+      const deads =
+        alive.length < meWithOthers.length
+          ? meWithOthers.filter((p) => !p.is_alive && !p.is_mj && p.id !== bot.id)
+          : [];
       if (deads.length > 0) return [pickRandom(deads)];
       return [pickRandom(others)];
     }
@@ -407,7 +424,9 @@ async function maybeUseItem(opts: {
   // 1 objet/tour : si déjà servi ce tour, inutile d'essayer.
   if ((botMeta.last_item_use_cycle as number | undefined) === tour) return;
 
-  const usable = readInventory(botMeta).filter((it) => !it.consumed && itemIsUsable(it.slug, it.payload));
+  const usable = readInventory(botMeta).filter(
+    (it) => !it.consumed && itemIsUsable(it.slug, it.payload),
+  );
   if (usable.length === 0) return;
 
   // Priorité : offensif > soin > info (un seul usage par tour).
@@ -442,14 +461,17 @@ async function maybeUseItem(opts: {
   if (needsTarget && !target) return;
 
   try {
-    const res = await useItem({
+    const res = await consumeItem({
       gameId,
       actorId: bot.id,
       actorPseudo: bot.pseudo,
       item,
       target: target ? { id: target.id, pseudo: target.pseudo, role_slug: target.role_slug } : null,
       tour,
-      rolesBySlug: rolesBySlug as unknown as Map<string, { slug: string; name_fr: string; icon: string; faction: string }>,
+      rolesBySlug: rolesBySlug as unknown as Map<
+        string,
+        { slug: string; name_fr: string; icon: string; faction: string }
+      >,
     });
     if (res.ok) setBotAction(bot.id, `${item.icon} → ${target?.pseudo ?? "—"}`);
   } catch (e) {
@@ -476,4 +498,3 @@ function pickVoteTarget(
   }
   return best?.id ?? candidates[0].id;
 }
-

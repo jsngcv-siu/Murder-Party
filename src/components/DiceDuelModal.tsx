@@ -17,16 +17,28 @@ import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import { AvatarImg } from "@/components/AvatarImg";
 import { avatarOf } from "@/lib/avatars";
-import { BoardPin, BoardStringArc, BoardEmojiBadge, BoardStamp, PAPER, PAPER_BORDER, INK_SOFT, INK_BODY } from "@/components/boardChrome";
+import {
+  BoardPin,
+  BoardStringArc,
+  BoardEmojiBadge,
+  BoardStamp,
+  PAPER,
+  PAPER_BORDER,
+  INK_SOFT,
+  INK_BODY,
+} from "@/components/boardChrome";
 import { Skull, Trophy } from "lucide-react";
 
 type DuelRound = { a: number; b: number; c: number; best: number; them: number };
 type DuelPayload = {
   duelId: string;
-  actorId: string; actorPseudo: string;
-  targetId: string; targetPseudo: string;
+  actorId: string;
+  actorPseudo: string;
+  targetId: string;
+  targetPseudo: string;
   rounds: DuelRound[];
-  loserId: string; winnerId: string;
+  loserId: string;
+  winnerId: string;
 };
 
 type NotificationRow = {
@@ -37,7 +49,9 @@ type NotificationRow = {
 };
 
 export function DiceDuelModal({
-  game, me, players,
+  game,
+  me,
+  players,
 }: {
   game: GameRow;
   me: PlayerRow;
@@ -52,7 +66,9 @@ export function DiceDuelModal({
     try {
       const raw = localStorage.getItem(`dice-duel-seen-${game.id}-${me.id}`);
       if (raw) for (const id of JSON.parse(raw) as string[]) seenRef.current.add(id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [game.id, me.id]);
 
   const persistSeen = () => {
@@ -61,7 +77,9 @@ export function DiceDuelModal({
         `dice-duel-seen-${game.id}-${me.id}`,
         JSON.stringify(Array.from(seenRef.current).slice(-100)),
       );
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   const enqueue = (row: NotificationRow) => {
@@ -108,7 +126,12 @@ export function DiceDuelModal({
       .channel(`dice-duel-${game.id}-${me.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `player_id=eq.${me.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `player_id=eq.${me.id}`,
+        },
         (payload) => enqueue(payload.new as NotificationRow),
       )
       .subscribe();
@@ -124,7 +147,13 @@ export function DiceDuelModal({
 
   const close = () => setQueue((q) => q.slice(1));
   return createPortal(
-    <DuelScene key={current.duelId} duel={current} meId={me.id} players={players} onClose={close} />,
+    <DuelScene
+      key={current.duelId}
+      duel={current}
+      meId={me.id}
+      players={players}
+      onClose={close}
+    />,
     document.body,
   );
 }
@@ -135,15 +164,44 @@ export function DiceDuelModal({
 
 const PIP_LAYOUT: Record<number, Array<[number, number]>> = {
   1: [[50, 50]],
-  2: [[30, 30], [70, 70]],
-  3: [[30, 30], [50, 50], [70, 70]],
-  4: [[30, 30], [70, 30], [30, 70], [70, 70]],
-  5: [[30, 30], [70, 30], [50, 50], [30, 70], [70, 70]],
-  6: [[30, 28], [70, 28], [30, 50], [70, 50], [30, 72], [70, 72]],
+  2: [
+    [30, 30],
+    [70, 70],
+  ],
+  3: [
+    [30, 30],
+    [50, 50],
+    [70, 70],
+  ],
+  4: [
+    [30, 30],
+    [70, 30],
+    [30, 70],
+    [70, 70],
+  ],
+  5: [
+    [30, 30],
+    [70, 30],
+    [50, 50],
+    [30, 70],
+    [70, 70],
+  ],
+  6: [
+    [30, 28],
+    [70, 28],
+    [30, 50],
+    [70, 50],
+    [30, 72],
+    [70, 72],
+  ],
 };
 
 function Die({
-  value, size = 76, accent, dim, dieRef,
+  value,
+  size = 76,
+  accent,
+  dim,
+  dieRef,
 }: {
   value: number;
   size?: number;
@@ -156,7 +214,8 @@ function Die({
     <div
       ref={dieRef}
       style={{
-        width: size, height: size,
+        width: size,
+        height: size,
         transformStyle: "preserve-3d",
         willChange: "transform",
         opacity: dim ? 0.45 : 1,
@@ -164,7 +223,16 @@ function Die({
       }}
     >
       <svg viewBox="0 0 100 100" width={size} height={size} aria-label={`Dé ${value}`}>
-        <rect x="4" y="4" width="92" height="92" rx="20" fill="#fbf4e2" stroke={accent} strokeWidth="3" />
+        <rect
+          x="4"
+          y="4"
+          width="92"
+          height="92"
+          rx="20"
+          fill="#fbf4e2"
+          stroke={accent}
+          strokeWidth="3"
+        />
         {pips.map(([cx, cy], i) => (
           <circle key={i} cx={cx} cy={cy} r="9" fill="#2b1d14" />
         ))}
@@ -181,12 +249,19 @@ const ACTOR_ACCENT = "#b5841c"; // or détective
 const TARGET_ACCENT = "#9a8b78"; // bois patiné
 
 function playerAvatar(p: PlayerRow | undefined) {
-  const meta = (p?.role_meta && typeof p.role_meta === "object" ? p.role_meta : {}) as Record<string, unknown>;
+  const meta = (p?.role_meta && typeof p.role_meta === "object" ? p.role_meta : {}) as Record<
+    string,
+    unknown
+  >;
   return avatarOf(meta.avatar as string | undefined, p?.id);
 }
 
 export function DuelScene({
-  duel, meId, players, onClose, embedded = false,
+  duel,
+  meId,
+  players,
+  onClose,
+  embedded = false,
 }: {
   duel: DuelPayload;
   meId: string;
@@ -233,7 +308,12 @@ export function DuelScene({
     ): Promise<void> {
       if (reducedRef.current || !el) {
         setFace(finalValue);
-        if (el) gsap.fromTo(el, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(2)" });
+        if (el)
+          gsap.fromTo(
+            el,
+            { scale: 0.6, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(2)" },
+          );
         return;
       }
       const dur = 0.85;
@@ -270,7 +350,11 @@ export function DuelScene({
       setBestSide(best);
       const bestEl = best === 0 ? dieARef.current : best === 1 ? dieBRef.current : dieCRef.current;
       if (bestEl && !reducedRef.current) {
-        gsap.fromTo(bestEl, { scale: 1 }, { scale: 1.18, duration: 0.35, ease: "back.out(3)", yoyo: true, repeat: 1 });
+        gsap.fromTo(
+          bestEl,
+          { scale: 1 },
+          { scale: 1.18, duration: 0.35, ease: "back.out(3)", yoyo: true, repeat: 1 },
+        );
       }
       await wait(reducedRef.current ? 200 : 650);
       if (!alive) return;
@@ -278,7 +362,9 @@ export function DuelScene({
       // 3) Le dé de la cible — gate « Lancer mon dé » uniquement côté cible, 1er round
       if (gateTarget) {
         setShowRollBtn(true);
-        await new Promise<void>((resolve) => { targetGateRef.current = resolve; });
+        await new Promise<void>((resolve) => {
+          targetGateRef.current = resolve;
+        });
         setShowRollBtn(false);
         if (!alive) return;
       }
@@ -306,7 +392,9 @@ export function DuelScene({
     }
 
     void run();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -332,12 +420,28 @@ export function DuelScene({
         }}
       >
         <BoardStringArc />
-        <BoardEmojiBadge emoji="🎲" bg="radial-gradient(circle at 36% 30%,#f0c46a,#a8772a 72%)" corner="br" size={42} />
+        <BoardEmojiBadge
+          emoji="🎲"
+          bg="radial-gradient(circle at 36% 30%,#f0c46a,#a8772a 72%)"
+          corner="br"
+          size={42}
+        />
 
         {/* En-tête */}
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 9, letterSpacing: ".22em", color: INK_SOFT }}>— LE PARI DU TRICHEUR —</div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 9,
+            letterSpacing: ".22em",
+            color: INK_SOFT,
+          }}
+        >
+          — LE PARI DU TRICHEUR —
+        </div>
         <div style={{ margin: "9px 0 2px", display: "flex", justifyContent: "center" }}>
-          <BoardStamp color={ACTOR_ACCENT} rotate={-1.8}>🎲 DUEL DE DÉS</BoardStamp>
+          <BoardStamp color={ACTOR_ACCENT} rotate={-1.8}>
+            🎲 DUEL DE DÉS
+          </BoardStamp>
         </div>
 
         {/* Bannière de manche / égalité */}
@@ -345,7 +449,17 @@ export function DuelScene({
           {banner && (
             <span
               className="animate-pulse"
-              style={{ display: "inline-block", fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: ".1em", color: "#a8772a", background: "#f2d35e", padding: "2px 10px", transform: "rotate(-1.5deg)", boxShadow: "0 4px 9px rgba(0,0,0,.35)" }}
+              style={{
+                display: "inline-block",
+                fontFamily: "var(--font-display)",
+                fontSize: 10,
+                letterSpacing: ".1em",
+                color: "#a8772a",
+                background: "#f2d35e",
+                padding: "2px 10px",
+                transform: "rotate(-1.5deg)",
+                boxShadow: "0 4px 9px rgba(0,0,0,.35)",
+              }}
             >
               {banner}
             </span>
@@ -355,26 +469,77 @@ export function DuelScene({
         {/* Arène */}
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-start gap-2">
           {/* Côté parieur : 3 dés */}
-          <Side pseudo={duel.actorPseudo} avatar={playerAvatar(actorP)} accent={ACTOR_ACCENT} isMe={iAmActor} sub="garde le meilleur (3 dés)">
+          <Side
+            pseudo={duel.actorPseudo}
+            avatar={playerAvatar(actorP)}
+            accent={ACTOR_ACCENT}
+            isMe={iAmActor}
+            sub="garde le meilleur (3 dés)"
+          >
             <div className="flex items-end justify-center gap-1.5">
-              <div className="relative"><DieHolder><Die value={faceA} size={44} accent={ACTOR_ACCENT} dim={bestSide !== null && bestSide !== 0} dieRef={(el) => (dieARef.current = el)} /></DieHolder>
+              <div className="relative">
+                <DieHolder>
+                  <Die
+                    value={faceA}
+                    size={44}
+                    accent={ACTOR_ACCENT}
+                    dim={bestSide !== null && bestSide !== 0}
+                    dieRef={(el) => (dieARef.current = el)}
+                  />
+                </DieHolder>
                 {phase === "final" && bestSide === 0 && <BestBadge />}
               </div>
-              <div className="relative"><DieHolder><Die value={faceB} size={44} accent={ACTOR_ACCENT} dim={bestSide !== null && bestSide !== 1} dieRef={(el) => (dieBRef.current = el)} /></DieHolder>
+              <div className="relative">
+                <DieHolder>
+                  <Die
+                    value={faceB}
+                    size={44}
+                    accent={ACTOR_ACCENT}
+                    dim={bestSide !== null && bestSide !== 1}
+                    dieRef={(el) => (dieBRef.current = el)}
+                  />
+                </DieHolder>
                 {phase === "final" && bestSide === 1 && <BestBadge />}
               </div>
-              <div className="relative"><DieHolder><Die value={faceC} size={44} accent={ACTOR_ACCENT} dim={bestSide !== null && bestSide !== 2} dieRef={(el) => (dieCRef.current = el)} /></DieHolder>
+              <div className="relative">
+                <DieHolder>
+                  <Die
+                    value={faceC}
+                    size={44}
+                    accent={ACTOR_ACCENT}
+                    dim={bestSide !== null && bestSide !== 2}
+                    dieRef={(el) => (dieCRef.current = el)}
+                  />
+                </DieHolder>
                 {phase === "final" && bestSide === 2 && <BestBadge />}
               </div>
             </div>
           </Side>
 
-          <div className="self-center pt-12" style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "#c2202f" }}>VS</div>
+          <div
+            className="self-center pt-12"
+            style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "#c2202f" }}
+          >
+            VS
+          </div>
 
           {/* Côté cible : 1 dé */}
-          <Side pseudo={duel.targetPseudo} avatar={playerAvatar(targetP)} accent={TARGET_ACCENT} isMe={!iAmActor} sub="un seul dé">
+          <Side
+            pseudo={duel.targetPseudo}
+            avatar={playerAvatar(targetP)}
+            accent={TARGET_ACCENT}
+            isMe={!iAmActor}
+            sub="un seul dé"
+          >
             <div className="flex items-end justify-center" style={{ minHeight: 66 }}>
-              <DieHolder><Die value={faceThem} size={54} accent={TARGET_ACCENT} dieRef={(el) => (dieThemRef.current = el)} /></DieHolder>
+              <DieHolder>
+                <Die
+                  value={faceThem}
+                  size={54}
+                  accent={TARGET_ACCENT}
+                  dieRef={(el) => (dieThemRef.current = el)}
+                />
+              </DieHolder>
             </div>
           </Side>
         </div>
@@ -382,9 +547,21 @@ export function DuelScene({
         {/* Bouton « Lancer mon dé » (cible, 1er round) */}
         {showRollBtn && (
           <button
-            onClick={() => { targetGateRef.current?.(); targetGateRef.current = null; }}
+            onClick={() => {
+              targetGateRef.current?.();
+              targetGateRef.current = null;
+            }}
             className="mt-5 w-full active:scale-[0.97] transition"
-            style={{ padding: 11, borderRadius: 8, fontFamily: "var(--font-display)", fontSize: 13, letterSpacing: ".04em", color: "#fff", background: "#a8772a", boxShadow: "0 6px 14px -5px rgba(168,119,42,.7)" }}
+            style={{
+              padding: 11,
+              borderRadius: 8,
+              fontFamily: "var(--font-display)",
+              fontSize: 13,
+              letterSpacing: ".04em",
+              color: "#fff",
+              background: "#a8772a",
+              boxShadow: "0 6px 14px -5px rgba(168,119,42,.7)",
+            }}
           >
             🎲 Lancer mon dé
           </button>
@@ -392,7 +569,16 @@ export function DuelScene({
 
         {/* Texte de règle (avant résultat) */}
         {phase !== "final" && !showRollBtn && (
-          <p style={{ fontFamily: "Caveat,cursive", fontWeight: 700, fontSize: 16, color: INK_BODY, lineHeight: 1.25, margin: "14px 6px 0" }}>
+          <p
+            style={{
+              fontFamily: "Caveat,cursive",
+              fontWeight: 700,
+              fontSize: 16,
+              color: INK_BODY,
+              lineHeight: 1.25,
+              margin: "14px 6px 0",
+            }}
+          >
             Le plus petit nombre meurt à la prochaine annonce — sauf protection d'ici là.
           </p>
         )}
@@ -408,16 +594,35 @@ export function DuelScene({
                 padding: "12px 13px",
               }}
             >
-              <div className="inline-flex items-center gap-2" style={{ fontFamily: "var(--font-display)", fontSize: 14, color: iLost ? "#c2202f" : iWon ? "#2f7d4a" : INK_BODY }}>
-                {iLost ? <><Skull className="size-4 shrink-0" aria-hidden /> Tu perds le pari</>
-                  : iWon ? <><Trophy className="size-4 shrink-0" aria-hidden /> Tu remportes le pari</>
-                  : <>🎲 {winnerPseudo} l'emporte</>}
+              <div
+                className="inline-flex items-center gap-2"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 14,
+                  color: iLost ? "#c2202f" : iWon ? "#2f7d4a" : INK_BODY,
+                }}
+              >
+                {iLost ? (
+                  <>
+                    <Skull className="size-4 shrink-0" aria-hidden /> Tu perds le pari
+                  </>
+                ) : iWon ? (
+                  <>
+                    <Trophy className="size-4 shrink-0" aria-hidden /> Tu remportes le pari
+                  </>
+                ) : (
+                  <>🎲 {winnerPseudo} l'emporte</>
+                )}
               </div>
               <div style={{ fontSize: 13, marginTop: 4, color: INK_BODY }}>
-                <b>{lastRound.best}</b> contre <b>{lastRound.them}</b> — {iLost ? "tu ne survivras pas" : `${loserPseudo} ne survivra pas`} à la prochaine annonce.
+                <b>{lastRound.best}</b> contre <b>{lastRound.them}</b> —{" "}
+                {iLost ? "tu ne survivras pas" : `${loserPseudo} ne survivra pas`} à la prochaine
+                annonce.
               </div>
               {iLost && (
-                <div style={{ fontSize: 11.5, marginTop: 5, fontStyle: "italic", color: "#6a5444" }}>
+                <div
+                  style={{ fontSize: 11.5, marginTop: 5, fontStyle: "italic", color: "#6a5444" }}
+                >
                   À moins qu'une protection ne te sauve d'ici là…
                 </div>
               )}
@@ -425,7 +630,16 @@ export function DuelScene({
             <button
               onClick={onClose}
               className="mt-4 w-full active:scale-[0.97] transition"
-              style={{ padding: 11, borderRadius: 8, fontFamily: "var(--font-display)", fontSize: 13, letterSpacing: ".04em", color: "#fff", background: "#a8772a", boxShadow: "0 6px 14px -5px rgba(168,119,42,.7)" }}
+              style={{
+                padding: 11,
+                borderRadius: 8,
+                fontFamily: "var(--font-display)",
+                fontSize: 13,
+                letterSpacing: ".04em",
+                color: "#fff",
+                background: "#a8772a",
+                boxShadow: "0 6px 14px -5px rgba(168,119,42,.7)",
+              }}
             >
               J'ai compris
             </button>
@@ -439,14 +653,27 @@ export function DuelScene({
 /** Coupelle de feutrine qui reçoit un dé. */
 function DieHolder({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{ display: "inline-block", background: "#dcc8a2", borderRadius: 9, padding: 6, boxShadow: "inset 0 2px 6px rgba(0,0,0,.28)" }}>
+    <span
+      style={{
+        display: "inline-block",
+        background: "#dcc8a2",
+        borderRadius: 9,
+        padding: 6,
+        boxShadow: "inset 0 2px 6px rgba(0,0,0,.28)",
+      }}
+    >
       {children}
     </span>
   );
 }
 
 function Side({
-  pseudo, avatar, accent, isMe, sub, children,
+  pseudo,
+  avatar,
+  accent,
+  isMe,
+  sub,
+  children,
 }: {
   pseudo: string;
   avatar: ReturnType<typeof avatarOf>;
@@ -462,7 +689,19 @@ function Side({
         <span className="inline-flex rounded-full" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
           <AvatarImg avatar={avatar} size={30} />
         </span>
-        <div style={{ fontFamily: "Caveat,cursive", fontWeight: 700, fontSize: 17, color: INK_BODY, lineHeight: 1.05, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div
+          style={{
+            fontFamily: "Caveat,cursive",
+            fontWeight: 700,
+            fontSize: 17,
+            color: INK_BODY,
+            lineHeight: 1.05,
+            maxWidth: 110,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {isMe ? "Toi" : pseudo}
         </div>
         <div style={{ fontSize: 9, color: INK_SOFT }}>{sub}</div>
@@ -474,7 +713,20 @@ function Side({
 function BestBadge() {
   return (
     <span
-      style={{ position: "absolute", top: -8, right: -6, fontFamily: "var(--font-display)", fontSize: 7, letterSpacing: ".04em", color: "#fff", background: "#a8772a", padding: "2px 6px", borderRadius: 3, transform: "rotate(6deg)", boxShadow: "0 2px 6px rgba(0,0,0,.4)" }}
+      style={{
+        position: "absolute",
+        top: -8,
+        right: -6,
+        fontFamily: "var(--font-display)",
+        fontSize: 7,
+        letterSpacing: ".04em",
+        color: "#fff",
+        background: "#a8772a",
+        padding: "2px 6px",
+        borderRadius: 3,
+        transform: "rotate(6deg)",
+        boxShadow: "0 2px 6px rgba(0,0,0,.4)",
+      }}
     >
       MEILLEUR
     </span>

@@ -10,7 +10,15 @@ export const INK_SOFT = "#9a7b52";
 export const INK_BODY = "#4a3322";
 
 /** Punaise rouge ronde. `light` = variante claire pour les fonds sombres. */
-export function BoardPin({ size = 14, light = false, style }: { size?: number; light?: boolean; style?: CSSProperties }) {
+export function BoardPin({
+  size = 14,
+  light = false,
+  style,
+}: {
+  size?: number;
+  light?: boolean;
+  style?: CSSProperties;
+}) {
   return (
     <span
       aria-hidden
@@ -33,26 +41,62 @@ export function BoardPin({ size = 14, light = false, style }: { size?: number; l
 export function BoardStringArc() {
   return (
     <>
-      <svg viewBox="0 0 200 26" preserveAspectRatio="none" style={{ position: "absolute", top: -13, left: "6%", width: "88%", height: 24, overflow: "visible" }} aria-hidden>
-        <path d="M4,5 Q100,33 196,5" fill="none" stroke="#b01f2c" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M4,5 Q100,33 196,5" fill="none" stroke="#ef5566" strokeWidth="0.7" strokeLinecap="round" />
+      <svg
+        viewBox="0 0 200 26"
+        preserveAspectRatio="none"
+        style={{
+          position: "absolute",
+          top: -13,
+          left: "6%",
+          width: "88%",
+          height: 24,
+          overflow: "visible",
+        }}
+        aria-hidden
+      >
+        <path
+          d="M4,5 Q100,33 196,5"
+          fill="none"
+          stroke="#b01f2c"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M4,5 Q100,33 196,5"
+          fill="none"
+          stroke="#ef5566"
+          strokeWidth="0.7"
+          strokeLinecap="round"
+        />
       </svg>
-      <span style={{ position: "absolute", left: "6%", top: -13, transform: "translate(-50%,-50%)" }}><BoardPin size={13} /></span>
-      <span style={{ position: "absolute", left: "94%", top: -13, transform: "translate(-50%,-50%)" }}><BoardPin size={13} /></span>
+      <span
+        style={{ position: "absolute", left: "6%", top: -13, transform: "translate(-50%,-50%)" }}
+      >
+        <BoardPin size={13} />
+      </span>
+      <span
+        style={{ position: "absolute", left: "94%", top: -13, transform: "translate(-50%,-50%)" }}
+      >
+        <BoardPin size={13} />
+      </span>
     </>
   );
 }
 
 /** Pastille ronde « cire » avec un emoji, posée dans un angle de la carte. */
 export function BoardEmojiBadge({
-  emoji, bg, corner = "br", size = 42,
+  emoji,
+  bg,
+  corner = "br",
+  size = 42,
 }: {
   emoji: ReactNode;
   bg: string;
   corner?: "tr" | "br";
   size?: number;
 }) {
-  const pos: CSSProperties = corner === "tr" ? { top: -16, right: -12 } : { bottom: -12, right: -8 };
+  const pos: CSSProperties =
+    corner === "tr" ? { top: -16, right: -12 } : { bottom: -12, right: -8 };
   return (
     <span
       className="bm-emoji"
@@ -77,7 +121,17 @@ export function BoardEmojiBadge({
 }
 
 /** Tampon encreur (mot de catégorie encadré, légèrement tourné). */
-export function BoardStamp({ children, color, bg, rotate = -2.2 }: { children: ReactNode; color: string; bg?: string; rotate?: number }) {
+export function BoardStamp({
+  children,
+  color,
+  bg,
+  rotate = -2.2,
+}: {
+  children: ReactNode;
+  color: string;
+  bg?: string;
+  rotate?: number;
+}) {
   return (
     <span
       className="bm-stamp"

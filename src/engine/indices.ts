@@ -23,9 +23,16 @@ export type IndiceGrant = {
 
 // Noms RP donnés aux indices simples (pur habillage — « Indice — <objet> »).
 const INDICE_PROPS = [
-  "Note manuscrite", "Coupure de presse", "Photographie", "Carnet noirci",
-  "Télégramme", "Page arrachée", "Carte de visite", "Reçu froissé",
-  "Pli cacheté", "Bristol griffonné",
+  "Note manuscrite",
+  "Coupure de presse",
+  "Photographie",
+  "Carnet noirci",
+  "Télégramme",
+  "Page arrachée",
+  "Carte de visite",
+  "Reçu froissé",
+  "Pli cacheté",
+  "Bristol griffonné",
 ];
 
 // Barème : ~1 indice / 3 joueurs, plafonné à 4 (plancher 2 pour autoriser 1 paire).
@@ -41,8 +48,15 @@ const ALWAYS_PRESENT = new Set(["tueur", "majordome", "assistant_du_detective", 
 
 // Rôles civils « de pouvoir » dont la présence est un 🔴 (force cachée de la ville).
 const POWER_CIVILS = new Set([
-  "policier", "medium", "medecin_legiste",
-  "vengeur", "cuisinier", "juge", "guetteur", "boussole", "facteur",
+  "policier",
+  "medium",
+  "medecin_legiste",
+  "vengeur",
+  "cuisinier",
+  "juge",
+  "guetteur",
+  "boussole",
+  "facteur",
 ]);
 
 function shuffle<T>(arr: readonly T[]): T[] {
@@ -68,8 +82,10 @@ function buildSimpleClues(roster: RoleLite[]): string[] {
   const civils = roster.filter((r) => r.faction === "Civil");
 
   // A — Nombres
-  if (mechants.some((r) => r.type === "INVESTIGATION")) clues.push("Le camp méchant compte un rôle d'Investigation.");
-  if (mechants.some((r) => r.type === "TROMPERIE")) clues.push("Au moins un rôle de Tromperie se cache côté méchant.");
+  if (mechants.some((r) => r.type === "INVESTIGATION"))
+    clues.push("Le camp méchant compte un rôle d'Investigation.");
+  if (mechants.some((r) => r.type === "TROMPERIE"))
+    clues.push("Au moins un rôle de Tromperie se cache côté méchant.");
 
   // B — présence d'un rôle méchant précis (hors toujours-présents)
   for (const r of mechants) {
@@ -88,13 +104,18 @@ function buildSimpleClues(roster: RoleLite[]): string[] {
     if (ALWAYS_PRESENT.has(r.slug)) continue;
     if (POWER_CIVILS.has(r.slug)) clues.push(`${r.name_fr} est en jeu côté ville.`);
   }
-  if (civils.filter((r) => r.type === "INVESTIGATION").length >= 2) clues.push("La ville compte 2 enquêteurs ou plus.");
-  if (civils.filter((r) => r.type === "PROTECTEUR").length >= 2) clues.push("Un second protecteur veille, en plus du Majordome.");
-  if (civils.some((r) => r.slug === "saint")) clues.push("Un rôle fait perdre la ville s'il est emprisonné au vote.");
+  if (civils.filter((r) => r.type === "INVESTIGATION").length >= 2)
+    clues.push("La ville compte 2 enquêteurs ou plus.");
+  if (civils.filter((r) => r.type === "PROTECTEUR").length >= 2)
+    clues.push("Un second protecteur veille, en plus du Majordome.");
+  if (civils.some((r) => r.slug === "saint"))
+    clues.push("Un rôle fait perdre la ville s'il est emprisonné au vote.");
 
   // E — exclusions fortes (rien sur le Vampire : déjà couvert par l'annonce de morsure)
-  if (!roster.some((r) => r.type === "TROMPERIE")) clues.push("Aucun rôle de Tromperie : personne ne ment sur son rôle.");
-  if (!mechants.some((r) => r.type === "INVESTIGATION")) clues.push("Le camp méchant agit sans espion.");
+  if (!roster.some((r) => r.type === "TROMPERIE"))
+    clues.push("Aucun rôle de Tromperie : personne ne ment sur son rôle.");
+  if (!mechants.some((r) => r.type === "INVESTIGATION"))
+    clues.push("Le camp méchant agit sans espion.");
 
   return clues;
 }
@@ -120,7 +141,11 @@ function buildFragment(
     // camp
     () => {
       const x = pick(withRole);
-      return { subjects: [x.id], halfA: `${x.pseudo} appartient au camp…`, halfB: `…des ${factionLabel(roleOf(x).faction)}.` };
+      return {
+        subjects: [x.id],
+        halfA: `${x.pseudo} appartient au camp…`,
+        halfB: `…des ${factionLabel(roleOf(x).faction)}.`,
+      };
     },
     // même camp
     () => {
@@ -128,7 +153,11 @@ function buildFragment(
       const same = withRole.filter((p) => p.id !== x.id && roleOf(p).faction === roleOf(x).faction);
       if (!same.length) return null;
       const y = pick(same);
-      return { subjects: [x.id, y.id], halfA: `${x.pseudo} et ${y.pseudo} servent…`, halfB: "…le même camp." };
+      return {
+        subjects: [x.id, y.id],
+        halfA: `${x.pseudo} et ${y.pseudo} servent…`,
+        halfB: "…le même camp.",
+      };
     },
     // pas le même camp
     () => {
@@ -136,22 +165,38 @@ function buildFragment(
       const diff = withRole.filter((p) => p.id !== x.id && roleOf(p).faction !== roleOf(x).faction);
       if (!diff.length) return null;
       const y = pick(diff);
-      return { subjects: [x.id, y.id], halfA: `${x.pseudo} et ${y.pseudo} ne sont…`, halfB: "…pas dans le même camp." };
+      return {
+        subjects: [x.id, y.id],
+        halfA: `${x.pseudo} et ${y.pseudo} ne sont…`,
+        halfB: "…pas dans le même camp.",
+      };
     },
     // même type de rôle
     () => {
       const x = pick(withRole);
-      const same = withRole.filter((p) => p.id !== x.id && roleOf(p).type && roleOf(p).type === roleOf(x).type);
+      const same = withRole.filter(
+        (p) => p.id !== x.id && roleOf(p).type && roleOf(p).type === roleOf(x).type,
+      );
       if (!same.length) return null;
       const y = pick(same);
-      return { subjects: [x.id, y.id], halfA: `${x.pseudo} et ${y.pseudo} ont…`, halfB: "…le même type de rôle." };
+      return {
+        subjects: [x.id, y.id],
+        halfA: `${x.pseudo} et ${y.pseudo} ont…`,
+        halfB: "…le même type de rôle.",
+      };
     },
     // arme → porteur (Cuisinier / Stratège ont un couteau au setup)
     () => {
-      const armed = withRole.filter((p) => p.role_slug === "cuisinier" || p.role_slug === "stratege");
+      const armed = withRole.filter(
+        (p) => p.role_slug === "cuisinier" || p.role_slug === "stratege",
+      );
       if (!armed.length) return null;
       const x = pick(armed);
-      return { subjects: [x.id], halfA: "Celui qui détient une…", halfB: `…arme, c'est ${x.pseudo}.` };
+      return {
+        subjects: [x.id],
+        halfA: "Celui qui détient une…",
+        halfB: `…arme, c'est ${x.pseudo}.`,
+      };
     },
   ];
 
@@ -187,8 +232,22 @@ export function distributeIndices(
     if (frag) {
       const holders = shuffle(alive.filter((p) => !frag.subjects.includes(p.id))).slice(0, 2);
       if (holders.length === 2) {
-        grants.push({ playerId: holders[0].id, name: "Indice — Lettre déchirée", icon: "📜", text: frag.halfA, fragment: true, half: "A" });
-        grants.push({ playerId: holders[1].id, name: "Indice — Lettre déchirée", icon: "📜", text: frag.halfB, fragment: true, half: "B" });
+        grants.push({
+          playerId: holders[0].id,
+          name: "Indice — Lettre déchirée",
+          icon: "📜",
+          text: frag.halfA,
+          fragment: true,
+          half: "A",
+        });
+        grants.push({
+          playerId: holders[1].id,
+          name: "Indice — Lettre déchirée",
+          icon: "📜",
+          text: frag.halfB,
+          fragment: true,
+          half: "B",
+        });
         used.add(holders[0].id);
         used.add(holders[1].id);
         remaining -= 2;
@@ -201,7 +260,12 @@ export function distributeIndices(
   const props = shuffle(INDICE_PROPS);
   const candidates = shuffle(alive.filter((p) => !used.has(p.id)));
   for (let i = 0; i < remaining && i < candidates.length && i < clues.length; i++) {
-    grants.push({ playerId: candidates[i].id, name: `Indice — ${props[i % props.length]}`, icon: "🔍", text: clues[i] });
+    grants.push({
+      playerId: candidates[i].id,
+      name: `Indice — ${props[i % props.length]}`,
+      icon: "🔍",
+      text: clues[i],
+    });
   }
 
   return grants;

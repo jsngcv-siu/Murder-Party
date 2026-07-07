@@ -48,7 +48,10 @@ function GamePage() {
       if (!gid) return;
       const uid = userIdRef.current;
       const { data: ps } = await supabase
-        .from("players").select().eq("game_id", gid).order("joined_at", { ascending: true });
+        .from("players")
+        .select()
+        .eq("game_id", gid)
+        .order("joined_at", { ascending: true });
       if (cancelled) return;
       const list = (ps ?? []) as PlayerRow[];
       setPlayers(list);
@@ -80,7 +83,11 @@ function GamePage() {
         .maybeSingle();
       if (cancelled) return;
       const gameId = (pub as { id?: string } | null)?.id;
-      if (!gameId) { toast.error("Partie introuvable."); setLoading(false); return; }
+      if (!gameId) {
+        toast.error("Partie introuvable.");
+        setLoading(false);
+        return;
+      }
 
       const { data: g } = await supabase.from("games").select().eq("id", gameId).maybeSingle();
       if (cancelled) return;
@@ -97,19 +104,26 @@ function GamePage() {
       // Mémorise le dernier code rejoint pour la reconnexion auto depuis l'accueil.
       try {
         if (game.status !== "ended") {
-          window.localStorage.setItem("mp_last_game", JSON.stringify({ code: code.toUpperCase(), ts: Date.now() }));
+          window.localStorage.setItem(
+            "mp_last_game",
+            JSON.stringify({ code: code.toUpperCase(), ts: Date.now() }),
+          );
         } else {
           window.localStorage.removeItem("mp_last_game");
         }
       } catch {}
 
       const { data: ps } = await supabase
-        .from("players").select().eq("game_id", game.id).order("joined_at", { ascending: true });
+        .from("players")
+        .select()
+        .eq("game_id", game.id)
+        .order("joined_at", { ascending: true });
       if (cancelled) return;
       const list = (ps ?? []) as PlayerRow[];
       setPlayers(list);
       const meRow = list.find((p) => p.user_id === uid);
-      if (meRow) setMe(meRow); else setNeedsPseudo(true);
+      if (meRow) setMe(meRow);
+      else setNeedsPseudo(true);
       setLoading(false);
     }
     void load();
@@ -119,9 +133,16 @@ function GamePage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => {
         schedulePlayersRefetch();
       })
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "games", filter: `code=eq.${code.toUpperCase()}` },
-        (payload) => setGame(payload.new as GameRow))
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "games",
+          filter: `code=eq.${code.toUpperCase()}`,
+        },
+        (payload) => setGame(payload.new as GameRow),
+      )
       .subscribe();
 
     // ─── Resync au retour en avant-plan ───
@@ -160,20 +181,35 @@ function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-
   if (loading) {
-    return <div className="min-h-dvh flex items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
+      </div>
+    );
   }
   if (!game && !needsPseudo) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center px-6 text-center gap-4">
         <h2 className="text-xl font-semibold">Partie introuvable</h2>
-        <Link to="/" className="text-primary underline">Retour à l'accueil</Link>
+        <Link to="/" className="text-primary underline">
+          Retour à l'accueil
+        </Link>
       </div>
     );
   }
-  if (needsPseudo) return <JoinAsLatePlayer code={code} onJoined={(p) => { setMe(p); setNeedsPseudo(false); }} />;
-  if (game!.status === "lobby") return <LobbyView game={game!} players={players} me={me!} userId={userId!} />;
+  if (needsPseudo)
+    return (
+      <JoinAsLatePlayer
+        code={code}
+        onJoined={(p) => {
+          setMe(p);
+          setNeedsPseudo(false);
+        }}
+      />
+    );
+  if (game!.status === "lobby")
+    return <LobbyView game={game!} players={players} me={me!} userId={userId!} />;
   return <GameShell game={game!} me={me!} players={players} />;
 }
 
@@ -191,7 +227,9 @@ function JoinAsLatePlayer({ code, onJoined }: { code: string; onJoined: (p: Play
       onJoined(player);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <div className="min-h-dvh flex flex-col">
@@ -201,9 +239,19 @@ function JoinAsLatePlayer({ code, onJoined }: { code: string; onJoined: (p: Play
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pseudo">Choisis ton pseudo</Label>
-              <Input id="pseudo" value={pseudo} onChange={(e) => setPseudo(e.target.value.slice(0, 10))} maxLength={10} className="h-12" />
+              <Input
+                id="pseudo"
+                value={pseudo}
+                onChange={(e) => setPseudo(e.target.value.slice(0, 10))}
+                maxLength={10}
+                className="h-12"
+              />
             </div>
-            <Button type="submit" disabled={loading} className="w-full h-12 bg-gold text-primary-foreground font-semibold">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 bg-gold text-primary-foreground font-semibold"
+            >
               {loading ? "…" : "Rejoindre"}
             </Button>
           </form>
@@ -214,9 +262,21 @@ function JoinAsLatePlayer({ code, onJoined }: { code: string; onJoined: (p: Play
 }
 
 // ─────────────── Lobby Sans MJ ───────────────
-function LobbyView({ game, players, me, userId }: { game: GameRow; players: PlayerRow[]; me: PlayerRow; userId: string }) {
+function LobbyView({
+  game,
+  players,
+  me,
+  userId,
+}: {
+  game: GameRow;
+  players: PlayerRow[];
+  me: PlayerRow;
+  userId: string;
+}) {
   const isHost = userId != null && game.mj_user_id === userId;
-  const playerCount = game.mode_detective_player ? players.length : players.filter((p) => !p.is_mj).length;
+  const playerCount = game.mode_detective_player
+    ? players.length
+    : players.filter((p) => !p.is_mj).length;
   const poolCfg = game.pool_config as { targetPlayers?: number } | null;
   const target = poolCfg?.targetPlayers ?? 10;
   const canStart = isHost && playerCount === target;
@@ -233,17 +293,28 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
       for (const r of (data ?? []) as RoleRow[]) m.set(r.slug, r);
       setLobbyRoles(m);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [helpOpen, lobbyRoles.size]);
   const helpCtx = {
-    game, me, myRole: null, players, roles: lobbyRoles, gameId: game.id,
+    game,
+    me,
+    myRole: null,
+    players,
+    roles: lobbyRoles,
+    gameId: game.id,
   } as unknown as FrameContext;
   // Override optimiste : on affiche immédiatement le nouvel avatar sélectionné,
   // sans attendre l'aller-retour realtime (qui peut prendre ~1s).
   const [optimisticAvatar, setOptimisticAvatar] = useState<string | undefined>();
-  const myAvatar = optimisticAvatar ?? ((me.role_meta as Record<string, unknown>)?.avatar as string | undefined);
+  const myAvatar =
+    optimisticAvatar ?? ((me.role_meta as Record<string, unknown>)?.avatar as string | undefined);
 
-  function copyCode() { void navigator.clipboard.writeText(game.code); toast.success("Code copié"); }
+  function copyCode() {
+    void navigator.clipboard.writeText(game.code);
+    toast.success("Code copié");
+  }
 
   async function transferHost(targetPlayer: PlayerRow) {
     if (!isHost) return;
@@ -253,29 +324,45 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
       await supabase.from("players").update({ is_mj: false }).eq("id", me.id);
       await supabase.from("players").update({ is_mj: true }).eq("id", targetPlayer.id);
     }
-    await supabase.from("games").update({
-      mj_session_id: targetPlayer.session_id,
-      mj_user_id: targetPlayer.user_id,
-    } as never).eq("id", game.id);
+    await supabase
+      .from("games")
+      .update({
+        mj_session_id: targetPlayer.session_id,
+        mj_user_id: targetPlayer.user_id,
+      } as never)
+      .eq("id", game.id);
     toast.success(`${role} transféré à ${targetPlayer.pseudo}`);
   }
 
   async function pickAvatar(id: string) {
     const meta = { ...(me.role_meta as Record<string, unknown>), avatar: id };
     setOptimisticAvatar(id); // UI immédiate
-    await supabase.from("players").update({ role_meta: meta as never }).eq("id", me.id);
+    await supabase
+      .from("players")
+      .update({ role_meta: meta as never })
+      .eq("id", me.id);
   }
   async function startGame() {
     setBusy(true);
-    try { await engineStartGame(game.id); toast.success("Partie lancée — rôles distribués"); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Erreur de lancement"); }
-    finally { setBusy(false); }
+    try {
+      await engineStartGame(game.id);
+      toast.success("Partie lancée — rôles distribués");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur de lancement");
+    } finally {
+      setBusy(false);
+    }
   }
   async function addBot() {
     setBusy(true);
-    try { const p = await addBotPlayer(game.id); if (p) toast.success(`🤖 ${p.pseudo} ajouté`); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
-    finally { setBusy(false); }
+    try {
+      const p = await addBotPlayer(game.id);
+      if (p) toast.success(`🤖 ${p.pseudo} ajouté`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setBusy(false);
+    }
   }
   async function fillBots(count: number) {
     if (count <= 0) return;
@@ -284,9 +371,11 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
       const n = await addBotPlayers(game.id, count);
       if (n > 0) toast.success(n === 1 ? "🤖 Bot ajouté" : `🤖 ${n} bots ajoutés`);
       else toast.error("Impossible d'ajouter des bots");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setBusy(false);
     }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
-    finally { setBusy(false); }
   }
   async function clearBots(ids: string[]) {
     if (ids.length === 0) return;
@@ -295,8 +384,9 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
       const { error } = await supabase.from("players").delete().in("id", ids);
       if (error) toast.error("Impossible de retirer les bots.");
       else toast.success(ids.length === 1 ? "Bot retiré" : `${ids.length} bots retirés`);
+    } finally {
+      setBusy(false);
     }
-    finally { setBusy(false); }
   }
   async function removePlayer(player: PlayerRow) {
     if (!isHost) return;
@@ -328,7 +418,6 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
         <BookOpen className="size-5" />
       </button>
       <main className="flex-1 px-5 pb-12 pt-2 max-w-md mx-auto w-full space-y-6">
-
         {/* ── Code de partie ─────────────────────────────────────── */}
         <Card className="relative overflow-hidden bg-mystic border-gold/30 elevate p-6 shadow-glow text-center">
           <div className="pointer-events-none absolute inset-0 opacity-50 bg-[radial-gradient(ellipse_at_top,oklch(0.78_0.16_75/0.18),transparent_60%)]" />
@@ -346,7 +435,12 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
               {game.code}
             </button>
             <div className="flex items-center justify-center gap-2 pt-1">
-              <Button onClick={copyCode} variant="ghost" size="sm" className="text-muted-foreground hover:text-gold gap-1.5 h-7">
+              <Button
+                onClick={copyCode}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-gold gap-1.5 h-7"
+              >
                 <Copy className="size-3.5" /> Copier le code
               </Button>
               <span className="text-muted-foreground/40">·</span>
@@ -370,7 +464,9 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
           <div className="flex items-end justify-between gap-3">
             <SectionHeading icon={<Users className="size-3.5" />}>Joueurs</SectionHeading>
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
-              <span><span className="text-foreground font-semibold">{playerCount}</span> / {target}</span>
+              <span>
+                <span className="text-foreground font-semibold">{playerCount}</span> / {target}
+              </span>
               <span className="text-muted-foreground/40">·</span>
               <span>min {MIN_PLAYERS}</span>
             </div>
@@ -385,23 +481,34 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
           </div>
 
           <Card className="p-3 bg-card/70 border-border/60 elevate space-y-1.5">
-            {mjPlayer && (() => {
-              const av = avatarOf((mjPlayer.role_meta as Record<string, unknown>)?.avatar as string | undefined, mjPlayer.id);
-              return (
-                <div className="flex items-center justify-between rounded-lg bg-gold/10 border border-gold/40 px-3 py-2.5">
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <AvatarImg avatar={av} size={40} rounded="md" className="shrink-0 ring-1 ring-border/50" />
-                    <span className="font-medium truncate">{mjPlayer.pseudo}</span>
-                    {mjPlayer.user_id != null && mjPlayer.user_id === me.user_id && (
-                      <span className="text-[9px] uppercase text-primary tracking-wider shrink-0">(toi)</span>
-                    )}
-                  </span>
-                  <span className="flex items-center gap-1 text-gold text-[10px] font-bold uppercase tracking-[0.15em] shrink-0">
-                    <Crown className="size-3" /> MJ
-                  </span>
-                </div>
-              );
-            })()}
+            {mjPlayer &&
+              (() => {
+                const av = avatarOf(
+                  (mjPlayer.role_meta as Record<string, unknown>)?.avatar as string | undefined,
+                  mjPlayer.id,
+                );
+                return (
+                  <div className="flex items-center justify-between rounded-lg bg-gold/10 border border-gold/40 px-3 py-2.5">
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <AvatarImg
+                        avatar={av}
+                        size={40}
+                        rounded="md"
+                        className="shrink-0 ring-1 ring-border/50"
+                      />
+                      <span className="font-medium truncate">{mjPlayer.pseudo}</span>
+                      {mjPlayer.user_id != null && mjPlayer.user_id === me.user_id && (
+                        <span className="text-[9px] uppercase text-primary tracking-wider shrink-0">
+                          (toi)
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex items-center gap-1 text-gold text-[10px] font-bold uppercase tracking-[0.15em] shrink-0">
+                      <Crown className="size-3" /> MJ
+                    </span>
+                  </div>
+                );
+              })()}
 
             {visiblePlayers.length === 0 && (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground italic">
@@ -411,7 +518,10 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
 
             <ul className="space-y-1.5 stagger">
               {visiblePlayers.map((p) => {
-                const avId = p.id === me.id ? myAvatar : ((p.role_meta as Record<string, unknown>)?.avatar as string | undefined);
+                const avId =
+                  p.id === me.id
+                    ? myAvatar
+                    : ((p.role_meta as Record<string, unknown>)?.avatar as string | undefined);
                 const av = avatarOf(avId, p.id);
                 const isPlayerHost = p.user_id != null && p.user_id === game.mj_user_id;
                 const isBot = p.pseudo.startsWith("Bot ");
@@ -420,20 +530,38 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
                   <li
                     key={p.id}
                     className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 py-2 transition-colors ${
-                      isMe ? "bg-gold/5 border border-gold/30" : "bg-secondary/30 border border-transparent hover:bg-secondary/50"
+                      isMe
+                        ? "bg-gold/5 border border-gold/30"
+                        : "bg-secondary/30 border border-transparent hover:bg-secondary/50"
                     }`}
                   >
                     <span className="flex items-center gap-2.5 min-w-0">
-                      <AvatarImg avatar={av} size={40} rounded="md" className="shrink-0 ring-1 ring-border/50" />
+                      <AvatarImg
+                        avatar={av}
+                        size={40}
+                        rounded="md"
+                        className="shrink-0 ring-1 ring-border/50"
+                      />
                       <span className="flex items-center gap-1.5 min-w-0">
                         <span className="font-medium truncate">{p.pseudo}</span>
-                        {isMe && <span className="text-[9px] uppercase tracking-wider text-gold shrink-0">toi</span>}
-                        {isBot && <span className="text-[10px] shrink-0" title="Bot">🤖</span>}
+                        {isMe && (
+                          <span className="text-[9px] uppercase tracking-wider text-gold shrink-0">
+                            toi
+                          </span>
+                        )}
+                        {isBot && (
+                          <span className="text-[10px] shrink-0" title="Bot">
+                            🤖
+                          </span>
+                        )}
                       </span>
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isPlayerHost && (
-                        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary" title="Lead : pilote le lancement">
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary"
+                          title="Lead : pilote le lancement"
+                        >
                           <Crown className="size-3" /> Lead
                         </span>
                       )}
@@ -496,7 +624,13 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
                 {/* Actions bots */}
                 <div className="flex items-center gap-1.5">
                   {playerCount < MAX_PLAYERS && (
-                    <Button onClick={addBot} disabled={busy} variant="outline" size="sm" className="press flex-1 border-dashed border-border/70 hover:border-gold/60 hover:text-gold gap-1.5">
+                    <Button
+                      onClick={addBot}
+                      disabled={busy}
+                      variant="outline"
+                      size="sm"
+                      className="press flex-1 border-dashed border-border/70 hover:border-gold/60 hover:text-gold gap-1.5"
+                    >
                       <Bot className="size-3.5" /> Ajouter un bot
                     </Button>
                   )}
@@ -568,7 +702,10 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
                   checked={game.variant === "suspicion"}
                   onChange={async (e) => {
                     const next = e.target.checked ? "suspicion" : null;
-                    await supabase.from("games").update({ variant: next } as never).eq("id", game.id);
+                    await supabase
+                      .from("games")
+                      .update({ variant: next } as never)
+                      .eq("id", game.id);
                   }}
                   className="mt-1 size-4 accent-gold shrink-0"
                 />
@@ -576,8 +713,8 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
                   <div className="text-sm font-semibold">Variante Suspicion</div>
                   <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
                     Pas de vote manuel : à la phase de vote, le joueur le plus marqué « Suspect »
-                    dans les tableaux de suspicions des joueurs vivants ou en prison est éliminé.
-                    En cas d'égalité, personne n'est éliminé.
+                    dans les tableaux de suspicions des joueurs vivants ou en prison est éliminé. En
+                    cas d'égalité, personne n'est éliminé.
                   </div>
                 </div>
               </label>
@@ -594,13 +731,17 @@ function LobbyView({ game, players, me, userId }: { game: GameRow; players: Play
               className={`press w-full h-14 bg-gold text-primary-foreground text-base font-semibold shadow-glow disabled:opacity-40 disabled:shadow-none border border-gold/30 backdrop-blur ${canStart && !busy ? "sheen" : ""}`}
             >
               {busy ? (
-                <><Loader2 className="size-4 animate-spin" /> Lancement…</>
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Lancement…
+                </>
               ) : playerCount < target ? (
                 `Encore ${target - playerCount} joueur(s) — cible ${target}`
               ) : playerCount > target ? (
                 `Trop de joueurs (${playerCount}/${target})`
               ) : (
-                <>Lancer la partie · {playerCount}/{target}</>
+                <>
+                  Lancer la partie · {playerCount}/{target}
+                </>
               )}
             </Button>
           ) : (
@@ -635,16 +776,38 @@ function SectionHeading({ children, icon }: { children: React.ReactNode; icon?: 
   );
 }
 
-async function updatePhaseDur(gameId: string, patch: { free?: number; gathering?: number; vote?: number }) {
-  const upd: { phase_duration_free_s?: number; phase_duration_gathering_s?: number; phase_duration_vote_s?: number } = {};
+async function updatePhaseDur(
+  gameId: string,
+  patch: { free?: number; gathering?: number; vote?: number },
+) {
+  const upd: {
+    phase_duration_free_s?: number;
+    phase_duration_gathering_s?: number;
+    phase_duration_vote_s?: number;
+  } = {};
   if (patch.free !== undefined) upd.phase_duration_free_s = patch.free;
   if (patch.gathering !== undefined) upd.phase_duration_gathering_s = patch.gathering;
   if (patch.vote !== undefined) upd.phase_duration_vote_s = patch.vote;
-  const { error } = await supabase.from("games").update(upd as never).eq("id", gameId);
+  const { error } = await supabase
+    .from("games")
+    .update(upd as never)
+    .eq("id", gameId);
   if (error) toast.error("Impossible de mettre à jour la durée.");
 }
 
-function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { label: string; value: number; onChange: (v: number) => void; editable: boolean; min?: number }) {
+function PhaseDurationRow({
+  label,
+  value,
+  onChange,
+  editable,
+  min = 10,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  editable: boolean;
+  min?: number;
+}) {
   // État local pour éviter de poster en DB à chaque keystroke / saut de re-render via realtime.
   // Le push DB est debouncé (300ms) ; en attendant la valeur reste fluide localement.
   const [local, setLocal] = useState<number>(value);
@@ -691,7 +854,9 @@ function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { labe
     return (
       <div className="flex items-center justify-between">
         <span className="text-sm text-foreground/90">{label}</span>
-        <span className="text-sm font-mono text-muted-foreground">{minutes} min {seconds} s</span>
+        <span className="text-sm font-mono text-muted-foreground">
+          {minutes} min {seconds} s
+        </span>
       </div>
     );
   }
@@ -714,7 +879,9 @@ function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { labe
           disabled={local <= min}
           className="h-9 w-9 rounded-lg bg-card border border-border text-base font-bold disabled:opacity-30 active:scale-95 transition touch-manipulation"
           aria-label="Diminuer de 15 secondes"
-        >−</button>
+        >
+          −
+        </button>
         <Input
           type="text"
           inputMode="numeric"
@@ -726,7 +893,10 @@ function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { labe
             const s = parseNum(secStr) % 60;
             flush(m * 60 + s);
           }}
-          onFocus={() => { focusedRef.current = true; editingRef.current = true; }}
+          onFocus={() => {
+            focusedRef.current = true;
+            editingRef.current = true;
+          }}
           onBlur={() => {
             focusedRef.current = false;
             editingRef.current = false;
@@ -749,7 +919,10 @@ function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { labe
             const s = parseNum(raw) % 60;
             flush(m * 60 + s);
           }}
-          onFocus={() => { focusedRef.current = true; editingRef.current = true; }}
+          onFocus={() => {
+            focusedRef.current = true;
+            editingRef.current = true;
+          }}
           onBlur={() => {
             focusedRef.current = false;
             editingRef.current = false;
@@ -767,15 +940,15 @@ function PhaseDurationRow({ label, value, onChange, editable, min = 10 }: { labe
           disabled={local >= 1800}
           className="h-9 w-9 rounded-lg bg-card border border-border text-base font-bold disabled:opacity-30 active:scale-95 transition touch-manipulation"
           aria-label="Augmenter de 15 secondes"
-        >+</button>
+        >
+          +
+        </button>
       </div>
     </div>
   );
 }
 
-
 // ─────────────── Game shell — délégué à PlayerShell ───────────────
 function GameShell({ game, me, players }: { game: GameRow; me: PlayerRow; players: PlayerRow[] }) {
   return <PlayerShell game={game} me={me} players={players} />;
 }
-

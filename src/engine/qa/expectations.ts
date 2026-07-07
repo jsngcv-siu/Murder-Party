@@ -3,12 +3,7 @@
 // SCHEDULES_AT_GATHERING) and compare it to what the PROSE a player reads
 // (`capacite_full_text`) promises. Divergence = "the card lies about the role".
 
-import {
-  allowedActivePhases,
-  parseTotalLimit,
-  type Phase,
-  type RoleRow,
-} from "../actions";
+import { allowedActivePhases, parseTotalLimit, type Phase, type RoleRow } from "../actions";
 import type { FindingInput } from "./types";
 
 export type EffectCategory =
@@ -24,21 +19,51 @@ export type EffectCategory =
 // Coarse documented-effect per role (display + passive/targeting sanity).
 // Mirrors the faction-aware targeting in bots.ts; approximate by design.
 const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
-  tueur: "kill", vampire: "kill", croque_mitaine: "kill", stratege: "kill",
-  vengeur: "kill", parieur_tricheur: "kill", executeur: "kill", cuisinier: "kill",
+  tueur: "kill",
+  vampire: "kill",
+  croque_mitaine: "kill",
+  stratege: "kill",
+  vengeur: "kill",
+  parieur_tricheur: "kill",
+  executeur: "kill",
+  cuisinier: "kill",
   juge: "imprison",
-  assistant_du_detective: "investigate", policier: "investigate", chasseur_de_vampire: "investigate",
-  heritier_dechu: "investigate", journaliste: "investigate", cartomancien: "investigate",
-  mouchard: "investigate", voisin: "investigate", boussole: "investigate", oracle: "investigate",
-  medecin_legiste: "passive", medium: "passive", temoin: "passive", guetteur: "passive",
-  avocat: "passive", paranoiaque: "passive",
-  majordome: "protect", babysitter: "protect", ange_gardien: "protect", saint: "protect",
+  assistant_du_detective: "investigate",
+  policier: "investigate",
+  chasseur_de_vampire: "investigate",
+  heritier_dechu: "investigate",
+  journaliste: "investigate",
+  cartomancien: "investigate",
+  mouchard: "investigate",
+  voisin: "investigate",
+  boussole: "investigate",
+  oracle: "investigate",
+  medecin_legiste: "passive",
+  medium: "passive",
+  temoin: "passive",
+  guetteur: "passive",
+  avocat: "passive",
+  paranoiaque: "passive",
+  majordome: "protect",
+  babysitter: "protect",
+  ange_gardien: "protect",
+  saint: "protect",
   apothicaire: "protect",
   empoisonneur: "poison",
-  maitre_chanteur: "manipulate", barman: "manipulate", accusateur: "manipulate",
-  marionnettiste: "manipulate", falsificateur: "manipulate", armurier: "manipulate",
-  voleur: "manipulate", cleaner: "manipulate", usurpateur: "manipulate", imitateur: "manipulate",
-  conservateur: "manipulate", facteur: "manipulate", entremetteur: "manipulate", veuve_noire: "manipulate",
+  maitre_chanteur: "manipulate",
+  barman: "manipulate",
+  accusateur: "manipulate",
+  marionnettiste: "manipulate",
+  falsificateur: "manipulate",
+  armurier: "manipulate",
+  voleur: "manipulate",
+  cleaner: "manipulate",
+  usurpateur: "manipulate",
+  imitateur: "manipulate",
+  conservateur: "manipulate",
+  facteur: "manipulate",
+  entremetteur: "manipulate",
+  veuve_noire: "manipulate",
 };
 
 function effectFor(role: RoleRow): EffectCategory {
@@ -77,7 +102,12 @@ function hasTargetingVerb(role: RoleRow): boolean {
   // "lie 2 joueurs"). "protège ta cible" (auto-assigned) is NOT matched (no
   // un/une/le/la/ce/cet/cette/digit). "lie/lier/unis/unir" couvre l'Entremetteur
   // (le joueur CHOISIT les 2 amoureux — ce n'est pas passif).
-  if (/\b(protège|empoisonne|tue|emprisonne|élimine|lie|lier|unis|unir|marie)\s+(un|une|le|la|ce|cet|cette|\d)/.test(t)) return true;
+  if (
+    /\b(protège|empoisonne|tue|emprisonne|élimine|lie|lier|unis|unir|marie)\s+(un|une|le|la|ce|cet|cette|\d)/.test(
+      t,
+    )
+  )
+    return true;
   // Explicit "choisis/sélectionne <a player>".
   if (
     /\b(choisis|sélectionne)\s+(un|une|1|2|deux|le|la)\s*(joueur|cible|voisin|allié|alliée|victime|époux|amoureux|membre|coéquipier|convive|invité)/.test(
@@ -136,7 +166,12 @@ export function auditRoleStatic(role: RoleRow, playerCount: number): FindingInpu
       title: `${role.name_fr} : le texte dit « rassemblement » mais la capacité s'utilise en phase libre`,
       detail:
         "Le texte de la carte parle du rassemblement, mais le moteur (déduit de usage_label/phase_activation) n'autorise la capacité qu'en phase libre. Un joueur cherchera son action au mauvais moment.",
-      evidence: { capacite_full_text: role.capacite_full_text, usage_label: role.usage_label, phase_activation: role.phase_activation, allowedPhases: [...exp.allowedPhases] },
+      evidence: {
+        capacite_full_text: role.capacite_full_text,
+        usage_label: role.usage_label,
+        phase_activation: role.phase_activation,
+        allowedPhases: [...exp.allowedPhases],
+      },
     });
   }
   if (mentioned.free && !mentioned.gathering && allowsGathering && !allowsFree) {
@@ -147,7 +182,12 @@ export function auditRoleStatic(role: RoleRow, playerCount: number): FindingInpu
       title: `${role.name_fr} : le texte dit « phase libre / journée » mais la capacité s'utilise au rassemblement`,
       detail:
         "Le texte de la carte décrit une action de jour, mais le moteur ne l'autorise qu'au rassemblement. Incohérence texte ↔ phase d'activation.",
-      evidence: { capacite_full_text: role.capacite_full_text, usage_label: role.usage_label, phase_activation: role.phase_activation, allowedPhases: [...exp.allowedPhases] },
+      evidence: {
+        capacite_full_text: role.capacite_full_text,
+        usage_label: role.usage_label,
+        phase_activation: role.phase_activation,
+        allowedPhases: [...exp.allowedPhases],
+      },
     });
   }
 
@@ -160,7 +200,11 @@ export function auditRoleStatic(role: RoleRow, playerCount: number): FindingInpu
       title: `${role.name_fr} : le texte annonce un usage unique mais le moteur n'impose aucune limite`,
       detail:
         "La carte dit « une seule fois / 1×/partie », or parseTotalLimit ne plafonne pas (usage_label ne contient pas la limite). Le bot pourra réutiliser la capacité indéfiniment.",
-      evidence: { capacite_full_text: role.capacite_full_text, usage_label: role.usage_label, totalLimit: "Infinity" },
+      evidence: {
+        capacite_full_text: role.capacite_full_text,
+        usage_label: role.usage_label,
+        totalLimit: "Infinity",
+      },
     });
   }
 

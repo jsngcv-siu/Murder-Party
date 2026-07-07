@@ -48,14 +48,19 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
       title: `Phase « ${phase} » bloquée (${Math.round(ctx.secondsOverdue)}s de retard)`,
       detail:
         "Le minuteur de la phase est épuisé depuis longtemps mais la partie n'a pas avancé. tickPhase ne progresse pas (deadlock, condition de transition jamais remplie, ou erreur silencieuse).",
-      evidence: { phase_started_at: game.phase_started_at, phase_duration_s: game.phase_duration_s, secondsOverdue: ctx.secondsOverdue },
+      evidence: {
+        phase_started_at: game.phase_started_at,
+        phase_duration_s: game.phase_duration_s,
+        secondsOverdue: ctx.secondsOverdue,
+      },
     });
   }
 
   // 2) Vote integrity (current tour).
   const tourVotes = votes.filter((v) => v.tour === tour);
   const seenVoter = new Map<string, number>();
-  for (const v of tourVotes) seenVoter.set(v.voter_player_id, (seenVoter.get(v.voter_player_id) ?? 0) + 1);
+  for (const v of tourVotes)
+    seenVoter.set(v.voter_player_id, (seenVoter.get(v.voter_player_id) ?? 0) + 1);
   for (const [voterId, n] of seenVoter) {
     if (n > 1) {
       out.push({
@@ -128,7 +133,8 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
         phase,
         dedupeKey: `bug:notif-burst:${key}`,
         title: `Notification émise ${maxBurst}× en rafale (<2s) : « ${sample.title} »`,
-        detail: "La même notification a été insérée plusieurs fois en moins de 2 secondes — signature d'une émission en double (boucle, double resolver), pas d'un rappel périodique.",
+        detail:
+          "La même notification a été insérée plusieurs fois en moins de 2 secondes — signature d'une émission en double (boucle, double resolver), pas d'un rappel périodique.",
         evidence: { title: sample.title, body: sample.body, type: sample.type, burst: maxBurst },
       });
     }
@@ -142,9 +148,19 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
   //     - le sujet lui-même (apprendre SON rôle est normal) ;
   //     - deux coéquipiers Méchants (ils se connaissent : « Le Tueur a ciblé X »…).
   const LEGIT_REVEAL_TYPES = new Set<string>([
-    "mouchard_reveal", "mouchard_setup", "temoin_reveal", "imitate", "autopsy",
-    "execution_reveal", "oracle_setup", "prophecy_set", "cover_pending",
-    "killer_targeted", "guetteur_visit", "saint_block_log", "ward",
+    "mouchard_reveal",
+    "mouchard_setup",
+    "temoin_reveal",
+    "imitate",
+    "autopsy",
+    "execution_reveal",
+    "oracle_setup",
+    "prophecy_set",
+    "cover_pending",
+    "killer_targeted",
+    "guetteur_visit",
+    "saint_block_log",
+    "ward",
   ]);
   const factionOf = (p: PlayerRow) => rolesBySlug.get(p.role_slug ?? "")?.faction;
   const aliveSubjects = players.filter((p) => !p.is_mj && p.is_alive && p.role_slug);
@@ -157,7 +173,8 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
       if (subj.id === n.player_id) continue; // sa propre info = normal
       const role = rolesBySlug.get(subj.role_slug!);
       if (!role) continue;
-      if (!text.includes(role.name_fr.toLowerCase()) || !text.includes(subj.pseudo.toLowerCase())) continue;
+      if (!text.includes(role.name_fr.toLowerCase()) || !text.includes(subj.pseudo.toLowerCase()))
+        continue;
       // Coéquipiers Méchants : connaissance légitime entre acolytes.
       if (factionOf(recipient) === "Méchant" && factionOf(subj) === "Méchant") continue;
       out.push({
@@ -172,7 +189,14 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
         title: `Fuite : ${recipient.pseudo} apprend que ${subj.pseudo} est ${role.name_fr}`,
         detail:
           "Une notification ciblée sur un joueur nomme le rôle d'un AUTRE joueur vivant, sans que ce soit une enquête légitime ni un coéquipier Méchant. Information divulguée à quelqu'un qui ne devrait pas l'avoir.",
-        evidence: { recipient: recipient.pseudo, subject: subj.pseudo, role: role.name_fr, type: n.type, notifTitle: n.title, notifBody: n.body },
+        evidence: {
+          recipient: recipient.pseudo,
+          subject: subj.pseudo,
+          role: role.name_fr,
+          type: n.type,
+          notifTitle: n.title,
+          notifBody: n.body,
+        },
       });
       break; // une fuite par notification suffit
     }
@@ -206,7 +230,12 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
       title: `Intention « ${arr[0].source ?? arr[0].category} » soumise ${arr.length}× à l'identique`,
       detail:
         "Plusieurs lignes role_actions identiques (acteur/source/catégorie/cible) au même tour. Une capacité ne devrait poser qu'une intention — doublon = appel concurrent non idempotent (la cause des notifs en rafale).",
-      evidence: { count: arr.length, source: arr[0].source, category: arr[0].category, actionIds: arr.map((a) => a.id) },
+      evidence: {
+        count: arr.length,
+        source: arr[0].source,
+        category: arr[0].category,
+        actionIds: arr.map((a) => a.id),
+      },
     });
   }
 
@@ -223,8 +252,7 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
     if (!target) continue;
     // « appliquée » → la cible DOIT être morte ; « bloquée » → elle DOIT survivre.
     const contradiction =
-      (status === "applied" && target.is_alive) ||
-      (status === "protected" && !target.is_alive);
+      (status === "applied" && target.is_alive) || (status === "protected" && !target.is_alive);
     if (!contradiction) continue;
     const actor = byId.get(a.actor_player_id);
     out.push({
@@ -235,12 +263,19 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
       botPseudo: actor?.pseudo,
       roleSlug: actor?.role_slug ?? null,
       dedupeKey: `bug:effect-mismatch:${a.id}`,
-      title: status === "applied"
-        ? `Attaque « ${a.source ?? "?"} » résolue « appliquée » mais ${target.pseudo} est vivant`
-        : `Attaque « ${a.source ?? "?"} » résolue « bloquée » mais ${target.pseudo} est mort`,
+      title:
+        status === "applied"
+          ? `Attaque « ${a.source ?? "?"} » résolue « appliquée » mais ${target.pseudo} est vivant`
+          : `Attaque « ${a.source ?? "?"} » résolue « bloquée » mais ${target.pseudo} est mort`,
       detail:
         "Le resolver a écrit resolution.status, mais l'état réel du joueur le contredit : l'effet annoncé ne correspond pas à ce qui s'est passé. Soit le kill/la protection n'a pas pris, soit le statut écrit est faux.",
-      evidence: { actionId: a.id, source: a.source, status, target: target.pseudo, target_is_alive: target.is_alive },
+      evidence: {
+        actionId: a.id,
+        source: a.source,
+        status,
+        target: target.pseudo,
+        target_is_alive: target.is_alive,
+      },
     });
   }
 

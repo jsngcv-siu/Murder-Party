@@ -12,7 +12,7 @@ export type PoolSlot = {
   faction: Faction;
   type: string; // ex: "INVESTIGATION" ou "TROMPERIE/SUPPORT"
   slug: string | null; // null = tirage auto dans le pool faction+type
-  locked?: boolean;    // MUST : ne peut pas être supprimé
+  locked?: boolean; // MUST : ne peut pas être supprimé
 };
 
 export type PoolConfig = {
@@ -22,15 +22,14 @@ export type PoolConfig = {
 
 /** Décompose un type éventuellement uni ("A/B") en liste de types acceptés. */
 export function expandSlotTypes(t: string): string[] {
-  return t.split("/").map((s) => s.trim()).filter(Boolean);
+  return t
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // Patterns de slots non-verrouillés à dérouler dans l'ordre selon la taille cible.
-const ACOLYTE_FILL: string[] = [
-  "INVESTIGATION",
-  "TROMPERIE/SUPPORT",
-  "TROMPERIE/SUPPORT",
-];
+const ACOLYTE_FILL: string[] = ["INVESTIGATION", "TROMPERIE/SUPPORT", "TROMPERIE/SUPPORT"];
 const NEUTRE_FILL: string[] = [
   // 1er neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
   "MAL/BÉNIN/CHAOS",
@@ -64,8 +63,20 @@ export function buildDefaultPool(target: number): PoolConfig {
 
   // ── MUSTs (verrouillés) ──
   slots.push({ id: nextId(), faction: "Méchant", type: "TUEUR", slug: "tueur", locked: true });
-  slots.push({ id: nextId(), faction: "Civil", type: "PROTECTEUR", slug: "majordome", locked: true });
-  slots.push({ id: nextId(), faction: "Civil", type: "INVESTIGATION", slug: "assistant_du_detective", locked: true });
+  slots.push({
+    id: nextId(),
+    faction: "Civil",
+    type: "PROTECTEUR",
+    slug: "majordome",
+    locked: true,
+  });
+  slots.push({
+    id: nextId(),
+    faction: "Civil",
+    type: "INVESTIGATION",
+    slug: "assistant_du_detective",
+    locked: true,
+  });
   // (Exécuteur n'est plus MUST : Civil/TUEUR ordinaire, tiré via CIVIL_FILL.)
 
   // ── Acolytes méchants ──
@@ -78,7 +89,12 @@ export function buildDefaultPool(target: number): PoolConfig {
   // ── Neutres ──
   const nNeutres = neutresCountFor(target);
   for (let k = 0; k < nNeutres; k++) {
-    slots.push({ id: nextId(), faction: "Neutre", type: NEUTRE_FILL[k % NEUTRE_FILL.length], slug: null });
+    slots.push({
+      id: nextId(),
+      faction: "Neutre",
+      type: NEUTRE_FILL[k % NEUTRE_FILL.length],
+      slug: null,
+    });
   }
 
   // ── Civils (remplissent le reste) ──

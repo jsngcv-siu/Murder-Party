@@ -11,13 +11,14 @@ export function BrandHeader({ subtitle }: { subtitle?: string }) {
         <span
           aria-hidden
           className="mx-auto mt-2 block h-px w-28 rounded-full"
-          style={{ background: "linear-gradient(90deg, transparent, oklch(0.80 0.17 78 / 0.7), transparent)" }}
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, oklch(0.80 0.17 78 / 0.7), transparent)",
+          }}
         />
       </Link>
       {subtitle && (
-        <p className="mt-3 text-sm uppercase tracking-[0.3em] text-muted-foreground">
-          {subtitle}
-        </p>
+        <p className="mt-3 text-sm uppercase tracking-[0.3em] text-muted-foreground">{subtitle}</p>
       )}
     </header>
   );

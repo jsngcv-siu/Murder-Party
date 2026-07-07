@@ -10,7 +10,8 @@ import type { PlayerRow } from "@/engine/actions";
 type SaveState = "idle" | "saving" | "saved";
 
 export function TestamentEditor({ me }: { me: PlayerRow }) {
-  const initial = ((me.role_meta as Record<string, unknown> | null)?.testament as string | undefined) ?? "";
+  const initial =
+    ((me.role_meta as Record<string, unknown> | null)?.testament as string | undefined) ?? "";
   const [text, setText] = useState(initial);
   const [state, setState] = useState<SaveState>("idle");
   const lastSavedRef = useRef(initial);
@@ -66,18 +67,40 @@ export function TestamentEditor({ me }: { me: PlayerRow }) {
         <span
           aria-hidden
           className="absolute"
-          style={{ top: -10,left: 22, width: 62, height: 18, background: "oklch(0.86 0.04 85 / 0.5)", transform: "rotate(-3deg)", boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)" }}
+          style={{
+            top: -10,
+            left: 22,
+            width: 62,
+            height: 18,
+            background: "oklch(0.86 0.04 85 / 0.5)",
+            transform: "rotate(-3deg)",
+            boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)",
+          }}
         />
         <span
           aria-hidden
           className="absolute"
-          style={{ top: -10,right: 22, width: 62, height: 18, background: "oklch(0.86 0.04 85 / 0.5)", transform: "rotate(3deg)", boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)" }}
+          style={{
+            top: -10,
+            right: 22,
+            width: 62,
+            height: 18,
+            background: "oklch(0.86 0.04 85 / 0.5)",
+            transform: "rotate(3deg)",
+            boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)",
+          }}
         />
 
         <div className="px-5 pt-5 pb-4">
           <div
             className="leading-none"
-            style={{ fontFamily: "var(--font-hand)", fontWeight: 700, fontSize: 28, color: "oklch(0.40 0.08 45)", transform: "rotate(-1deg)" }}
+            style={{
+              fontFamily: "var(--font-hand)",
+              fontWeight: 700,
+              fontSize: 28,
+              color: "oklch(0.40 0.08 45)",
+              transform: "rotate(-1deg)",
+            }}
           >
             Mes dernières volontés
           </div>
@@ -85,12 +108,18 @@ export function TestamentEditor({ me }: { me: PlayerRow }) {
             className="mt-2 mb-3 flex items-center justify-between"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            <span className="text-[8.5px] tracking-[0.1em]" style={{ color: "oklch(0.55 0.07 60)" }}>
+            <span
+              className="text-[8.5px] tracking-[0.1em]"
+              style={{ color: "oklch(0.55 0.07 60)" }}
+            >
               SCELLÉ — RÉVÉLÉ À TA MORT
             </span>
             <span
               className="text-[8.5px] px-2 py-0.5 rounded-sm"
-              style={{ color: "oklch(0.45 0.06 55)", border: "1px solid oklch(0.62 0.08 60 / 0.5)" }}
+              style={{
+                color: "oklch(0.45 0.06 55)",
+                border: "1px solid oklch(0.62 0.08 60 / 0.5)",
+              }}
             >
               brouillon
             </span>

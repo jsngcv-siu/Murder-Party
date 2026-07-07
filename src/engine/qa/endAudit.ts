@@ -15,7 +15,9 @@ type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 // Independent re-evaluation of which factions MEET a victory condition, used to
 // detect contradictions evaluateWin() hides (it returns only the first match).
 function factionsThatWon(players: PlayerRow[], rolesBySlug: Map<string, RoleRow>): string[] {
-  const real = players.filter((p) => !p.is_mj && ((p.role_meta ?? {}) as Record<string, unknown>).immortal !== true);
+  const real = players.filter(
+    (p) => !p.is_mj && ((p.role_meta ?? {}) as Record<string, unknown>).immortal !== true,
+  );
   const alive = real.filter((p) => p.is_alive && !p.is_imprisoned);
   if (alive.length === 0) return [];
   const meta = (p: PlayerRow) => (p.role_meta ?? {}) as Record<string, unknown>;
@@ -36,7 +38,8 @@ function factionsThatWon(players: PlayerRow[], rolesBySlug: Map<string, RoleRow>
   const emp = alive.find((p) => p.role_slug === "empoisonneur");
   if (emp) {
     const others = alive.filter((p) => p.id !== emp.id);
-    if (others.length > 0 && others.every((p) => meta(p).poisoned === true)) won.add("empoisonneur");
+    if (others.length > 0 && others.every((p) => meta(p).poisoned === true))
+      won.add("empoisonneur");
   }
   // Vampires.
   const vampAlive = alive.filter(isVampire).length;
@@ -51,13 +54,17 @@ function factionsThatWon(players: PlayerRow[], rolesBySlug: Map<string, RoleRow>
 }
 
 export async function runEndGameAudit(gameId: string): Promise<void> {
-  const [{ data: gRaw }, { data: pRaw }, { data: rRaw }, { data: aRaw }, { data: nRaw }] = await Promise.all([
-    supabase.from("games").select().eq("id", gameId).single(),
-    supabase.from("players").select().eq("game_id", gameId),
-    supabase.from("roles").select().eq("set_id", "set1"),
-    supabase.from("role_actions").select().eq("game_id", gameId),
-    supabase.from("notifications").select("id, type, title, body, player_id").eq("game_id", gameId),
-  ]);
+  const [{ data: gRaw }, { data: pRaw }, { data: rRaw }, { data: aRaw }, { data: nRaw }] =
+    await Promise.all([
+      supabase.from("games").select().eq("id", gameId).single(),
+      supabase.from("players").select().eq("game_id", gameId),
+      supabase.from("roles").select().eq("set_id", "set1"),
+      supabase.from("role_actions").select().eq("game_id", gameId),
+      supabase
+        .from("notifications")
+        .select("id, type, title, body, player_id")
+        .eq("game_id", gameId),
+    ]);
 
   const game = gRaw as GameRow | null;
   if (!game) return;
@@ -65,7 +72,10 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
   const rolesBySlug = new Map<string, RoleRow>();
   for (const r of (rRaw ?? []) as RoleRow[]) rolesBySlug.set(r.slug, r);
   const actions = (aRaw ?? []) as RoleActionRow[];
-  const notifs = (nRaw ?? []) as Pick<NotificationRow, "id" | "type" | "title" | "body" | "player_id">[];
+  const notifs = (nRaw ?? []) as Pick<
+    NotificationRow,
+    "id" | "type" | "title" | "body" | "player_id"
+  >[];
 
   const tour = game.current_tour;
   const phase = "ended" as Phase;
@@ -80,7 +90,8 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
       phase,
       dedupeKey: "bug:no-game-end-notif",
       title: "Partie terminée sans notification de fin",
-      detail: "status = ended mais aucune notification type « game_end » n'a été émise. Les joueurs ne voient pas qui a gagné.",
+      detail:
+        "status = ended mais aucune notification type « game_end » n'a été émise. Les joueurs ne voient pas qui a gagné.",
     });
   }
 
@@ -101,7 +112,9 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
   }
 
   // 3) Deferred intents never resolved at end of game.
-  const unresolved = actions.filter((a) => a.timing === "DEFERRED" && a.category != null && a.resolved_at == null);
+  const unresolved = actions.filter(
+    (a) => a.timing === "DEFERRED" && a.category != null && a.resolved_at == null,
+  );
   const byId = new Map(players.map((p) => [p.id, p]));
   for (const a of unresolved) {
     const actor = byId.get(a.actor_player_id);
@@ -114,7 +127,8 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
       roleSlug: actor?.role_slug ?? null,
       dedupeKey: `bug:intent-unresolved-end:${a.id}`,
       title: `Intention « ${a.source ?? a.category} » non résolue en fin de partie`,
-      detail: "Une action différée n'a jamais été traitée par le resolver — son effet promis n'a pas eu lieu.",
+      detail:
+        "Une action différée n'a jamais été traitée par le resolver — son effet promis n'a pas eu lieu.",
       evidence: { actionId: a.id, source: a.source, submittedTour: a.tour },
     });
   }
@@ -139,7 +153,9 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
   }
   const entremetteur = players.find((p) => p.role_slug === "entremetteur" && !p.is_mj);
   if (entremetteur) {
-    const pair = ((entremetteur.role_meta ?? {}) as Record<string, unknown>).linked_pair as string[] | undefined;
+    const pair = ((entremetteur.role_meta ?? {}) as Record<string, unknown>).linked_pair as
+      | string[]
+      | undefined;
     if (!pair || pair.length < 2) {
       findings.push({
         severity: "medium",

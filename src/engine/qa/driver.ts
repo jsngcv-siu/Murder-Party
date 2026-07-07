@@ -54,12 +54,7 @@ export async function runInvariantSweep(
       .order("created_at", { ascending: false })
       .limit(200),
     supabase.from("votes").select().eq("game_id", gameId),
-    supabase
-      .from("role_actions")
-      .select()
-      .eq("game_id", gameId)
-      .is("resolved_at", null)
-      .limit(200),
+    supabase.from("role_actions").select().eq("game_id", gameId).is("resolved_at", null).limit(200),
     // Toutes les actions du tour courant (résolues ou non) : concurrence + effets.
     supabase
       .from("role_actions")

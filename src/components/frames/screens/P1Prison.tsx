@@ -19,7 +19,8 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
             className="size-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
             style={{
               background: "linear-gradient(135deg, oklch(0.30 0.10 55), oklch(0.22 0.06 50))",
-              boxShadow: "0 0 0 1px oklch(0.55 0.20 55 / 0.4), 0 8px 24px -8px oklch(0.55 0.20 55 / 0.4)",
+              boxShadow:
+                "0 0 0 1px oklch(0.55 0.20 55 / 0.4), 0 8px 24px -8px oklch(0.55 0.20 55 / 0.4)",
             }}
           >
             <Lock className="size-6" aria-hidden />
@@ -41,7 +42,8 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
         <div
           className="rounded-2xl p-4 border flex items-center gap-3"
           style={{
-            background: "linear-gradient(135deg, oklch(0.20 0.06 145 / 0.35), oklch(0.18 0.03 35 / 0.5))",
+            background:
+              "linear-gradient(135deg, oklch(0.20 0.06 145 / 0.35), oklch(0.18 0.03 35 / 0.5))",
             borderColor: "oklch(0.55 0.15 145 / 0.35)",
           }}
         >
@@ -75,7 +77,10 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
             </div>
             <div className="grid grid-cols-2 gap-2 stagger">
               {otherPrisoners.map((p) => {
-                const av = avatarOf(((p.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined, p.id);
+                const av = avatarOf(
+                  ((p.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined,
+                  p.id,
+                );
                 return (
                   <div
                     key={p.id}
@@ -92,7 +97,10 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
                       <AvatarImg avatar={av} size={36} rounded="none" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold truncate" style={{ color: "oklch(0.92 0.06 60)" }}>
+                      <div
+                        className="text-xs font-semibold truncate"
+                        style={{ color: "oklch(0.92 0.06 60)" }}
+                      >
                         {p.pseudo}
                       </div>
                       <div className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -114,7 +122,10 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
   }
 
   // ─── Vue : emprisonné ───
-  const myAv = avatarOf(((me.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined, me.id);
+  const myAv = avatarOf(
+    ((me.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined,
+    me.id,
+  );
 
   return (
     <div
@@ -152,27 +163,26 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
             Tu es en prison
           </h2>
           <p className="mt-2 text-xs text-[oklch(0.82_0.08_55)] max-w-[280px] mx-auto leading-relaxed">
-            Tu observes les rassemblements et chats publics mais tu ne peux ni voter ni utiliser ta capacité.
+            Tu observes les rassemblements et chats publics mais tu ne peux ni voter ni utiliser ta
+            capacité.
           </p>
         </div>
 
         {/* Restrictions visuelles */}
         <div className="grid grid-cols-3 gap-2 stagger">
-          {([
-            { Icon: Vote, label: "Vote", off: true },
-            { Icon: Zap, label: "Capacité", off: true },
-            { Icon: Eye, label: "Observer", off: false },
-          ] as Array<{ Icon: LucideIcon; label: string; off: boolean }>).map((r) => (
+          {(
+            [
+              { Icon: Vote, label: "Vote", off: true },
+              { Icon: Zap, label: "Capacité", off: true },
+              { Icon: Eye, label: "Observer", off: false },
+            ] as Array<{ Icon: LucideIcon; label: string; off: boolean }>
+          ).map((r) => (
             <div
               key={r.label}
               className="rounded-xl p-2.5 text-center border"
               style={{
-                background: r.off
-                  ? "oklch(0.16 0.04 22 / 0.5)"
-                  : "oklch(0.20 0.08 145 / 0.35)",
-                borderColor: r.off
-                  ? "oklch(0.45 0.18 22 / 0.35)"
-                  : "oklch(0.55 0.15 145 / 0.4)",
+                background: r.off ? "oklch(0.16 0.04 22 / 0.5)" : "oklch(0.20 0.08 145 / 0.35)",
+                borderColor: r.off ? "oklch(0.45 0.18 22 / 0.35)" : "oklch(0.55 0.15 145 / 0.4)",
                 opacity: r.off ? 0.85 : 1,
               }}
             >
@@ -196,7 +206,8 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
         <div
           className="rounded-2xl p-4 border flex items-center gap-3"
           style={{
-            background: "linear-gradient(135deg, oklch(0.18 0.05 50 / 0.85), oklch(0.14 0.03 35 / 0.85))",
+            background:
+              "linear-gradient(135deg, oklch(0.18 0.05 50 / 0.85), oklch(0.14 0.03 35 / 0.85))",
             borderColor: "oklch(0.55 0.20 55 / 0.5)",
             boxShadow: "0 0 32px -4px oklch(0.55 0.22 55 / 0.25)",
           }}
@@ -246,7 +257,10 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
             </div>
             <div className="grid grid-cols-2 gap-2 stagger">
               {otherPrisoners.map((p) => {
-                const av = avatarOf(((p.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined, p.id);
+                const av = avatarOf(
+                  ((p.role_meta ?? {}) as Record<string, unknown>).avatar as string | undefined,
+                  p.id,
+                );
                 return (
                   <div
                     key={p.id}
@@ -263,10 +277,15 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
                       <AvatarImg avatar={av} size={36} rounded="none" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold truncate" style={{ color: "oklch(0.92 0.08 65)" }}>
+                      <div
+                        className="text-xs font-semibold truncate"
+                        style={{ color: "oklch(0.92 0.08 65)" }}
+                      >
                         {p.pseudo}
                       </div>
-                      <div className="text-[10px] text-[oklch(0.75_0.10_55)] inline-flex items-center gap-1"><Lock className="size-2.5" aria-hidden /> En cellule</div>
+                      <div className="text-[10px] text-[oklch(0.75_0.10_55)] inline-flex items-center gap-1">
+                        <Lock className="size-2.5" aria-hidden /> En cellule
+                      </div>
                     </div>
                   </div>
                 );

@@ -26,7 +26,12 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
   // joueur). On fige donc l'ensemble des joueurs affichés au montage — la carte
   // reste en place jusqu'à ce que l'écran de vote laisse place au résultat.
   const [rosterIds] = useState<Set<string>>(
-    () => new Set(players.filter((p) => p.is_alive && !p.is_imprisoned && !p.is_mj && p.id !== me.id).map((p) => p.id)),
+    () =>
+      new Set(
+        players
+          .filter((p) => p.is_alive && !p.is_imprisoned && !p.is_mj && p.id !== me.id)
+          .map((p) => p.id),
+      ),
   );
   // Exclut le MJ (hors-partie) du panel de vote. On garde une carte tant que le
   // joueur est vivant, même s'il vient d'être emprisonné par le verdict.
@@ -54,7 +59,7 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "votes", filter: `game_id=eq.${gameId}` },
-        () => void refresh()
+        () => void refresh(),
       )
       .subscribe();
     return () => {
@@ -114,10 +119,16 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
       </div>
 
       <div className="mt-4 mb-1">
-        <h2 className="text-[28px] font-bold tracking-tight text-glow-gold leading-none" style={{ fontFamily: "var(--font-display)" }}>
+        <h2
+          className="text-[28px] font-bold tracking-tight text-glow-gold leading-none"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
           Qui emprisonner ?
         </h2>
-        <p className="text-sm mt-1.5" style={{ fontFamily: "var(--font-hand)", fontSize: 17, color: "oklch(0.78 0.05 80)" }}>
+        <p
+          className="text-sm mt-1.5"
+          style={{ fontFamily: "var(--font-hand)", fontSize: 17, color: "oklch(0.78 0.05 80)" }}
+        >
           choisis qui part au trou — le vote est secret
         </p>
       </div>
@@ -125,7 +136,9 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
       {/* Vote actuel */}
       {votedFor ? (
         <div className="mt-3 flex items-center gap-3 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
-          <span className="grid place-items-center size-5 rounded-full bg-gold text-primary-foreground text-[11px] font-bold">✓</span>
+          <span className="grid place-items-center size-5 rounded-full bg-gold text-primary-foreground text-[11px] font-bold">
+            ✓
+          </span>
           <div className="text-sm">
             <span className="text-muted-foreground">Tu as voté pour</span>{" "}
             <span className="font-semibold text-foreground">
@@ -144,7 +157,10 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
       <div className="mt-4 flex-1 overflow-y-auto px-1 py-1">
         <div className="grid grid-cols-3 gap-3">
           {aliveOthers.map((p) => {
-            const av = avatarOf((p.role_meta as Record<string, unknown>)?.avatar as string | undefined, p.id);
+            const av = avatarOf(
+              (p.role_meta as Record<string, unknown>)?.avatar as string | undefined,
+              p.id,
+            );
             const isSelected = target === p.id;
             const pinColor = isSelected ? "var(--primary)" : "oklch(0.80 0.15 78)";
             return (
@@ -160,7 +176,10 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
                 <span
                   aria-hidden
                   className="absolute left-1/2 -translate-x-1/2 -top-1.5 z-10 size-3 rounded-full"
-                  style={{ background: `radial-gradient(circle at 35% 30%, color-mix(in oklab, ${pinColor} 70%, white), ${pinColor})`, boxShadow: "0 2px 3px oklch(0 0 0 / 0.5)" }}
+                  style={{
+                    background: `radial-gradient(circle at 35% 30%, color-mix(in oklab, ${pinColor} 70%, white), ${pinColor})`,
+                    boxShadow: "0 2px 3px oklch(0 0 0 / 0.5)",
+                  }}
                 />
                 {/* Case polaroïd */}
                 <div
@@ -176,7 +195,10 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
                   <div className="relative">
                     <div
                       className="relative aspect-square w-full overflow-hidden grid place-items-center"
-                      style={{ background: "repeating-linear-gradient(45deg, oklch(0.72 0.04 240), oklch(0.72 0.04 240) 6px, oklch(0.78 0.04 240) 6px, oklch(0.78 0.04 240) 12px)" }}
+                      style={{
+                        background:
+                          "repeating-linear-gradient(45deg, oklch(0.72 0.04 240), oklch(0.72 0.04 240) 6px, oklch(0.78 0.04 240) 6px, oklch(0.78 0.04 240) 12px)",
+                      }}
                     >
                       <AvatarImg avatar={av} fill rounded="none" className="w-full h-full" />
                       {isAlly(p.id, p.role_slug) && <AllyStamp />}
@@ -202,7 +224,12 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
                   {/* Nom manuscrit — abaissé, centré sous le post-it */}
                   <div
                     className="text-center mt-2.5 leading-none truncate px-1"
-                    style={{ fontFamily: "var(--font-hand)", fontWeight: 700, fontSize: 15, color: "oklch(0.28 0.03 45)" }}
+                    style={{
+                      fontFamily: "var(--font-hand)",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      color: "oklch(0.28 0.03 45)",
+                    }}
                   >
                     {p.pseudo}
                   </div>

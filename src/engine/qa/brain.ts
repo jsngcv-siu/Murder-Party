@@ -46,7 +46,11 @@ const VILLAIN_CAUTION = [
   "On se calme, trop d'agitation attire l'œil.",
   "Personne ne se précipite, on synchronise.",
 ];
-const VILLAIN_AGREE = (t: string) => [`D'accord pour ${t}.`, `Ok, ${t} alors.`, `Ça me va, on cible ${t}.`];
+const VILLAIN_AGREE = (t: string) => [
+  `D'accord pour ${t}.`,
+  `Ok, ${t} alors.`,
+  `Ça me va, on cible ${t}.`,
+];
 
 const COUNCIL = [
   "Depuis l'au-delà, je vois tout… et je ne dirai rien.",
@@ -76,7 +80,9 @@ function villainLine(ctx: ChatContext): string | null {
 
 function scriptedDecideChat(ctx: ChatContext): string | null {
   const namedMe = ctx.recent.some(
-    (m) => m.author_player_id !== ctx.bot.id && m.body.toLowerCase().includes(ctx.bot.pseudo.toLowerCase()),
+    (m) =>
+      m.author_player_id !== ctx.bot.id &&
+      m.body.toLowerCase().includes(ctx.bot.pseudo.toLowerCase()),
   );
   if (namedMe && Math.random() < 0.8) return pick(DEFENSE);
   if (ctx.channel === "mechants") return villainLine(ctx);

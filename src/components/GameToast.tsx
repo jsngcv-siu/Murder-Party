@@ -26,24 +26,53 @@ export type GameToastProps = {
 };
 
 export function GameToast({
-  toastId, tone, icon, label, title, description, actionLabel, onAction,
+  toastId,
+  tone,
+  icon,
+  label,
+  title,
+  description,
+  actionLabel,
+  onAction,
 }: GameToastProps) {
   const root = useRef<HTMLDivElement>(null);
   const t = eventTheme(tone);
 
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-    // Anim seulement si l'utilisateur n'a PAS demandé de mouvement réduit.
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap.timeline({ defaults: { ease: "power3.out" } })
-        .from(root.current, { autoAlpha: 0, y: -12, scale: 0.96, duration: 0.45, ease: "back.out(1.4)" })
-        .from("[data-tt-bar]", { scaleY: 0, transformOrigin: "top", duration: 0.4 }, "-=0.30")
-        .from("[data-tt-icon]", { scale: 0, rotation: -25, autoAlpha: 0, duration: 0.5, ease: "back.out(2)" }, "-=0.32")
-        .from("[data-tt-text] > *", { y: 8, autoAlpha: 0, duration: 0.32, stagger: 0.06 }, "-=0.30")
-        .from("[data-tt-action]", { scale: 0.8, autoAlpha: 0, duration: 0.3, ease: "back.out(1.8)" }, "-=0.24");
-    });
-    return () => mm.revert();
-  }, { scope: root });
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      // Anim seulement si l'utilisateur n'a PAS demandé de mouvement réduit.
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap
+          .timeline({ defaults: { ease: "power3.out" } })
+          .from(root.current, {
+            autoAlpha: 0,
+            y: -12,
+            scale: 0.96,
+            duration: 0.45,
+            ease: "back.out(1.4)",
+          })
+          .from("[data-tt-bar]", { scaleY: 0, transformOrigin: "top", duration: 0.4 }, "-=0.30")
+          .from(
+            "[data-tt-icon]",
+            { scale: 0, rotation: -25, autoAlpha: 0, duration: 0.5, ease: "back.out(2)" },
+            "-=0.32",
+          )
+          .from(
+            "[data-tt-text] > *",
+            { y: 8, autoAlpha: 0, duration: 0.32, stagger: 0.06 },
+            "-=0.30",
+          )
+          .from(
+            "[data-tt-action]",
+            { scale: 0.8, autoAlpha: 0, duration: 0.3, ease: "back.out(1.8)" },
+            "-=0.24",
+          );
+      });
+      return () => mm.revert();
+    },
+    { scope: root },
+  );
 
   const dismiss = () => toast.dismiss(toastId);
 
@@ -53,7 +82,8 @@ export function GameToast({
       onClick={dismiss}
       className="group relative flex w-[340px] max-w-[92vw] cursor-pointer overflow-hidden rounded-2xl press"
       style={{
-        background: "linear-gradient(135deg, oklch(0.20 0.025 35 / 0.85), oklch(0.15 0.02 35 / 0.85))",
+        background:
+          "linear-gradient(135deg, oklch(0.20 0.025 35 / 0.85), oklch(0.15 0.02 35 / 0.85))",
         backdropFilter: "blur(14px) saturate(1.2)",
         WebkitBackdropFilter: "blur(14px) saturate(1.2)",
         border: "1px solid oklch(1 0 0 / 0.07)",
@@ -76,12 +106,17 @@ export function GameToast({
             boxShadow: `0 0 0 1.5px ${t.ring}, inset 0 0 18px ${t.ring}`,
           }}
         >
-          <span style={{ filter: `drop-shadow(0 0 6px ${t.accent})`, color: t.accent }}>{icon}</span>
+          <span style={{ filter: `drop-shadow(0 0 6px ${t.accent})`, color: t.accent }}>
+            {icon}
+          </span>
         </div>
 
         {/* Textes */}
         <div data-tt-text className="min-w-0 flex-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: t.accent }}>
+          <div
+            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: t.accent }}
+          >
             {label}
           </div>
           <div
@@ -90,7 +125,9 @@ export function GameToast({
           >
             {title}
           </div>
-          {description && <div className="truncate text-[11px] text-muted-foreground">{description}</div>}
+          {description && (
+            <div className="truncate text-[11px] text-muted-foreground">{description}</div>
+          )}
         </div>
 
         {/* Action */}
@@ -98,9 +135,17 @@ export function GameToast({
           <button
             data-tt-action
             type="button"
-            onClick={(e) => { e.stopPropagation(); onAction?.(); dismiss(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction?.();
+              dismiss();
+            }}
             className="press shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
-            style={{ background: t.accent, color: "oklch(0.14 0.02 35)", boxShadow: `0 4px 12px ${t.ring}` }}
+            style={{
+              background: t.accent,
+              color: "oklch(0.14 0.02 35)",
+              boxShadow: `0 4px 12px ${t.ring}`,
+            }}
           >
             {actionLabel}
           </button>

@@ -25,7 +25,7 @@ export const ROLE_TYPE_META: Record<string, RoleTypeMeta> = {
   BOULET: { Icon: Anchor, color: "oklch(0.60 0.06 230)", label: "Boulet" },
   MAL: { Icon: Skull, color: "oklch(0.55 0.20 22)", label: "Mal" },
   CHAOS: { Icon: Flame, color: "oklch(0.75 0.18 50)", label: "Chaos" },
-  "BÉNIN": { Icon: Smile, color: "oklch(0.70 0.14 150)", label: "Bénin" },
+  BÉNIN: { Icon: Smile, color: "oklch(0.70 0.14 150)", label: "Bénin" },
 };
 
 const FALLBACK: RoleTypeMeta = { Icon: Shield, color: "var(--muted-foreground)", label: "—" };
@@ -42,7 +42,7 @@ export function roleTypeMeta(type: string | null | undefined): RoleTypeMeta {
 
 /** Token couleur CSS de la faction (cohérent avec factionText / styles.css). */
 export const FACTION_TOKEN: Record<string, string> = {
-  "Civil": "var(--citoyens)",
-  "Méchant": "var(--mechants)",
-  "Neutre": "var(--neutres)",
+  Civil: "var(--citoyens)",
+  Méchant: "var(--mechants)",
+  Neutre: "var(--neutres)",
 };

@@ -10,11 +10,52 @@ import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
 import { highlightCapacity } from "@/lib/highlightCapacity";
 import { UsageCard } from "./P10Roles";
 import {
-  Shield, Swords, Search, Heart, VenetianMask, Anchor, Skull, Flame, Smile, Home, LogOut,
-  BookOpen, Target, Clock, Smartphone, Lightbulb, Sun, Bell, Gavel,
-  Zap, Backpack, Feather, Megaphone, Sparkles, Lock, ChevronLeft, ChevronRight, ChevronDown, X,
-  ShieldCheck, FlaskConical, Ban, Flag, Gauge, Moon, Repeat, Star, Hourglass, Info,
-  Hand, Wine, Drama, Dices, Crosshair, Martini, type LucideIcon,
+  Shield,
+  Swords,
+  Search,
+  Heart,
+  VenetianMask,
+  Anchor,
+  Skull,
+  Flame,
+  Smile,
+  Home,
+  LogOut,
+  BookOpen,
+  Target,
+  Clock,
+  Smartphone,
+  Lightbulb,
+  Sun,
+  Bell,
+  Gavel,
+  Zap,
+  Backpack,
+  Feather,
+  Megaphone,
+  Sparkles,
+  Lock,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  X,
+  ShieldCheck,
+  FlaskConical,
+  Ban,
+  Flag,
+  Gauge,
+  Moon,
+  Repeat,
+  Star,
+  Hourglass,
+  Info,
+  Hand,
+  Wine,
+  Drama,
+  Dices,
+  Crosshair,
+  Martini,
+  type LucideIcon,
 } from "lucide-react";
 import { Sigil } from "@/components/Sigil";
 
@@ -65,15 +106,34 @@ export function P11HelpMenu({
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {tabs.map((t) => (
-          <TabBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} Icon={t.Icon} label={t.label} accent={t.accent} />
+          <TabBtn
+            key={t.id}
+            active={tab === t.id}
+            onClick={() => setTab(t.id)}
+            Icon={t.Icon}
+            label={t.label}
+            accent={t.accent}
+          />
         ))}
       </nav>
 
       <div className="flex-1 min-h-0 text-sm">
         {tab === "howto" && <HowTo ctx={ctx} />}
-        {tab === "roles" && <div className="h-full overflow-y-auto p-5"><RolesList ctx={ctx} onOpen={setOpenRole} /></div>}
-        {tab === "objects" && <div className="h-full overflow-y-auto p-5"><ObjectsList /></div>}
-        {tab === "statuses" && <div className="h-full overflow-y-auto p-5"><StatusList /></div>}
+        {tab === "roles" && (
+          <div className="h-full overflow-y-auto p-5">
+            <RolesList ctx={ctx} onOpen={setOpenRole} />
+          </div>
+        )}
+        {tab === "objects" && (
+          <div className="h-full overflow-y-auto p-5">
+            <ObjectsList />
+          </div>
+        )}
+        {tab === "statuses" && (
+          <div className="h-full overflow-y-auto p-5">
+            <StatusList />
+          </div>
+        )}
       </div>
 
       {(onLeave || onQuit) && (
@@ -103,7 +163,19 @@ export function P11HelpMenu({
   );
 }
 
-function TabBtn({ active, onClick, Icon, label, accent }: { active: boolean; onClick: () => void; Icon: LucideIcon; label: string; accent: string }) {
+function TabBtn({
+  active,
+  onClick,
+  Icon,
+  label,
+  accent,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: LucideIcon;
+  label: string;
+  accent: string;
+}) {
   return (
     <button
       onClick={onClick}
@@ -111,23 +183,41 @@ function TabBtn({ active, onClick, Icon, label, accent }: { active: boolean; onC
         active ? "bg-card/80 ring-1 ring-border shadow-sm" : "hover:bg-card/50"
       }`}
     >
-      <Sigil active={active} size={26} accent={accent}><Icon className="size-5" /></Sigil>
+      <Sigil active={active} size={26} accent={accent}>
+        <Icon className="size-5" />
+      </Sigil>
       <span
         className="text-[10px] uppercase tracking-wider font-semibold"
         style={{ color: active ? accent : "var(--muted-foreground)" }}
-      >{label}</span>
+      >
+        {label}
+      </span>
     </button>
   );
 }
 
-
 // En-tête de slide (titre Cinzel + sous-titre).
-function SlideHead({ Icon, title, subtitle }: { Icon: LucideIcon; title: string; subtitle: string }) {
+function SlideHead({
+  Icon,
+  title,
+  subtitle,
+}: {
+  Icon: LucideIcon;
+  title: string;
+  subtitle: string;
+}) {
   return (
     <div className="text-center mb-4">
       <Icon className="size-6 mx-auto text-primary" aria-hidden />
-      <h3 className="mt-1.5 text-xl font-bold text-glow-gold leading-tight" style={{ fontFamily: "var(--font-display)" }}>{title}</h3>
-      <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-0.5">{subtitle}</p>
+      <h3
+        className="mt-1.5 text-xl font-bold text-glow-gold leading-tight"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        {title}
+      </h3>
+      <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-0.5">
+        {subtitle}
+      </p>
     </div>
   );
 }
@@ -143,14 +233,30 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
       <SlideHead Icon={BookOpen} title="Bienvenue" subtitle="Le principe" />
 
       {/* Hero dramatique — dégradé sang & or */}
-      <div className="relative overflow-hidden rounded-2xl border border-primary/25 p-5"
-        style={{ background: "linear-gradient(155deg, color-mix(in oklab, var(--mechants) 14%, var(--card)) 0%, var(--card) 55%, color-mix(in oklab, var(--primary) 12%, var(--card)) 100%)" }}
+      <div
+        className="relative overflow-hidden rounded-2xl border border-primary/25 p-5"
+        style={{
+          background:
+            "linear-gradient(155deg, color-mix(in oklab, var(--mechants) 14%, var(--card)) 0%, var(--card) 55%, color-mix(in oklab, var(--primary) 12%, var(--card)) 100%)",
+        }}
       >
-        <div className="absolute -top-6 -right-6 w-28 h-28 bg-mechants/15 rounded-full blur-2xl" aria-hidden />
-        <div className="absolute -bottom-8 -left-6 w-28 h-28 bg-primary/10 rounded-full blur-2xl" aria-hidden />
-        <VenetianMask className="relative size-7 mx-auto mb-2.5 text-primary drop-shadow" aria-hidden />
+        <div
+          className="absolute -top-6 -right-6 w-28 h-28 bg-mechants/15 rounded-full blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="absolute -bottom-8 -left-6 w-28 h-28 bg-primary/10 rounded-full blur-2xl"
+          aria-hidden
+        />
+        <VenetianMask
+          className="relative size-7 mx-auto mb-2.5 text-primary drop-shadow"
+          aria-hidden
+        />
         <p className="relative text-[15px] text-center leading-relaxed text-foreground">
-          Un jeu à <span className="font-semibold text-primary">rôle caché</span>. Un <span className="font-semibold text-mechants">meurtre</span> a eu lieu&nbsp;: un <span className="font-semibold text-mechants">meurtrier</span> et ses <span className="font-semibold text-mechants">acolytes</span> se cachent parmi vous.
+          Un jeu à <span className="font-semibold text-primary">rôle caché</span>. Un{" "}
+          <span className="font-semibold text-mechants">meurtre</span> a eu lieu&nbsp;: un{" "}
+          <span className="font-semibold text-mechants">meurtrier</span> et ses{" "}
+          <span className="font-semibold text-mechants">acolytes</span> se cachent parmi vous.
         </p>
         <p className="relative text-xs text-center italic text-muted-foreground mt-2">
           À vous de mener l'enquête… avant qu'il ne soit trop tard.
@@ -158,16 +264,31 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
       </div>
 
       <ol className="space-y-2.5">
-        {([
+        {[
           { t: "Tu reçois un rôle secret, avec une capacité bien à toi.", c: "var(--neutres)" },
-          { t: "Chaque tour : tu agis en cachette, l'app révèle les dégâts, puis la table débat et vote.", c: "var(--primary)" },
-          { t: "Ton camp l'emporte en remplissant sa condition de victoire.", c: "var(--citoyens)" },
-        ]).map((s, i) => (
-          <li key={i} className="flex items-start gap-3 rounded-xl border border-border bg-card/40 p-3">
+          {
+            t: "Chaque tour : tu agis en cachette, l'app révèle les dégâts, puis la table débat et vote.",
+            c: "var(--primary)",
+          },
+          {
+            t: "Ton camp l'emporte en remplissant sa condition de victoire.",
+            c: "var(--citoyens)",
+          },
+        ].map((s, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-3 rounded-xl border border-border bg-card/40 p-3"
+          >
             <span
               className="shrink-0 grid place-items-center size-6 rounded-full text-[11px] font-bold border"
-              style={{ color: s.c, borderColor: `color-mix(in oklab, ${s.c} 45%, transparent)`, background: `color-mix(in oklab, ${s.c} 15%, transparent)` }}
-            >{i + 1}</span>
+              style={{
+                color: s.c,
+                borderColor: `color-mix(in oklab, ${s.c} 45%, transparent)`,
+                background: `color-mix(in oklab, ${s.c} 15%, transparent)`,
+              }}
+            >
+              {i + 1}
+            </span>
             <span className="text-sm text-muted-foreground leading-snug">{s.t}</span>
           </li>
         ))}
@@ -177,10 +298,22 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
     // 2 — Le but
     <div className="space-y-4" key="goal">
       <SlideHead Icon={Target} title="Le but" subtitle="Trois camps" />
-      <GoalCard Icon={Shield} title="Civils" tone="text-citoyens" ring="ring-citoyens/30" bg="bg-citoyens/8">
+      <GoalCard
+        Icon={Shield}
+        title="Civils"
+        tone="text-citoyens"
+        ring="ring-citoyens/30"
+        bg="bg-citoyens/8"
+      >
         Démasquer et faire <b>emprisonner</b> les Méchants.
       </GoalCard>
-      <GoalCard Icon={Swords} title="Méchants" tone="text-mechants" ring="ring-mechants/30" bg="bg-mechants/8">
+      <GoalCard
+        Icon={Swords}
+        title="Méchants"
+        tone="text-mechants"
+        ring="ring-mechants/30"
+        bg="bg-mechants/8"
+      >
         Survivre et <b>éliminer</b> assez de Civils pour dominer.
       </GoalCard>
       <NeutresGoalCard />
@@ -194,17 +327,50 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
       </p>
       <div className="relative pl-6 space-y-4">
         <div className="absolute left-[11px] top-3 bottom-3 w-px bg-gradient-to-b from-primary/60 via-primary/20 to-transparent" />
-        <PhaseStep number={1} Icon={Sun} title="Phase libre" color="text-primary" accent="var(--primary)">
-          Tu circules, parles en privé et <b className="text-primary">utilises ta capacité</b> sur une cible. Tout se décide ici — mais <b className="text-foreground">rien n'est encore visible</b>.
+        <PhaseStep
+          number={1}
+          Icon={Sun}
+          title="Phase libre"
+          color="text-primary"
+          accent="var(--primary)"
+        >
+          Tu circules, parles en privé et <b className="text-primary">utilises ta capacité</b> sur
+          une cible. Tout se décide ici — mais{" "}
+          <b className="text-foreground">rien n'est encore visible</b>.
         </PhaseStep>
-        <PhaseStep number={2} Icon={Megaphone} title="Annonce" color="text-amber-400" accent="oklch(0.82 0.16 75)">
-          L'app révèle le <b className="text-amber-400">dénouement</b> : <b className="text-foreground">morts, prisons</b>, événements de la nuit — le résultat des capacités jouées en Phase libre.
+        <PhaseStep
+          number={2}
+          Icon={Megaphone}
+          title="Annonce"
+          color="text-amber-400"
+          accent="oklch(0.82 0.16 75)"
+        >
+          L'app révèle le <b className="text-amber-400">dénouement</b> :{" "}
+          <b className="text-foreground">morts, prisons</b>, événements de la nuit — le résultat des
+          capacités jouées en Phase libre.
         </PhaseStep>
-        <PhaseStep number={3} Icon={Bell} title="Rassemblement" color="text-sky-400" accent="oklch(0.70 0.16 230)">
-          La table débat à voix haute : <b className="text-sky-300">accusations, défenses, déductions</b>. <b className="text-sky-300">Certains rôles agissent aussi pendant cette phase</b> — reste attentif.
+        <PhaseStep
+          number={3}
+          Icon={Bell}
+          title="Rassemblement"
+          color="text-sky-400"
+          accent="oklch(0.70 0.16 230)"
+        >
+          La table débat à voix haute :{" "}
+          <b className="text-sky-300">accusations, défenses, déductions</b>.{" "}
+          <b className="text-sky-300">Certains rôles agissent aussi pendant cette phase</b> — reste
+          attentif.
         </PhaseStep>
-        <PhaseStep number={4} Icon={Gavel} title="Vote" color="text-destructive" accent="var(--destructive)">
-          Chacun désigne un suspect. Le plus voté part en <b className="text-orange-400">prison</b> (<b className="text-orange-400">capacité bloquée</b>). Puis un <b className="text-foreground">nouveau tour</b> commence.
+        <PhaseStep
+          number={4}
+          Icon={Gavel}
+          title="Vote"
+          color="text-destructive"
+          accent="var(--destructive)"
+        >
+          Chacun désigne un suspect. Le plus voté part en <b className="text-orange-400">prison</b>{" "}
+          (<b className="text-orange-400">capacité bloquée</b>). Puis un{" "}
+          <b className="text-foreground">nouveau tour</b> commence.
         </PhaseStep>
       </div>
     </div>,
@@ -240,7 +406,9 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
         style={{ scrollbarWidth: "none" }}
       >
         {slides.map((s, i) => (
-          <div key={i} className="w-full shrink-0 snap-center overflow-y-auto px-5 py-5">{s}</div>
+          <div key={i} className="w-full shrink-0 snap-center overflow-y-auto px-5 py-5">
+            {s}
+          </div>
         ))}
       </div>
 
@@ -277,8 +445,20 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
   );
 }
 
-function GoalCard({ Icon, title, tone, ring, bg, children }: {
-  Icon: LucideIcon; title: string; tone: string; ring: string; bg: string; children: React.ReactNode;
+function GoalCard({
+  Icon,
+  title,
+  tone,
+  ring,
+  bg,
+  children,
+}: {
+  Icon: LucideIcon;
+  title: string;
+  tone: string;
+  ring: string;
+  bg: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className={`flex items-start gap-3 rounded-xl border ${ring} ${bg} p-3.5`}>
@@ -294,19 +474,31 @@ function GoalCard({ Icon, title, tone, ring, bg, children }: {
 }
 
 // Les trois sous-camps neutres, regroupés par comportement (couleurs dédiées).
-const NEUTRE_SOUSCAMPS: { Icon: LucideIcon; color: string; label: string; goal: string; ex: string }[] = [
+const NEUTRE_SOUSCAMPS: {
+  Icon: LucideIcon;
+  color: string;
+  label: string;
+  goal: string;
+  ex: string;
+}[] = [
   {
-    Icon: Star, color: "oklch(0.80 0.12 300)", label: "Solitaires",
+    Icon: Star,
+    color: "oklch(0.80 0.12 300)",
+    label: "Solitaires",
     goal: "Remplissent un objectif personnel et pacifique — sans tuer.",
     ex: "Conservateur, Pèlerin, Oracle, Ange Gardien…",
   },
   {
-    Icon: VenetianMask, color: "var(--vampires)", label: "Subversifs",
+    Icon: VenetianMask,
+    color: "var(--vampires)",
+    label: "Subversifs",
     goal: "Convertissent ou infectent la table pour la retourner à leur cause.",
     ex: "Vampire, Mort-Vivant, Empoisonneur…",
   },
   {
-    Icon: Swords, color: "oklch(0.70 0.19 35)", label: "Tueurs neutres",
+    Icon: Swords,
+    color: "oklch(0.70 0.19 35)",
+    label: "Tueurs neutres",
     goal: "Éliminent pour leur propre compte, selon leur quota secret.",
     ex: "Taupe, Veuve noire, Parieur tricheur…",
   },
@@ -327,13 +519,18 @@ function NeutresGoalCard() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-bold text-neutres">Neutres</span>
-            <span className="text-[9px] uppercase tracking-wider font-semibold text-neutres/70 rounded-full border border-neutres/30 px-1.5 py-0.5">3 sous-camps</span>
+            <span className="text-[9px] uppercase tracking-wider font-semibold text-neutres/70 rounded-full border border-neutres/30 px-1.5 py-0.5">
+              3 sous-camps
+            </span>
           </div>
           <div className="text-sm text-muted-foreground mt-0.5 leading-snug">
             Chacun a sa propre <b>condition de victoire</b>.
           </div>
         </div>
-        <ChevronDown className={`size-4 mt-1 shrink-0 text-neutres transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown
+          className={`size-4 mt-1 shrink-0 text-neutres transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden
+        />
       </button>
       {open && (
         <div className="px-3 pb-3 pt-0.5 space-y-1.5">
@@ -341,14 +538,24 @@ function NeutresGoalCard() {
             <div
               key={s.label}
               className="rounded-lg border p-2.5"
-              style={{ borderColor: `color-mix(in oklab, ${s.color} 32%, transparent)`, background: `color-mix(in oklab, ${s.color} 9%, transparent)` }}
+              style={{
+                borderColor: `color-mix(in oklab, ${s.color} 32%, transparent)`,
+                background: `color-mix(in oklab, ${s.color} 9%, transparent)`,
+              }}
             >
               <div className="flex items-center gap-2">
                 <s.Icon className="size-4 shrink-0" style={{ color: s.color }} aria-hidden />
-                <span className="text-[13px] font-bold" style={{ color: s.color }}>{s.label}</span>
+                <span className="text-[13px] font-bold" style={{ color: s.color }}>
+                  {s.label}
+                </span>
               </div>
               <div className="text-xs text-muted-foreground leading-snug mt-1">{s.goal}</div>
-              <div className="text-[10px] italic mt-1" style={{ color: `color-mix(in oklab, ${s.color} 70%, var(--muted-foreground))` }}>{s.ex}</div>
+              <div
+                className="text-[10px] italic mt-1"
+                style={{ color: `color-mix(in oklab, ${s.color} 70%, var(--muted-foreground))` }}
+              >
+                {s.ex}
+              </div>
             </div>
           ))}
         </div>
@@ -357,8 +564,20 @@ function NeutresGoalCard() {
   );
 }
 
-function PhaseStep({ number, Icon, title, color, accent, children }: {
-  number: number; Icon: LucideIcon; title: string; color: string; accent?: string; children: React.ReactNode;
+function PhaseStep({
+  number,
+  Icon,
+  title,
+  color,
+  accent,
+  children,
+}: {
+  number: number;
+  Icon: LucideIcon;
+  title: string;
+  color: string;
+  accent?: string;
+  children: React.ReactNode;
 }) {
   const tint = accent ?? "var(--primary)";
   return (
@@ -389,21 +608,85 @@ function PhaseStep({ number, Icon, title, color, accent, children }: {
 // Slide "Ton téléphone" — onglets en accordéon (touche pour le détail) + cadres
 // de statuts réels (mêmes badges duotone que la StatusBandeau en jeu).
 const ONGLETS: { Icon: LucideIcon; accent: string; label: string; detail: string }[] = [
-  { Icon: Zap, accent: "var(--primary)", label: "Capacité", detail: "Le cœur de ton rôle : choisis ta cible, lis le résultat de tes actions, et accède au chat secret si ton rôle en a un." },
-  { Icon: Target, accent: "var(--destructive)", label: "Suspicions", detail: "Note ton niveau de soupçon sur chaque joueur (de « sûr » à « suspect »). C'est privé — personne ne le voit." },
-  { Icon: Megaphone, accent: "var(--citoyens)", label: "Annonces", detail: "Le journal du manoir : toutes les morts, prisons et événements, tour par tour. Ta meilleure source d'indices." },
-  { Icon: Backpack, accent: "oklch(0.78 0.15 55)", label: "Inventaire", detail: "Les objets que tu as reçus. Touche-en un pour voir son effet et l'utiliser." },
-  { Icon: Feather, accent: "oklch(0.74 0.15 300)", label: "Testament", detail: "Écris un dernier message, révélé au cimetière si tu meurs. Une ultime accusation… ou un mensonge." },
+  {
+    Icon: Zap,
+    accent: "var(--primary)",
+    label: "Capacité",
+    detail:
+      "Le cœur de ton rôle : choisis ta cible, lis le résultat de tes actions, et accède au chat secret si ton rôle en a un.",
+  },
+  {
+    Icon: Target,
+    accent: "var(--destructive)",
+    label: "Suspicions",
+    detail:
+      "Note ton niveau de soupçon sur chaque joueur (de « sûr » à « suspect »). C'est privé — personne ne le voit.",
+  },
+  {
+    Icon: Megaphone,
+    accent: "var(--citoyens)",
+    label: "Annonces",
+    detail:
+      "Le journal du manoir : toutes les morts, prisons et événements, tour par tour. Ta meilleure source d'indices.",
+  },
+  {
+    Icon: Backpack,
+    accent: "oklch(0.78 0.15 55)",
+    label: "Inventaire",
+    detail: "Les objets que tu as reçus. Touche-en un pour voir son effet et l'utiliser.",
+  },
+  {
+    Icon: Feather,
+    accent: "oklch(0.74 0.15 300)",
+    label: "Testament",
+    detail:
+      "Écris un dernier message, révélé au cimetière si tu meurs. Une ultime accusation… ou un mensonge.",
+  },
 ];
 
 const STATUTS: { Icon: LucideIcon; color: string; label: string; effet: string }[] = [
-  { Icon: ShieldCheck, color: "oklch(0.72 0.16 230)", label: "Protégé", effet: "Toute attaque qui te vise est bloquée." },
-  { Icon: FlaskConical, color: "oklch(0.74 0.16 155)", label: "Empoisonné", effet: "Sans soin, tu meurs au prochain rassemblement." },
-  { Icon: Ban, color: "oklch(0.65 0.22 18)", label: "Bloqué", effet: "Capacité et objets inutilisables ce tour." },
-  { Icon: Sparkles, color: "oklch(0.85 0.16 95)", label: "Béni", effet: "Les actions malveillantes qui te visent sont annulées." },
-  { Icon: Flag, color: "oklch(0.78 0.16 55)", label: "Suspect", effet: "Accusé en public — ça pèse sur les votes." },
-  { Icon: Lock, color: "oklch(0.80 0.14 75)", label: "Prison", effet: "Capacité bloquée jusqu'à ta libération." },
-  { Icon: Skull, color: "oklch(0.74 0.10 150)", label: "Mort", effet: "Tu observes la partie et rejoins le chat des morts." },
+  {
+    Icon: ShieldCheck,
+    color: "oklch(0.72 0.16 230)",
+    label: "Protégé",
+    effet: "Toute attaque qui te vise est bloquée.",
+  },
+  {
+    Icon: FlaskConical,
+    color: "oklch(0.74 0.16 155)",
+    label: "Empoisonné",
+    effet: "Sans soin, tu meurs au prochain rassemblement.",
+  },
+  {
+    Icon: Ban,
+    color: "oklch(0.65 0.22 18)",
+    label: "Bloqué",
+    effet: "Capacité et objets inutilisables ce tour.",
+  },
+  {
+    Icon: Sparkles,
+    color: "oklch(0.85 0.16 95)",
+    label: "Béni",
+    effet: "Les actions malveillantes qui te visent sont annulées.",
+  },
+  {
+    Icon: Flag,
+    color: "oklch(0.78 0.16 55)",
+    label: "Suspect",
+    effet: "Accusé en public — ça pèse sur les votes.",
+  },
+  {
+    Icon: Lock,
+    color: "oklch(0.80 0.14 75)",
+    label: "Prison",
+    effet: "Capacité bloquée jusqu'à ta libération.",
+  },
+  {
+    Icon: Skull,
+    color: "oklch(0.74 0.10 150)",
+    label: "Mort",
+    effet: "Tu observes la partie et rejoins le chat des morts.",
+  },
 ];
 
 function PhoneSlide() {
@@ -413,18 +696,33 @@ function PhoneSlide() {
       <SlideHead Icon={Smartphone} title="Ton téléphone" subtitle="Touche pour le détail" />
 
       <div>
-        <h4 className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2 font-semibold">Tes onglets</h4>
+        <h4 className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2 font-semibold">
+          Tes onglets
+        </h4>
         <div className="space-y-1.5">
           {ONGLETS.map((o) => {
             const isOpen = open === o.label;
             return (
-              <div key={o.label} className="rounded-xl border border-border bg-card/40 overflow-hidden">
-                <button onClick={() => setOpen(isOpen ? null : o.label)} className="w-full flex items-center gap-3 p-3 text-left active:scale-[0.99] transition">
+              <div
+                key={o.label}
+                className="rounded-xl border border-border bg-card/40 overflow-hidden"
+              >
+                <button
+                  onClick={() => setOpen(isOpen ? null : o.label)}
+                  className="w-full flex items-center gap-3 p-3 text-left active:scale-[0.99] transition"
+                >
                   <o.Icon className="size-5 shrink-0" style={{ color: o.accent }} aria-hidden />
                   <span className="flex-1 text-sm font-semibold">{o.label}</span>
-                  <ChevronDown className={`size-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden />
+                  <ChevronDown
+                    className={`size-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    aria-hidden
+                  />
                 </button>
-                {isOpen && <p className="px-3 pb-3 -mt-1 text-xs text-muted-foreground leading-relaxed">{o.detail}</p>}
+                {isOpen && (
+                  <p className="px-3 pb-3 -mt-1 text-xs text-muted-foreground leading-relaxed">
+                    {o.detail}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -432,18 +730,28 @@ function PhoneSlide() {
       </div>
 
       <div>
-        <h4 className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1 font-semibold">Les statuts</h4>
-        <p className="text-[11px] text-muted-foreground mb-2.5 leading-snug">Affichés en haut de ton écran. Les principaux et leur effet :</p>
+        <h4 className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1 font-semibold">
+          Les statuts
+        </h4>
+        <p className="text-[11px] text-muted-foreground mb-2.5 leading-snug">
+          Affichés en haut de ton écran. Les principaux et leur effet :
+        </p>
         <div className="space-y-1.5">
           {STATUTS.map((s) => (
             <div key={s.label} className="flex items-center gap-2.5">
               <span
                 className="shrink-0 inline-flex items-center gap-1 w-[124px] pl-1 pr-2 py-1 rounded-full border text-[10px] font-semibold uppercase tracking-tight"
-                style={{ color: s.color, borderColor: `color-mix(in oklab, ${s.color} 38%, transparent)`, background: `color-mix(in oklab, ${s.color} 12%, transparent)` }}
+                style={{
+                  color: s.color,
+                  borderColor: `color-mix(in oklab, ${s.color} 38%, transparent)`,
+                  background: `color-mix(in oklab, ${s.color} 12%, transparent)`,
+                }}
               >
                 <span
                   className="inline-flex items-center justify-center size-[18px] rounded-full shrink-0"
-                  style={{ background: `color-mix(in oklab, ${s.color} 18%, oklch(0.12 0.02 35 / 0.7))` }}
+                  style={{
+                    background: `color-mix(in oklab, ${s.color} 18%, oklch(0.12 0.02 35 / 0.7))`,
+                  }}
                 >
                   <s.Icon className="size-3" style={{ color: s.color }} aria-hidden />
                 </span>
@@ -458,7 +766,6 @@ function PhoneSlide() {
   );
 }
 
-
 // Slide "Ta capacité" — chaque cadence est un bouton dépliable qui révèle les
 // rôles concernés (icône + nom). La cadence est déduite du `usage_label`
 // (source de vérité documentée) avec repli sur `phase_activation`.
@@ -469,19 +776,59 @@ function cadenceOf(role: RoleRow): Cadence {
   const phase = (role.phase_activation ?? "").toLowerCase();
   if (/permanent|passi/.test(lbl) || /permanent/.test(phase)) return "passive";
   if (/1×\s*\/\s*partie|1x\/partie/.test(lbl)) return "once";
-  if (/limit|scaled|max\s*\d|\/\s*cycle\s*max/.test(lbl) || ["executeur", "juge", "cleaner", "apothicaire"].includes(role.slug)) return "limited";
+  if (
+    /limit|scaled|max\s*\d|\/\s*cycle\s*max/.test(lbl) ||
+    ["executeur", "juge", "cleaner", "apothicaire"].includes(role.slug)
+  )
+    return "limited";
   if (/rassemblement/.test(lbl) || SCHEDULES_AT_GATHERING.has(role.slug)) return "gathering";
   if (/jour|phase\s*libre|\/\s*tour|\/\s*cycle/.test(lbl)) return "free";
   if (/setup/.test(lbl) || /setup/.test(phase)) return "passive";
   return "free";
 }
 
-const CADENCE_META: { key: Cadence; Icon: LucideIcon; color: string; label: string; desc: string }[] = [
-  { key: "passive", Icon: Moon, color: "var(--muted-foreground)", label: "Passive", desc: "S'active toute seule — rien à faire de ta part." },
-  { key: "free", Icon: Repeat, color: "var(--primary)", label: "Chaque phase libre", desc: "Réutilisable à chaque tour, sur une nouvelle cible." },
-  { key: "gathering", Icon: Bell, color: "oklch(0.70 0.16 230)", label: "À chaque rassemblement", desc: "S'utilise pendant le débat, une fois par rassemblement." },
-  { key: "once", Icon: Star, color: "oklch(0.82 0.16 75)", label: "1× par partie", desc: "Un seul usage : choisis bien ton moment." },
-  { key: "limited", Icon: Hourglass, color: "oklch(0.72 0.18 45)", label: "Limitée", desc: "Quelques usages seulement, parfois selon le nombre de joueurs." },
+const CADENCE_META: {
+  key: Cadence;
+  Icon: LucideIcon;
+  color: string;
+  label: string;
+  desc: string;
+}[] = [
+  {
+    key: "passive",
+    Icon: Moon,
+    color: "var(--muted-foreground)",
+    label: "Passive",
+    desc: "S'active toute seule — rien à faire de ta part.",
+  },
+  {
+    key: "free",
+    Icon: Repeat,
+    color: "var(--primary)",
+    label: "Chaque phase libre",
+    desc: "Réutilisable à chaque tour, sur une nouvelle cible.",
+  },
+  {
+    key: "gathering",
+    Icon: Bell,
+    color: "oklch(0.70 0.16 230)",
+    label: "À chaque rassemblement",
+    desc: "S'utilise pendant le débat, une fois par rassemblement.",
+  },
+  {
+    key: "once",
+    Icon: Star,
+    color: "oklch(0.82 0.16 75)",
+    label: "1× par partie",
+    desc: "Un seul usage : choisis bien ton moment.",
+  },
+  {
+    key: "limited",
+    Icon: Hourglass,
+    color: "oklch(0.72 0.18 45)",
+    label: "Limitée",
+    desc: "Quelques usages seulement, parfois selon le nombre de joueurs.",
+  },
 ];
 
 function CapacitySlide({ ctx }: { ctx: FrameContext }) {
@@ -503,7 +850,8 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
     <div className="space-y-4">
       <SlideHead Icon={Gauge} title="Ta capacité" subtitle="Touche pour voir les rôles" />
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Chaque rôle agit à son propre rythme. Touche un cas pour découvrir <b className="text-foreground">quels rôles</b> s'y rattachent :
+        Chaque rôle agit à son propre rythme. Touche un cas pour découvrir{" "}
+        <b className="text-foreground">quels rôles</b> s'y rattachent :
       </p>
       <div className="space-y-2">
         {CADENCE_META.map((u) => {
@@ -513,7 +861,11 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
             <div
               key={u.key}
               className="rounded-xl border bg-card/40 overflow-hidden transition-colors"
-              style={{ borderColor: isOpen ? `color-mix(in oklab, ${u.color} 45%, transparent)` : "var(--border)" }}
+              style={{
+                borderColor: isOpen
+                  ? `color-mix(in oklab, ${u.color} 45%, transparent)`
+                  : "var(--border)",
+              }}
             >
               <button
                 onClick={() => setOpen(isOpen ? null : u.key)}
@@ -522,26 +874,41 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
               >
                 <span
                   className="shrink-0 grid place-items-center size-9 rounded-lg border"
-                  style={{ color: u.color, borderColor: `color-mix(in oklab, ${u.color} 35%, transparent)`, background: `color-mix(in oklab, ${u.color} 10%, transparent)` }}
+                  style={{
+                    color: u.color,
+                    borderColor: `color-mix(in oklab, ${u.color} 35%, transparent)`,
+                    background: `color-mix(in oklab, ${u.color} 10%, transparent)`,
+                  }}
                 >
                   <u.Icon className="size-5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold" style={{ color: u.color }}>{u.label}</div>
+                  <div className="text-sm font-semibold" style={{ color: u.color }}>
+                    {u.label}
+                  </div>
                   <div className="text-xs text-muted-foreground leading-snug">{u.desc}</div>
                 </div>
                 <span
                   className="shrink-0 text-[10px] font-bold rounded-full px-1.5 py-0.5 border tabular-nums"
-                  style={{ color: u.color, borderColor: `color-mix(in oklab, ${u.color} 30%, transparent)`, background: `color-mix(in oklab, ${u.color} 8%, transparent)` }}
+                  style={{
+                    color: u.color,
+                    borderColor: `color-mix(in oklab, ${u.color} 30%, transparent)`,
+                    background: `color-mix(in oklab, ${u.color} 8%, transparent)`,
+                  }}
                 >
                   {roles.length}
                 </span>
-                <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden />
+                <ChevronDown
+                  className={`size-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                />
               </button>
               {isOpen && (
                 <div className="px-3 pb-3 pt-0.5">
                   {roles.length === 0 ? (
-                    <div className="text-[11px] text-muted-foreground italic py-2">Aucun rôle dans cette catégorie.</div>
+                    <div className="text-[11px] text-muted-foreground italic py-2">
+                      Aucun rôle dans cette catégorie.
+                    </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2">
                       {roles.map((r) => (
@@ -552,7 +919,9 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
                           title={r.name_fr}
                         >
                           <RoleIcon role={r} size={36} />
-                          <div className="text-[9px] text-center leading-tight line-clamp-2 text-muted-foreground">{r.name_fr}</div>
+                          <div className="text-[9px] text-center leading-tight line-clamp-2 text-muted-foreground">
+                            {r.name_fr}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -566,7 +935,8 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
       <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
         <Lightbulb className="size-4 shrink-0 text-primary mt-0.5" aria-hidden />
         <p className="text-[11px] text-muted-foreground leading-snug">
-          Ta fréquence exacte (et le moment où tu peux agir) est indiquée sur ta fiche, dans l'onglet <b className="text-foreground">Capacité</b>.
+          Ta fréquence exacte (et le moment où tu peux agir) est indiquée sur ta fiche, dans
+          l'onglet <b className="text-foreground">Capacité</b>.
         </p>
       </div>
     </div>
@@ -575,64 +945,104 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
 
 // Slide "Conseils" — cartes-boutons dépliables : titre + détail/exemple/subtilité.
 // Pensé pour rendre le jeu « clé en main », même quand une partie est difficile.
-const TIPS: { Icon: LucideIcon; accent: string; title: string; lead: string; detail: React.ReactNode }[] = [
+const TIPS: {
+  Icon: LucideIcon;
+  accent: string;
+  title: string;
+  lead: string;
+  detail: React.ReactNode;
+}[] = [
   {
-    Icon: Megaphone, accent: "oklch(0.82 0.16 75)", title: "Lis les Annonces comme un détective",
+    Icon: Megaphone,
+    accent: "oklch(0.82 0.16 75)",
+    title: "Lis les Annonces comme un détective",
     lead: "Chaque mort, protection ou prison est un indice.",
     detail: (
       <>
-        Croise le <b className="text-foreground">qui</b>, le <b className="text-foreground">quand</b> et le <b className="text-foreground">comment</b> de chaque événement.
-        <span className="block mt-1.5 italic">Exemple : une cible « Protégée » qui survit révèle qu'un Protecteur veillait sur elle… et qu'on a essayé de la tuer.</span>
+        Croise le <b className="text-foreground">qui</b>, le{" "}
+        <b className="text-foreground">quand</b> et le <b className="text-foreground">comment</b> de
+        chaque événement.
+        <span className="block mt-1.5 italic">
+          Exemple : une cible « Protégée » qui survit révèle qu'un Protecteur veillait sur elle… et
+          qu'on a essayé de la tuer.
+        </span>
       </>
     ),
   },
   {
-    Icon: VenetianMask, accent: "var(--mechants)", title: "Le téléphone ne joue pas à ta place",
+    Icon: VenetianMask,
+    accent: "var(--mechants)",
+    title: "Le téléphone ne joue pas à ta place",
     lead: "La vraie partie se passe à la table.",
     detail: (
       <>
-        L'app arbitre, mais c'est à voix haute que tu <b className="text-foreground">accuses, défends, mens et manipules</b>.
-        <span className="block mt-1.5 italic">Subtilité : un silence trop prudent est aussi suspect qu'une accusation maladroite.</span>
+        L'app arbitre, mais c'est à voix haute que tu{" "}
+        <b className="text-foreground">accuses, défends, mens et manipules</b>.
+        <span className="block mt-1.5 italic">
+          Subtilité : un silence trop prudent est aussi suspect qu'une accusation maladroite.
+        </span>
       </>
     ),
   },
   {
-    Icon: Search, accent: "var(--citoyens)", title: "Connais tes adversaires",
+    Icon: Search,
+    accent: "var(--citoyens)",
+    title: "Connais tes adversaires",
     lead: "Ouvre l'onglet Les rôles avant et pendant la partie.",
     detail: (
       <>
         Savoir quelles capacités existent change ta lecture des événements.
-        <span className="block mt-1.5 italic">Exemple : si tu sais qu'un Empoisonneur peut exister, une mort « différée » d'un tour devient un indice, pas un mystère.</span>
+        <span className="block mt-1.5 italic">
+          Exemple : si tu sais qu'un Empoisonneur peut exister, une mort « différée » d'un tour
+          devient un indice, pas un mystère.
+        </span>
       </>
     ),
   },
   {
-    Icon: Gauge, accent: "var(--primary)", title: "Dose ta capacité",
+    Icon: Gauge,
+    accent: "var(--primary)",
+    title: "Dose ta capacité",
     lead: "Surtout celles en 1× par partie.",
     detail: (
       <>
-        Une capacité unique gâchée au premier tour ne reviendra pas — mais gardée trop longtemps, elle meurt avec toi.
-        <span className="block mt-1.5 italic">Subtilité : agis quand l'info que tu as est la plus fiable, pas dès que tu en as l'occasion.</span>
+        Une capacité unique gâchée au premier tour ne reviendra pas — mais gardée trop longtemps,
+        elle meurt avec toi.
+        <span className="block mt-1.5 italic">
+          Subtilité : agis quand l'info que tu as est la plus fiable, pas dès que tu en as
+          l'occasion.
+        </span>
       </>
     ),
   },
   {
-    Icon: Target, accent: "var(--destructive)", title: "Note tes suspicions",
+    Icon: Target,
+    accent: "var(--destructive)",
+    title: "Note tes suspicions",
     lead: "L'onglet Suspicions est privé — personne ne le voit.",
     detail: (
       <>
         Marque chaque joueur de « sûr » à « suspect » et fais évoluer ta lecture tour après tour.
-        <span className="block mt-1.5 italic">Exemple : recoupe qui a voté contre qui avec qui est mort ensuite — les coïncidences trahissent les camps.</span>
+        <span className="block mt-1.5 italic">
+          Exemple : recoupe qui a voté contre qui avec qui est mort ensuite — les coïncidences
+          trahissent les camps.
+        </span>
       </>
     ),
   },
   {
-    Icon: Gavel, accent: "oklch(0.78 0.16 55)", title: "Le vote emprisonne, il ne tue pas",
+    Icon: Gavel,
+    accent: "oklch(0.78 0.16 55)",
+    title: "Le vote emprisonne, il ne tue pas",
     lead: "Le plus voté part en prison : sa capacité est bloquée.",
     detail: (
       <>
-        C'est une arme pour <b className="text-foreground">neutraliser un rôle dangereux</b> sans preuve absolue — le temps d'y voir plus clair.
-        <span className="block mt-1.5 italic">Subtilité : emprisonner un innocent utile (Médecin, Détective) fait le jeu des Méchants. Vise juste.</span>
+        C'est une arme pour <b className="text-foreground">neutraliser un rôle dangereux</b> sans
+        preuve absolue — le temps d'y voir plus clair.
+        <span className="block mt-1.5 italic">
+          Subtilité : emprisonner un innocent utile (Médecin, Détective) fait le jeu des Méchants.
+          Vise juste.
+        </span>
       </>
     ),
   },
@@ -655,8 +1065,12 @@ function TipsSlide() {
               key={tip.title}
               className="rounded-xl border overflow-hidden transition-colors"
               style={{
-                borderColor: isOpen ? `color-mix(in oklab, ${tip.accent} 45%, transparent)` : "var(--border)",
-                background: isOpen ? `color-mix(in oklab, ${tip.accent} 8%, transparent)` : "color-mix(in oklab, var(--card) 40%, transparent)",
+                borderColor: isOpen
+                  ? `color-mix(in oklab, ${tip.accent} 45%, transparent)`
+                  : "var(--border)",
+                background: isOpen
+                  ? `color-mix(in oklab, ${tip.accent} 8%, transparent)`
+                  : "color-mix(in oklab, var(--card) 40%, transparent)",
               }}
             >
               <button
@@ -666,18 +1080,31 @@ function TipsSlide() {
               >
                 <span
                   className="shrink-0 grid place-items-center size-9 rounded-lg border"
-                  style={{ color: tip.accent, borderColor: `color-mix(in oklab, ${tip.accent} 35%, transparent)`, background: `color-mix(in oklab, ${tip.accent} 12%, transparent)` }}
+                  style={{
+                    color: tip.accent,
+                    borderColor: `color-mix(in oklab, ${tip.accent} 35%, transparent)`,
+                    background: `color-mix(in oklab, ${tip.accent} 12%, transparent)`,
+                  }}
                 >
                   <tip.Icon className="size-5" aria-hidden />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold leading-snug">{tip.title}</span>
-                  {!isOpen && <span className="block text-xs text-muted-foreground leading-snug mt-0.5">{tip.lead}</span>}
+                  {!isOpen && (
+                    <span className="block text-xs text-muted-foreground leading-snug mt-0.5">
+                      {tip.lead}
+                    </span>
+                  )}
                 </span>
-                <ChevronDown className={`size-4 mt-1 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden />
+                <ChevronDown
+                  className={`size-4 mt-1 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                />
               </button>
               {isOpen && (
-                <p className="px-3 pb-3 -mt-0.5 text-xs text-muted-foreground leading-relaxed">{tip.detail}</p>
+                <p className="px-3 pb-3 -mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  {tip.detail}
+                </p>
               )}
             </div>
           );
@@ -689,15 +1116,45 @@ function TipsSlide() {
 
 // Légende des types de rôles (mêmes icônes/couleurs que le badge "type" de la fiche).
 const TYPE_LEGEND: { Icon: LucideIcon; color: string; label: string; desc: string }[] = [
-  { Icon: Shield, color: "oklch(0.70 0.18 145)", label: "Protecteur", desc: "Protège un joueur d'une attaque." },
+  {
+    Icon: Shield,
+    color: "oklch(0.70 0.18 145)",
+    label: "Protecteur",
+    desc: "Protège un joueur d'une attaque.",
+  },
   { Icon: Swords, color: "oklch(0.62 0.24 22)", label: "Tueur", desc: "Élimine des joueurs." },
-  { Icon: Search, color: "oklch(0.65 0.14 220)", label: "Investigation", desc: "Récolte des infos (rôle, faction…)." },
-  { Icon: Heart, color: "oklch(0.75 0.12 20)", label: "Support", desc: "Aide, soigne ou lie les joueurs." },
-  { Icon: VenetianMask, color: "oklch(0.65 0.12 300)", label: "Tromperie", desc: "Déguise, brouille les pistes, manipule." },
+  {
+    Icon: Search,
+    color: "oklch(0.65 0.14 220)",
+    label: "Investigation",
+    desc: "Récolte des infos (rôle, faction…).",
+  },
+  {
+    Icon: Heart,
+    color: "oklch(0.75 0.12 20)",
+    label: "Support",
+    desc: "Aide, soigne ou lie les joueurs.",
+  },
+  {
+    Icon: VenetianMask,
+    color: "oklch(0.65 0.12 300)",
+    label: "Tromperie",
+    desc: "Déguise, brouille les pistes, manipule.",
+  },
   { Icon: Skull, color: "oklch(0.55 0.20 22)", label: "Mal", desc: "Pouvoirs malveillants." },
   { Icon: Flame, color: "oklch(0.75 0.18 50)", label: "Chaos", desc: "Sème le désordre." },
-  { Icon: Anchor, color: "oklch(0.60 0.06 230)", label: "Boulet", desc: "Encombrant — complique la partie." },
-  { Icon: Smile, color: "oklch(0.70 0.14 150)", label: "Bénin", desc: "Inoffensif, rôle d'ambiance." },
+  {
+    Icon: Anchor,
+    color: "oklch(0.60 0.06 230)",
+    label: "Boulet",
+    desc: "Encombrant — complique la partie.",
+  },
+  {
+    Icon: Smile,
+    color: "oklch(0.70 0.14 150)",
+    label: "Bénin",
+    desc: "Inoffensif, rôle d'ambiance.",
+  },
 ];
 
 function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) => void }) {
@@ -710,17 +1167,45 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
       Array.from(ctx.roles.values())
         .filter((r) => !r.is_disabled)
         .sort((a, b) => a.name_fr.localeCompare(b.name_fr)),
-    [ctx.roles]
+    [ctx.roles],
   );
   const [q, setQ] = useState("");
   const [faction, setFaction] = useState<"all" | "Civil" | "Méchant" | "Neutre">("all");
   const [legendOpen, setLegendOpen] = useState(false);
 
   const factions = [
-    { key: "all" as const, label: "Tous", Icon: Sparkles, tone: "text-gold", ring: "ring-gold/40", bg: "bg-gold/10" },
-    { key: "Civil" as const, label: "Civils", Icon: Shield, tone: "text-citoyens", ring: "ring-citoyens/40", bg: "bg-citoyens/10" },
-    { key: "Méchant" as const, label: "Méchants", Icon: Swords, tone: "text-destructive", ring: "ring-destructive/40", bg: "bg-destructive/10" },
-    { key: "Neutre" as const, label: "Neutres", Icon: VenetianMask, tone: "text-neutres", ring: "ring-neutres/40", bg: "bg-neutres/10" },
+    {
+      key: "all" as const,
+      label: "Tous",
+      Icon: Sparkles,
+      tone: "text-gold",
+      ring: "ring-gold/40",
+      bg: "bg-gold/10",
+    },
+    {
+      key: "Civil" as const,
+      label: "Civils",
+      Icon: Shield,
+      tone: "text-citoyens",
+      ring: "ring-citoyens/40",
+      bg: "bg-citoyens/10",
+    },
+    {
+      key: "Méchant" as const,
+      label: "Méchants",
+      Icon: Swords,
+      tone: "text-destructive",
+      ring: "ring-destructive/40",
+      bg: "bg-destructive/10",
+    },
+    {
+      key: "Neutre" as const,
+      label: "Neutres",
+      Icon: VenetianMask,
+      tone: "text-neutres",
+      ring: "ring-neutres/40",
+      bg: "bg-neutres/10",
+    },
   ];
 
   const counts = useMemo(() => {
@@ -746,8 +1231,20 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
 
   const toneFor = (r: RoleRow) => {
     const f = r.slug === "vampire" ? "Méchant" : r.faction;
-    if (f === "Civil") return { ring: "ring-citoyens/30", bg: "bg-citoyens/8", tone: "text-citoyens", label: "Civil" };
-    if (f === "Méchant") return { ring: "ring-destructive/30", bg: "bg-destructive/8", tone: "text-destructive", label: "Méchant" };
+    if (f === "Civil")
+      return {
+        ring: "ring-citoyens/30",
+        bg: "bg-citoyens/8",
+        tone: "text-citoyens",
+        label: "Civil",
+      };
+    if (f === "Méchant")
+      return {
+        ring: "ring-destructive/30",
+        bg: "bg-destructive/8",
+        tone: "text-destructive",
+        label: "Méchant",
+      };
     return { ring: "ring-neutres/30", bg: "bg-neutres/8", tone: "text-neutres", label: "Neutre" };
   };
 
@@ -755,7 +1252,10 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
     <div className="space-y-3">
       {/* Recherche */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden />
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+          aria-hidden
+        />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -774,11 +1274,15 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
               key={f.key}
               onClick={() => setFaction(f.key)}
               className={`flex flex-col items-center gap-0.5 py-2 rounded-lg ring-1 transition ${
-                active ? `${f.bg} ${f.ring} ${f.tone}` : "bg-card/40 ring-border text-muted-foreground hover:bg-card"
+                active
+                  ? `${f.bg} ${f.ring} ${f.tone}`
+                  : "bg-card/40 ring-border text-muted-foreground hover:bg-card"
               }`}
             >
               <f.Icon className="size-4" aria-hidden />
-              <span className="text-[10px] font-semibold uppercase tracking-wider leading-tight">{f.label}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider leading-tight">
+                {f.label}
+              </span>
               <span className="text-[9px] opacity-70">{counts[f.key] ?? 0}</span>
             </button>
           );
@@ -793,7 +1297,10 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
         >
           <Info className="size-4 shrink-0 text-primary" aria-hidden />
           <span className="flex-1 text-xs font-semibold">Comprendre les types de rôles</span>
-          <ChevronDown className={`size-4 text-muted-foreground transition-transform ${legendOpen ? "rotate-180" : ""}`} aria-hidden />
+          <ChevronDown
+            className={`size-4 text-muted-foreground transition-transform ${legendOpen ? "rotate-180" : ""}`}
+            aria-hidden
+          />
         </button>
         {legendOpen && (
           <div className="px-3 pb-3 pt-0.5 space-y-1.5">
@@ -801,7 +1308,11 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
               <div key={t.label} className="flex items-center gap-2.5">
                 <span
                   className="shrink-0 inline-flex items-center gap-1.5 w-[120px] px-2 py-1 rounded-md border text-[10px] font-semibold uppercase tracking-tight"
-                  style={{ color: t.color, borderColor: `color-mix(in oklab, ${t.color} 35%, transparent)`, background: `color-mix(in oklab, ${t.color} 12%, transparent)` }}
+                  style={{
+                    color: t.color,
+                    borderColor: `color-mix(in oklab, ${t.color} 35%, transparent)`,
+                    background: `color-mix(in oklab, ${t.color} 12%, transparent)`,
+                  }}
                 >
                   <t.Icon className="size-3 shrink-0" aria-hidden />
                   <span className="truncate">{t.label}</span>
@@ -828,8 +1339,14 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
                 title={r.name_fr}
               >
                 <RoleIcon role={r} size={44} />
-                <div className="text-[11px] font-medium text-center leading-tight line-clamp-2">{r.name_fr}</div>
-                <span className={`text-[8px] font-semibold uppercase tracking-wider ${t.tone} opacity-80`}>{t.label}</span>
+                <div className="text-[11px] font-medium text-center leading-tight line-clamp-2">
+                  {r.name_fr}
+                </div>
+                <span
+                  className={`text-[8px] font-semibold uppercase tracking-wider ${t.tone} opacity-80`}
+                >
+                  {t.label}
+                </span>
               </button>
             );
           })}
@@ -843,7 +1360,15 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
   );
 }
 
-function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; onClose: () => void }) {
+function RolePopup({
+  role,
+  ctx,
+  onClose,
+}: {
+  role: RoleRow;
+  ctx: FrameContext;
+  onClose: () => void;
+}) {
   const typeMeta: Record<string, { icon: ElementType; color: string }> = {
     PROTECTEUR: { icon: Shield, color: "oklch(0.70 0.18 145)" },
     TUEUR: { icon: Swords, color: "oklch(0.62 0.24 22)" },
@@ -857,9 +1382,24 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
   };
   const t = typeMeta[role.type ?? ""] ?? { icon: Shield, color: "var(--muted-foreground)" };
   const TIcon = t.icon;
-  const fcolor = role.faction === "Civil" ? "var(--citoyens)" : role.faction === "Méchant" ? "var(--mechants)" : "var(--neutres)";
-  const fbg = role.faction === "Civil" ? "oklch(0.72 0.16 230 / 0.12)" : role.faction === "Méchant" ? "oklch(0.62 0.24 22 / 0.12)" : "oklch(0.80 0.12 300 / 0.14)";
-  const fbr = role.faction === "Civil" ? "oklch(0.72 0.16 230 / 0.35)" : role.faction === "Méchant" ? "oklch(0.62 0.24 22 / 0.35)" : "oklch(0.80 0.12 300 / 0.40)";
+  const fcolor =
+    role.faction === "Civil"
+      ? "var(--citoyens)"
+      : role.faction === "Méchant"
+        ? "var(--mechants)"
+        : "var(--neutres)";
+  const fbg =
+    role.faction === "Civil"
+      ? "oklch(0.72 0.16 230 / 0.12)"
+      : role.faction === "Méchant"
+        ? "oklch(0.62 0.24 22 / 0.12)"
+        : "oklch(0.80 0.12 300 / 0.14)";
+  const fbr =
+    role.faction === "Civil"
+      ? "oklch(0.72 0.16 230 / 0.35)"
+      : role.faction === "Méchant"
+        ? "oklch(0.62 0.24 22 / 0.35)"
+        : "oklch(0.80 0.12 300 / 0.40)";
   const allRoles = Array.from(ctx.roles.values());
   const freq = computeRoleFrequency(role, allRoles);
 
@@ -876,7 +1416,10 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
         >
           <ChevronLeft className="size-4" /> Retour
         </button>
-        <span className="text-[10px] uppercase tracking-[0.22em] font-semibold" style={{ color: fcolor }}>
+        <span
+          className="text-[10px] uppercase tracking-[0.22em] font-semibold"
+          style={{ color: fcolor }}
+        >
           Dossier de rôle
         </span>
       </div>
@@ -885,18 +1428,30 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
         {/* Hero faction-tinté */}
         <div
           className="relative overflow-hidden rounded-2xl border px-5 pt-6 pb-5 text-center"
-          style={{ borderColor: fbr, background: `linear-gradient(168deg, ${fbg}, color-mix(in oklab, var(--card) 55%, transparent) 72%)` }}
+          style={{
+            borderColor: fbr,
+            background: `linear-gradient(168deg, ${fbg}, color-mix(in oklab, var(--card) 55%, transparent) 72%)`,
+          }}
         >
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-44 h-44 rounded-full blur-3xl" style={{ background: fbg }} aria-hidden />
+          <div
+            className="absolute -top-10 left-1/2 -translate-x-1/2 w-44 h-44 rounded-full blur-3xl"
+            style={{ background: fbg }}
+            aria-hidden
+          />
           <div className="relative flex justify-center">
             <div
               className="rounded-full"
-              style={{ boxShadow: `0 0 0 2px color-mix(in oklab, ${fcolor} 55%, transparent), 0 0 28px -6px ${fcolor}` }}
+              style={{
+                boxShadow: `0 0 0 2px color-mix(in oklab, ${fcolor} 55%, transparent), 0 0 28px -6px ${fcolor}`,
+              }}
             >
               <RoleIcon role={role} size={92} className="rounded-full" />
             </div>
           </div>
-          <h2 className="relative mt-3 text-[26px] font-bold leading-tight text-glow-gold" style={{ fontFamily: "var(--font-display)" }}>
+          <h2
+            className="relative mt-3 text-[26px] font-bold leading-tight text-glow-gold"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             {role.name_fr}
           </h2>
           {/* Badges faction · type · difficulté */}
@@ -918,7 +1473,10 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold border"
               style={{ color: fcolor, borderColor: fbr, backgroundColor: fbg }}
             >
-              <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: fcolor }} />
+              <span
+                className="inline-block size-1.5 rounded-full"
+                style={{ backgroundColor: fcolor }}
+              />
               {role.difficulte}
             </span>
           </div>
@@ -929,9 +1487,15 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
         {role.description && (
           <div
             className="mt-4 rounded-xl border-l-[3px] pl-3.5 pr-3 py-2.5"
-            style={{ borderColor: fcolor, background: `color-mix(in oklab, ${fcolor} 7%, transparent)` }}
+            style={{
+              borderColor: fcolor,
+              background: `color-mix(in oklab, ${fcolor} 7%, transparent)`,
+            }}
           >
-            <p className="text-[15px] italic leading-snug" style={{ fontFamily: "var(--font-hand)", color: "var(--foreground)" }}>
+            <p
+              className="text-[15px] italic leading-snug"
+              style={{ fontFamily: "var(--font-hand)", color: "var(--foreground)" }}
+            >
               « {role.description} »
             </p>
           </div>
@@ -941,7 +1505,9 @@ function RolePopup({ role, ctx, onClose }: { role: RoleRow; ctx: FrameContext; o
         <div className="mt-4">
           <div className="flex items-center gap-1.5 mb-1.5">
             <Zap className="size-3.5" style={{ color: fcolor }} aria-hidden />
-            <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">Capacité</span>
+            <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+              Capacité
+            </span>
           </div>
           <p className="whitespace-pre-line rounded-xl border border-border bg-card/60 p-3.5 text-[14px] leading-relaxed">
             {highlightCapacity(role.capacite_full_text, "dark")}
@@ -981,20 +1547,38 @@ const OBJ_ACCENT: Record<string, string> = {
   relique: "oklch(0.80 0.14 75)",
 };
 
-function CatalogCard({ accent, glyph, name, desc }: { accent: string; glyph: React.ReactNode; name: string; desc: string }) {
+function CatalogCard({
+  accent,
+  glyph,
+  name,
+  desc,
+}: {
+  accent: string;
+  glyph: React.ReactNode;
+  name: string;
+  desc: string;
+}) {
   return (
     <div
       className="flex items-start gap-3 rounded-xl border p-3"
-      style={{ borderColor: `color-mix(in oklab, ${accent} 28%, var(--border))`, background: `color-mix(in oklab, ${accent} 7%, transparent)` }}
+      style={{
+        borderColor: `color-mix(in oklab, ${accent} 28%, var(--border))`,
+        background: `color-mix(in oklab, ${accent} 7%, transparent)`,
+      }}
     >
       <span
         className="shrink-0 grid place-items-center size-10 rounded-lg text-xl"
-        style={{ background: `color-mix(in oklab, ${accent} 14%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 30%, transparent)` }}
+        style={{
+          background: `color-mix(in oklab, ${accent} 14%, transparent)`,
+          boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 30%, transparent)`,
+        }}
       >
         {glyph}
       </span>
       <div className="min-w-0">
-        <div className="text-sm font-bold" style={{ color: accent }}>{name}</div>
+        <div className="text-sm font-bold" style={{ color: accent }}>
+          {name}
+        </div>
         <div className="text-xs text-muted-foreground leading-snug mt-0.5">{desc}</div>
       </div>
     </div>
@@ -1027,20 +1611,90 @@ function ObjectsList() {
 
 // ─── Onglet "Les statuts" : base de référence des statuts du jeu. ───
 const STATUS_CATALOG: { Icon: LucideIcon; color: string; label: string; desc: string }[] = [
-  { Icon: ShieldCheck,  color: "oklch(0.72 0.16 230)", label: "Protégé",          desc: "Toute attaque qui te vise est bloquée pour la durée." },
-  { Icon: FlaskConical, color: "oklch(0.74 0.16 155)", label: "Empoisonné",       desc: "Sans soin, tu meurs au prochain rassemblement." },
-  { Icon: Ban,          color: "oklch(0.65 0.22 18)",  label: "Bloqué",           desc: "Capacité et objets inutilisables ce tour." },
-  { Icon: Hand,         color: "oklch(0.58 0.18 18)",  label: "Chantage",         desc: "Sous chantage : capacité et objets bloqués ce tour." },
-  { Icon: Wine,         color: "oklch(0.78 0.14 70)",  label: "Ivre",             desc: "Un verre de trop : capacité et objets bloqués ce tour." },
-  { Icon: Sparkles,     color: "oklch(0.85 0.16 95)",  label: "Béni",             desc: "Les actions malveillantes qui te visent sont annulées." },
-  { Icon: Flag,         color: "oklch(0.78 0.16 55)",  label: "Suspect",          desc: "Accusé en public — ça pèse sur les votes." },
-  { Icon: Drama,        color: "oklch(0.70 0.15 300)", label: "Manipulé",         desc: "Le Marionnettiste détourne ou bloque ta capacité." },
-  { Icon: Dices,        color: "oklch(0.62 0.20 18)",  label: "Perdant aux dés",  desc: "Pari du tricheur perdu : mort à la prochaine annonce, sauf protection." },
-  { Icon: Crosshair,    color: "oklch(0.62 0.20 18)",  label: "Ciblé",            desc: "Marqué par le Tueur Stratège : mort à la prochaine annonce, sauf protection." },
-  { Icon: Heart,        color: "oklch(0.75 0.16 0)",   label: "Amoureux",         desc: "Lié à un autre joueur : si l'un meurt, l'autre suit. Vous gagnez ensemble." },
-  { Icon: Martini,      color: "oklch(0.72 0.16 330)", label: "Bon moment",       desc: "Tu as passé du bon temps avec quelqu'un." },
-  { Icon: Lock,         color: "oklch(0.80 0.14 75)",  label: "Prison",           desc: "Capacité bloquée jusqu'à ta libération." },
-  { Icon: Skull,        color: "oklch(0.74 0.10 150)", label: "Mort",             desc: "Tu observes la partie et rejoins le chat des morts." },
+  {
+    Icon: ShieldCheck,
+    color: "oklch(0.72 0.16 230)",
+    label: "Protégé",
+    desc: "Toute attaque qui te vise est bloquée pour la durée.",
+  },
+  {
+    Icon: FlaskConical,
+    color: "oklch(0.74 0.16 155)",
+    label: "Empoisonné",
+    desc: "Sans soin, tu meurs au prochain rassemblement.",
+  },
+  {
+    Icon: Ban,
+    color: "oklch(0.65 0.22 18)",
+    label: "Bloqué",
+    desc: "Capacité et objets inutilisables ce tour.",
+  },
+  {
+    Icon: Hand,
+    color: "oklch(0.58 0.18 18)",
+    label: "Chantage",
+    desc: "Sous chantage : capacité et objets bloqués ce tour.",
+  },
+  {
+    Icon: Wine,
+    color: "oklch(0.78 0.14 70)",
+    label: "Ivre",
+    desc: "Un verre de trop : capacité et objets bloqués ce tour.",
+  },
+  {
+    Icon: Sparkles,
+    color: "oklch(0.85 0.16 95)",
+    label: "Béni",
+    desc: "Les actions malveillantes qui te visent sont annulées.",
+  },
+  {
+    Icon: Flag,
+    color: "oklch(0.78 0.16 55)",
+    label: "Suspect",
+    desc: "Accusé en public — ça pèse sur les votes.",
+  },
+  {
+    Icon: Drama,
+    color: "oklch(0.70 0.15 300)",
+    label: "Manipulé",
+    desc: "Le Marionnettiste détourne ou bloque ta capacité.",
+  },
+  {
+    Icon: Dices,
+    color: "oklch(0.62 0.20 18)",
+    label: "Perdant aux dés",
+    desc: "Pari du tricheur perdu : mort à la prochaine annonce, sauf protection.",
+  },
+  {
+    Icon: Crosshair,
+    color: "oklch(0.62 0.20 18)",
+    label: "Ciblé",
+    desc: "Marqué par le Tueur Stratège : mort à la prochaine annonce, sauf protection.",
+  },
+  {
+    Icon: Heart,
+    color: "oklch(0.75 0.16 0)",
+    label: "Amoureux",
+    desc: "Lié à un autre joueur : si l'un meurt, l'autre suit. Vous gagnez ensemble.",
+  },
+  {
+    Icon: Martini,
+    color: "oklch(0.72 0.16 330)",
+    label: "Bon moment",
+    desc: "Tu as passé du bon temps avec quelqu'un.",
+  },
+  {
+    Icon: Lock,
+    color: "oklch(0.80 0.14 75)",
+    label: "Prison",
+    desc: "Capacité bloquée jusqu'à ta libération.",
+  },
+  {
+    Icon: Skull,
+    color: "oklch(0.74 0.10 150)",
+    label: "Mort",
+    desc: "Tu observes la partie et rejoins le chat des morts.",
+  },
 ];
 
 function StatusList() {

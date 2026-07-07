@@ -110,7 +110,12 @@ export async function joinGame(opts: {
     .maybeSingle();
   if (gErr) throw gErr;
   if (!gPub) throw new Error("Aucune partie trouvée avec ce code.");
-  const gameLite = gPub as { id: string; code: string; status: string; mode_detective_player: boolean };
+  const gameLite = gPub as {
+    id: string;
+    code: string;
+    status: string;
+    mode_detective_player: boolean;
+  };
 
   if (gameLite.status !== "lobby") {
     // Reconnexion : on cherche notre player row par user_id (autorisé par RLS si on a déjà rejoint).
@@ -146,7 +151,9 @@ export async function joinGame(opts: {
     .eq("game_id", gameLite.id)
     .eq("is_mj", false);
   if ((count ?? 0) >= MAX_PLAYERS) {
-    throw new Error(`La partie est complète (max ${MAX_PLAYERS} joueurs${gameLite.mode_detective_player ? "" : " + MJ"}).`);
+    throw new Error(
+      `La partie est complète (max ${MAX_PLAYERS} joueurs${gameLite.mode_detective_player ? "" : " + MJ"}).`,
+    );
   }
 
   const { data: p, error: pErr } = await supabase
