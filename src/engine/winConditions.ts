@@ -6,20 +6,23 @@ import { getMeta } from "./roleMeta";
 export type Winner = string | null;
 export type WinResult = { winner: Winner; reason: string };
 
-// Map: faction code stored on Oracle → label de victoire de cette faction.
-const ORACLE_FACTION_TO_WINNER: Record<string, string> = {
-  Civil: "Civil",
-  Méchant: "Méchants",
-  Neutre: "Neutres",
-};
+// L'Oracle prédit une FAMILLE de camp (Civil / Méchant / Neutre), pas un libellé exact.
+// Tout camp neutre (Vampires, Amoureux, Empoisonneur, Veuve noire, Parieur…) compte comme
+// "Neutre" — sinon prédire "Neutre" ne pouvait JAMAIS payer (les libellés de victoire sont
+// spécifiques : "Vampires", "Empoisonneur"… jamais "Neutres").
+function winnerFamily(winner: string): "Civil" | "Méchant" | "Neutre" {
+  if (winner === "Civil") return "Civil";
+  if (winner === "Méchants") return "Méchant";
+  return "Neutre";
+}
 
 function withOracleWinners(result: WinResult, players: PlayerRow[]): WinResult {
   if (!result.winner) return result;
+  const fam = winnerFamily(result.winner);
   const winners = players.filter((p) => {
     if (p.role_slug !== "oracle") return false;
     if (!p.is_alive) return false;
-    const proph = getMeta(p).prophecy;
-    return proph ? ORACLE_FACTION_TO_WINNER[proph] === result.winner : false;
+    return getMeta(p).prophecy === fam;
   });
   if (winners.length === 0) return result;
   return {

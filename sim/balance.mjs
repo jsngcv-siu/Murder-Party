@@ -604,14 +604,13 @@ function neutralActions(players, cycle) {
     const prey = players.filter((p) => p.alive && p.free && p.id !== emp.id && !p.poisoned);
     if (prey.length) pick(prey).poisoned = true;
   }
-  // Parieur tricheur : 1×/partie, 60% kill cible sinon se tue
-  const gam = players.find(
-    (p) => p.alive && p.free && p.slug === "parieur_tricheur" && !p.gamblerUsed,
-  );
+  // Parieur tricheur : 1×/TOUR répétable (avant : 1×/partie). Chaque duel = 79 % de
+  // tuer la cible, 21 % de mourir (3 dés garde le meilleur vs 1 d6). Répétable → il
+  // peut enchaîner les paris pour tenter d'être seul survivant, mais chaque duel le
+  // risque. Push-your-luck : le win-rate reste faible mais gagné par la prise de risque.
+  const gam = players.find((p) => p.alive && p.free && p.slug === "parieur_tricheur");
   if (gam && cycle >= 2 && chance(0.5)) {
-    gam.gamblerUsed = true;
     const prey = players.filter((p) => p.alive && p.free && p.id !== gam.id);
-    // 3 dés (garde le meilleur) vs 1 d6 → ~79 % de gagner le pari (sinon il meurt).
     if (prey.length) {
       if (chance(0.79)) killPlayer(pick(prey), players);
       else killPlayer(gam, players);
