@@ -170,7 +170,7 @@ type SubTab = "role" | "history" | "win" | "chat";
 
 // ── Helpers partagés Historique / Bannière Dernier résultat
 const phaseLabel = (p: string) =>
-  p === "free" ? "Phase libre" : p === "gathering" ? "Rassemblement" : p === "vote" ? "Vote" : p;
+  p === "free" ? "Enquête" : p === "gathering" ? "Débat" : p === "vote" ? "Vote" : p;
 
 function actionTargetsLabel(
   a: { target_player_id: string | null; target_player_id_2?: string | null },
@@ -327,7 +327,7 @@ export function ResultBlock({
 
 // ───────── État de l'action (carte claire sous le rôle)
 // Traduit le motif de whyCannotUse() en statut lisible + un indice de TIMING dans
-// la boucle (Phase libre → Annonce). Copie non-genrée.
+// la boucle (Enquête → Annonce). Copie non-genrée.
 function capabilityState(
   blockedReason: string | null,
   mode: string,
@@ -871,7 +871,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         );
       })()}
 
-      {/* Statut + timing dans la boucle (Phase libre → Annonce) */}
+      {/* Statut + timing dans la boucle (Enquête → Annonce) */}
       {(() => {
         if (!myRole) return null;
         const st = capabilityState(blockedReason, mode);
@@ -1076,7 +1076,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         })()}
       {myRole?.slug === "heritier_dechu" && (
         <PanelCard tone="yellow" icon={Crown} label="Héritier déchu">
-          À chaque phase libre, désigne une cible : tu apprends si elle{" "}
+          À chaque Enquête, désigne une cible : tu apprends si elle{" "}
           <span className="font-semibold">éveille les soupçons</span> ou non. Tu gagnes en vie avec
           les Méchants à la fin de la partie.
         </PanelCard>
@@ -1253,7 +1253,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
             <div className="text-purple-200/90 text-xs">
               {forcedTarget ? (
                 <>
-                  Au prochain rassemblement, tu frapperas{" "}
+                  À la prochaine Annonce, tu frapperas{" "}
                   <span className="font-semibold text-purple-50">{forcedTarget.pseudo}</span> sans
                   le vouloir.
                 </>
@@ -1291,7 +1291,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                 </div>
               ) : (
                 <div className="text-emerald-200/80 italic">
-                  Ta cible te sera attribuée à la première phase libre.
+                  Ta cible te sera attribuée à la première Enquête.
                 </div>
               )}
             </PanelCard>
@@ -2027,7 +2027,7 @@ function LastResultBanner({
                 {colorize(actionText, roles)}
               </div>
               <div className="mt-0.5 text-[12px] text-muted-foreground leading-snug">
-                Action enregistrée. Le dénouement arrive au rassemblement.
+                Action enregistrée. Le dénouement arrive à l'Annonce.
               </div>
             </div>
           </div>
@@ -2449,7 +2449,7 @@ function WitnessRevealPanel({
     <PanelCard tone="amber" icon={Eye} label="Témoignage — Civil reconnu">
       {!target && (
         <div className="mt-2 text-xs text-muted-foreground italic">
-          En attente de la 1ʳᵉ phase libre…
+          En attente de la 1ʳᵉ Enquête…
         </div>
       )}
       {target && (
@@ -2873,7 +2873,7 @@ function VeuveNoireTrackerPanel({
     <PanelCard tone="purple" icon={Network} label={`Toile tendue · T${tour}`}>
       {!currentPair && (
         <div className="mt-1 text-muted-foreground italic">
-          Aucune cible ce rassemblement — désigne 1 ou 2 joueurs.
+          Aucune cible ce tour — désigne 1 ou 2 joueurs.
         </div>
       )}
       {currentPair && (
@@ -2894,8 +2894,8 @@ function VeuveNoireTrackerPanel({
                   {!voteTargetId && "n'a pas encore voté"}
                   {voteTargetId && votedAgainstMe && (
                     <span className="inline-flex items-center gap-1">
-                      <TriangleAlert className="size-3" aria-hidden /> a voté contre toi → mort au
-                      prochain rassemblement
+                      <TriangleAlert className="size-3" aria-hidden /> a voté contre toi → mort à la
+                      prochaine Annonce
                     </span>
                   )}
                   {voteTargetId && !votedAgainstMe && `vote → ${voteTargetName}`}
@@ -3036,7 +3036,7 @@ function UsurpateurCoverChoice({
   );
 }
 
-// ───────── Vengeur : choix de l'être cher (1ère phase libre, définitif)
+// ───────── Vengeur : choix de l'être cher (1ère Enquête, définitif)
 function VengeurBelovedChoice({
   meId,
   players,
@@ -3528,8 +3528,8 @@ function ParanoiaquePanel({
       action={<span className="text-sm font-bold text-foreground">{pseudo}</span>}
     >
       <div className="text-[11px] text-muted-foreground mb-3">
-        À toi de deviner sa faction. 1× dans la partie : protège-la ou tue-la (résolu au
-        rassemblement).
+        À toi de deviner sa faction. 1× dans la partie : protège-la ou tue-la (résolu à
+        l'Annonce).
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button

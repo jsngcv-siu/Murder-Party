@@ -47,7 +47,7 @@ const wordStems = (arr: string[]) => `(?<![\\p{L}])(?:${arr.join("|")})\\p{L}*`;
 const CAPACITY_RE = new RegExp(
   [
     // Fréquence / timing (unités composées) — priorité maximale
-    `(?<freq>\\d+\\s*×\\s*\\/\\s*(?:jour|partie|phase\\s*libre|rassemblement|tour|cycle)(?:\\s*max)?|(?:une|deux|trois|quatre|\\d+)\\s+fois\\s+par\\s+(?:phase\\s*libre|rassemblement|tour|cycle|partie|jour)|à\\s+chaque\\s+(?:phase\\s*libre|rassemblement|tour|cycle|jour)|à\\s+la\\s+première\\s+phase\\s*libre|au\\s+premier\\s+(?:rassemblement|tour)|au\\s+setup|cooldown\\s*\\d*|\\bpermanent\\b|\\bsetup\\b)`,
+    `(?<freq>\\d+\\s*×\\s*\\/\\s*(?:jour|partie|phase\\s*libre|enquête|rassemblement|débat|tour|cycle)(?:\\s*max)?|(?:une|deux|trois|quatre|\\d+)\\s+fois\\s+par\\s+(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|partie|jour)|à\\s+chaque\\s+(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|jour)|à\\s+la\\s+première\\s+(?:phase\\s*libre|enquête)|au\\s+premier\\s+(?:rassemblement|débat|tour)|au\\s+setup|cooldown\\s*\\d*|\\bpermanent\\b|\\bsetup\\b)`,
     `(?<kill>${wordStems(["tuer", "tue", "tué", "tués", "tuée", "tuées", "élimin", "meur", "mort", "exécut", "décès", "abat"])})`,
     `(?<guard>${wordStems(["protège", "protég", "protection", "soign", "bouclier", "immunit", "béni", "bénit", "annul", "sauv", "veille"])})`,
     `(?<info>${wordStems(["apprend", "découvr", "connaît", "conna", "révèl", "révél", "examin", "vérifi", "enquêt", "identité", "prophéti", "inspect"])})`,

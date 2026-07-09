@@ -163,7 +163,7 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
             Tu es en prison
           </h2>
           <p className="mt-2 text-xs text-[oklch(0.82_0.08_55)] max-w-[280px] mx-auto leading-relaxed">
-            Tu observes les rassemblements et chats publics mais tu ne peux ni voter ni utiliser ta
+            Tu observes les débats et chats publics mais tu ne peux ni voter ni utiliser ta
             capacité.
           </p>
         </div>

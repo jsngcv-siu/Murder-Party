@@ -48,7 +48,7 @@
 
   /* Phase identity + niveaux de suspicion (Step 1 — design tokens) */
   --color-phase-jour: var(--phase-jour);
-  --color-phase-rassemblement: var(--phase-rassemblement);
+  --color-phase-debat: var(--phase-debat);
   --color-phase-annonce: var(--phase-annonce);
   --color-phase-vote: var(--phase-vote);
   --color-suspicion-0: var(--suspicion-0);
@@ -166,8 +166,8 @@
   /* ── Identité de phase — re-mappée sur l'ambiance « dossier » ── */
   --phase-jour: oklch(0.8 0.15 78); /* or : le jour, le mur */
   --phase-jour-wash: oklch(0.6 0.13 60 / 0.16);
-  --phase-rassemblement: oklch(0.66 0.13 300); /* violet nuit */
-  --phase-rassemblement-wash: oklch(0.55 0.11 300 / 0.18);
+  --phase-debat: oklch(0.66 0.13 300); /* violet nuit */
+  --phase-debat-wash: oklch(0.55 0.11 300 / 0.18);
   --phase-annonce: oklch(0.82 0.08 200); /* cyan : le journal */
   --phase-annonce-wash: oklch(0.6 0.08 200 / 0.16);
   --phase-vote: oklch(0.55 0.22 18); /* rouge : le verdict */

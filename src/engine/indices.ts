@@ -1,4 +1,4 @@
-// Indices — objets distribués au SETUP pour relancer la 1re phase libre.
+// Indices — objets distribués au SETUP pour relancer la 1re Enquête.
 //
 // Principe : info TOUJOURS VRAIE sur la composition de CETTE partie (le pool est
 // aléatoire → ce qui est variable fait un bon indice). Distribution AVEUGLE À LA

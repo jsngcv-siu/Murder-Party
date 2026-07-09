@@ -104,11 +104,11 @@ type RecitView = "announces" | "events" | "resolve";
 
 const phaseFr = (p: string) =>
   p === "free"
-    ? "Phase libre"
+    ? "Enquête"
     : p === "annonce"
       ? "Annonce"
       : p === "gathering"
-        ? "Rassemblement"
+        ? "Débat"
         : p === "vote"
           ? "Vote"
           : p;
@@ -370,10 +370,10 @@ export function GM1Dashboard(ctx: FrameContext) {
             tour={game.current_tour}
             gameId={gameId}
             onRing={tryRing}
-            onOpenGathering={() => run("Rassemblement ouvert", () => openGathering(gameId))}
+            onOpenGathering={() => run("Débat ouvert", () => openGathering(gameId))}
             onOpenVote={() => run("Vote ouvert", () => openVote(gameId))}
             onCloseVote={() => run("Vote clôturé", () => closeVote(gameId))}
-            onFree={() => run("Phase libre", () => setPhase(gameId, "free"))}
+            onFree={() => run("Enquête", () => setPhase(gameId, "free"))}
             onNext={() => run("Tour suivant", () => nextCycle(gameId))}
             onSelect={setSelected}
           />
@@ -522,7 +522,7 @@ function PontTab({
         onNext={onNext}
       />
 
-      {/* ② Checklist « prêt à avancer » — en phase libre uniquement */}
+      {/* ② Checklist « prêt à avancer » — en Enquête uniquement */}
       {isFree && totalActions > 0 && (
         <ReadyChecklist
           expectedActors={expectedActors}
@@ -535,7 +535,7 @@ function PontTab({
         />
       )}
 
-      {/* ②bis Aperçu de résolution — ce qui va se passer au rassemblement */}
+      {/* ②bis Aperçu de résolution — ce qui va se passer à l'Annonce */}
       {(isFree || isGathering) && (
         <ResolutionPreview gameId={gameId} tour={tour} players={players} onSelect={onSelect} />
       )}
@@ -650,7 +650,7 @@ function PacingPanel({
       ? {
           label: (
             <>
-              <Bell className="size-4" /> Ouvrir le Rassemblement
+              <Bell className="size-4" /> Ouvrir le Débat
             </>
           ),
           action: onOpenGathering,
@@ -694,7 +694,7 @@ function PacingPanel({
               hint: "Partie figée — relance un tour libre.",
             };
 
-  // Stepper de phase — ordre canonique DA « Libre › Annonce › Rassemblement › Vote ».
+  // Stepper de phase — ordre canonique DA « Enquête › Annonce › Débat › Vote ».
   const activeIdx = PHASE_STEPS.findIndex((p) => p.key === phase);
   const activeColor = PHASE_STEPS[activeIdx]?.color ?? "var(--accent)";
 
@@ -756,7 +756,7 @@ function PacingPanel({
           style={{ borderColor: "oklch(0.30 0.04 35 / 0.4)" }}
         >
           <SmallBtn disabled={busy} onClick={onFree}>
-            <Sun className="size-3.5" /> Phase libre
+            <Sun className="size-3.5" /> Enquête
           </SmallBtn>
           <SmallBtn disabled={busy} onClick={onNext}>
             <SkipForward className="size-3.5" /> Tour +1
@@ -769,9 +769,9 @@ function PacingPanel({
 
 // Ordre canonique des phases (DA « tableau d'enquête ») + teinte d'identité.
 const PHASE_STEPS = [
-  { key: "free", label: "Libre", color: "var(--phase-jour)" },
+  { key: "free", label: "Enquête", color: "var(--phase-jour)" },
   { key: "annonce", label: "Annonce", color: "var(--phase-annonce)" },
-  { key: "gathering", label: "Rassembl.", color: "var(--phase-rassemblement)" },
+  { key: "gathering", label: "Débat", color: "var(--phase-debat)" },
   { key: "vote", label: "Vote", color: "var(--phase-vote)" },
 ] as const;
 
@@ -899,7 +899,7 @@ function ReadyChecklist({
       player_id: p.id,
       type: "mj_nudge",
       title: "⏰ Le Détective t'attend",
-      body: "Le rassemblement approche — pense à utiliser ta capacité.",
+      body: "L'Enquête se termine bientôt — pense à utiliser ta capacité.",
       payload: { tour, phase, nudge: true } as never,
     });
     if (error) {
@@ -1566,7 +1566,7 @@ function ResolutionPreview({
       >
         {rows.length === 0 ? (
           <div className="text-[11px] text-muted-foreground italic text-center py-1">
-            Aucune intention en attente — rien ne se résoudra au rassemblement.
+            Aucune intention en attente — rien ne se résoudra à l'Annonce.
           </div>
         ) : (
           <>
@@ -1880,7 +1880,7 @@ function RingTab({
       {announcements.length === 0 ? (
         <EmptyState
           icon={<ScrollText className="size-6 mx-auto" />}
-          text="Aucune annonce. Les phrases apparaîtront ici dès le prochain rassemblement."
+          text="Aucune annonce. Les phrases apparaîtront ici dès la prochaine Annonce."
         />
       ) : (
         <div className="space-y-5">
@@ -2016,7 +2016,7 @@ function ResolveTab({
         icon={<Calculator className="size-3.5" />}
         title="Pipeline de résolution (v2)"
       >
-        Intentions catégorisées par couches. Le rassemblement déclenche le resolver : L1
+        Intentions catégorisées par couches. L'Annonce déclenche le resolver : L1
         protect/cure → L2 attack → L3 cascade. Tour courant : {tour}.
       </CalloutCard>
       {rows.length === 0 && (

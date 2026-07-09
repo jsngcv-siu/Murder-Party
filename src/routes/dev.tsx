@@ -290,7 +290,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   add({
     id: "T3",
     group: "Phases",
-    label: "Intro — Phase libre",
+    label: "Intro — Enquête",
     render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, { current_phase: "free" })} />} />,
   });
   add({
@@ -304,7 +304,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   add({
     id: "T1",
     group: "Phases",
-    label: "Rassemblement",
+    label: "Débat",
     render: () => (
       <Frame node={<T1Transition {...ctxFor(civil, { current_phase: "gathering" })} />} />
     ),
@@ -318,7 +318,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   add({
     id: "VR",
     group: "Phases",
-    label: "Résultat du vote → phase libre",
+    label: "Résultat du vote → Enquête",
     render: () => (
       <Frame node={<FreeEntry {...ctxFor(civil, { current_phase: "free", current_tour: 3 })} />} />
     ),

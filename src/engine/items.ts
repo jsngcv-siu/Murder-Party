@@ -71,13 +71,13 @@ export const ITEM_CATALOG: Record<
     name: "Fiole de mort",
     icon: "☠️",
     description:
-      "Donne la mort à une cible : elle mourra au prochain rassemblement, sans laisser de trace de poison.",
+      "Donne la mort à une cible : elle mourra à la prochaine Annonce, sans laisser de trace de poison.",
   },
   fiole_vie: {
     slug: "fiole_vie",
     name: "Fiole de vie",
     icon: "💚",
-    description: "Protège une cible jusqu'au prochain rassemblement.",
+    description: "Protège une cible jusqu'à la prochaine Annonce.",
   },
   fiole_clairvoyance: {
     slug: "fiole_clairvoyance",
@@ -424,7 +424,7 @@ export async function consumeItem(opts: {
       });
       // Silencieux côté victime : elle ne sait pas qu'elle est empoisonnée
       // (cohérent avec les autres morts différées — couteau, Tueur…).
-      message = `${target!.pseudo} : intention de mort enregistrée — résolue au rassemblement.`;
+      message = `${target!.pseudo} : intention de mort enregistrée — résolue à l'Annonce.`;
       break;
     }
     case "fiole_vie": {
@@ -443,9 +443,9 @@ export async function consumeItem(opts: {
       await notify(
         target!.id,
         "💚 Soigné",
-        "Une fiole de vie te protège pour le prochain rassemblement.",
+        "Une fiole de vie te protège pour la prochaine Annonce.",
       );
-      message = `${target!.pseudo} : soin programmé — actif au rassemblement.`;
+      message = `${target!.pseudo} : soin programmé — actif à l'Annonce.`;
       break;
     }
     case "fiole_clairvoyance": {
@@ -512,7 +512,7 @@ export async function consumeItem(opts: {
           `${opts.actorPseudo} a utilisé couteau sur ${target!.pseudo}.`,
         );
       }
-      message = `${target!.pseudo} : coup de couteau programmé — résolu au rassemblement.`;
+      message = `${target!.pseudo} : coup de couteau programmé — résolu à l'Annonce.`;
       break;
     }
     case "relique": {

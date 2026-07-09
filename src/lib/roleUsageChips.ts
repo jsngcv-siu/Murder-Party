@@ -1,5 +1,5 @@
 // Fréquence d'usage d'un rôle, présentée en CADRES SÉPARÉS.
-// - Source prioritaire : frequency_label (ex. "1×/rassemblement").
+// - Source prioritaire : frequency_label (ex. "1×/Enquête").
 // - Repli si vide : dérivée de phase_activation (certains rôles, ex. le
 //   Falsificateur, n'ont pas de frequency_label en base).
 // - Les libellés composés ("A + B", ex. le Conservateur) sont éclatés en
@@ -13,11 +13,11 @@ type FreqRole = {
 function deriveFromPhase(phase?: string | null): string {
   if (!phase) return "";
   const p = phase.toLowerCase();
-  const libre = /phase[_ ]*libre/.test(p);
-  const rass = /rassemblement/.test(p);
-  if (libre && rass) return "1×/phase libre + 1×/rassemblement";
-  if (rass) return "1×/rassemblement";
-  if (libre) return "1×/phase libre";
+  // Refonte boucle : toutes les capacités actives se jouent en Enquête. On tolère
+  // encore les anciens libellés ("phase libre"/"rassemblement") tant que la base
+  // n'est pas migrée, mais on les présente au joueur en nouveau vocabulaire.
+  const enquete = /phase[_ ]*libre|enqu[eê]te/.test(p);
+  if (enquete) return "1×/Enquête";
   return "";
 }
 

@@ -1,5 +1,5 @@
 // Bandeau "🎯 Le tueur a ciblé : X" affiché en haut de l'écran pour tous les
-// Méchants (Tueur + Acolytes) pendant la phase libre courante. Lit la
+// Méchants (Tueur + Acolytes) pendant l'Enquête courante. Lit la
 // dernière role_action du Tueur sur le tour courant.
 import { useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";

@@ -669,13 +669,13 @@ function LobbyView({
           <SectionHeading>Durées des phases</SectionHeading>
           <Card className="p-4 bg-card/70 border-border/60 elevate space-y-2.5">
             <PhaseDurationRow
-              label="Phase libre"
+              label="Enquête"
               value={game.phase_duration_free_s ?? 180}
               onChange={(v) => updatePhaseDur(game.id, { free: v })}
               editable={isHost}
             />
             <PhaseDurationRow
-              label="Rassemblement"
+              label="Débat"
               value={game.phase_duration_gathering_s ?? 180}
               onChange={(v) => updatePhaseDur(game.id, { gathering: v })}
               editable={isHost}

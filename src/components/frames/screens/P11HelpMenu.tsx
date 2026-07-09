@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState, type ElementType } from "react";
 import type { FrameContext } from "../registry";
 import type { RoleRow } from "@/engine/actions";
-import { SCHEDULES_AT_GATHERING } from "@/engine/actions";
 import { ITEM_CATALOG } from "@/engine/items";
 import { RoleIcon } from "@/components/RoleIcon";
 import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
@@ -330,7 +329,7 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
         <PhaseStep
           number={1}
           Icon={Sun}
-          title="Phase libre"
+          title="Enquête"
           color="text-primary"
           accent="var(--primary)"
         >
@@ -347,19 +346,18 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
         >
           L'app révèle le <b className="text-amber-400">dénouement</b> :{" "}
           <b className="text-foreground">morts, prisons</b>, événements de la nuit — le résultat des
-          capacités jouées en Phase libre.
+          capacités jouées en Enquête.
         </PhaseStep>
         <PhaseStep
           number={3}
           Icon={Bell}
-          title="Rassemblement"
+          title="Débat"
           color="text-sky-400"
           accent="oklch(0.70 0.16 230)"
         >
           La table débat à voix haute :{" "}
-          <b className="text-sky-300">accusations, défenses, déductions</b>.{" "}
-          <b className="text-sky-300">Certains rôles agissent aussi pendant cette phase</b> — reste
-          attentif.
+          <b className="text-sky-300">accusations, défenses, déductions</b>. Aucune capacité ne se
+          joue ici — <b className="text-sky-300">seule la parole compte</b>.
         </PhaseStep>
         <PhaseStep
           number={4}
@@ -655,7 +653,7 @@ const STATUTS: { Icon: LucideIcon; color: string; label: string; effet: string }
     Icon: FlaskConical,
     color: "oklch(0.74 0.16 155)",
     label: "Empoisonné",
-    effet: "Sans soin, tu meurs au prochain rassemblement.",
+    effet: "Sans soin, tu meurs à la prochaine Annonce.",
   },
   {
     Icon: Ban,
@@ -769,7 +767,7 @@ function PhoneSlide() {
 // Slide "Ta capacité" — chaque cadence est un bouton dépliable qui révèle les
 // rôles concernés (icône + nom). La cadence est déduite du `usage_label`
 // (source de vérité documentée) avec repli sur `phase_activation`.
-type Cadence = "passive" | "free" | "gathering" | "once" | "limited";
+type Cadence = "passive" | "free" | "once" | "limited";
 
 function cadenceOf(role: RoleRow): Cadence {
   const lbl = (role.usage_label ?? "").toLowerCase();
@@ -781,8 +779,7 @@ function cadenceOf(role: RoleRow): Cadence {
     ["executeur", "juge", "cleaner", "apothicaire"].includes(role.slug)
   )
     return "limited";
-  if (/rassemblement/.test(lbl) || SCHEDULES_AT_GATHERING.has(role.slug)) return "gathering";
-  if (/jour|phase\s*libre|\/\s*tour|\/\s*cycle/.test(lbl)) return "free";
+  // Refonte boucle : toutes les capacités actives se jouent en Enquête → "free".
   if (/setup/.test(lbl) || /setup/.test(phase)) return "passive";
   return "free";
 }
@@ -805,15 +802,8 @@ const CADENCE_META: {
     key: "free",
     Icon: Repeat,
     color: "var(--primary)",
-    label: "Chaque phase libre",
+    label: "Chaque Enquête",
     desc: "Réutilisable à chaque tour, sur une nouvelle cible.",
-  },
-  {
-    key: "gathering",
-    Icon: Bell,
-    color: "oklch(0.70 0.16 230)",
-    label: "À chaque rassemblement",
-    desc: "S'utilise pendant le débat, une fois par rassemblement.",
   },
   {
     key: "once",
@@ -1621,7 +1611,7 @@ const STATUS_CATALOG: { Icon: LucideIcon; color: string; label: string; desc: st
     Icon: FlaskConical,
     color: "oklch(0.74 0.16 155)",
     label: "Empoisonné",
-    desc: "Sans soin, tu meurs au prochain rassemblement.",
+    desc: "Sans soin, tu meurs à la prochaine Annonce.",
   },
   {
     Icon: Ban,

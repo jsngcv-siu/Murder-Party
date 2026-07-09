@@ -1,7 +1,9 @@
 // Role expectations — the "rules oracle" for the QA layer.
-// We reuse the ENGINE's own truth (allowedActivePhases / parseTotalLimit /
-// SCHEDULES_AT_GATHERING) and compare it to what the PROSE a player reads
-// (`capacite_full_text`) promises. Divergence = "the card lies about the role".
+// We reuse the ENGINE's own truth (allowedActivePhases / parseTotalLimit) and
+// compare it to what the PROSE a player reads (`capacite_full_text`) promises.
+// Divergence = "the card lies about the role". Refonte boucle : toutes les
+// capacités actives se jouent en Enquête, donc un texte qui parle encore de
+// « rassemblement » est un vestige à migrer → signalé ci-dessous.
 
 import { allowedActivePhases, parseTotalLimit, type Phase, type RoleRow } from "../actions";
 import type { FindingInput } from "./types";
@@ -155,33 +157,17 @@ export function auditRoleStatic(role: RoleRow, playerCount: number): FindingInpu
   const exp = roleExpectation(role, playerCount);
   const mentioned = phasesMentionedInText(role);
 
-  // 1) Phase the prose promises vs phase the engine actually allows.
-  const allowsFree = exp.allowedPhases.has("free");
-  const allowsGathering = exp.allowedPhases.has("gathering");
-  if (mentioned.gathering && !mentioned.free && allowsFree && !allowsGathering) {
+  // 1) Refonte boucle : toutes les capacités actives se jouent en Enquête. Un
+  // texte de carte qui parle encore de « rassemblement » (sans mention Enquête)
+  // est un vestige legacy → à migrer vers le nouveau vocabulaire.
+  if (mentioned.gathering && !mentioned.free && !exp.isPassive) {
     out.push({
       ...base,
       severity: "high",
       dedupeKey: `rules:phase-text:${role.slug}`,
-      title: `${role.name_fr} : le texte dit « rassemblement » mais la capacité s'utilise en phase libre`,
+      title: `${role.name_fr} : le texte parle encore de « rassemblement » — la capacité se joue désormais en Enquête`,
       detail:
-        "Le texte de la carte parle du rassemblement, mais le moteur (déduit de usage_label/phase_activation) n'autorise la capacité qu'en phase libre. Un joueur cherchera son action au mauvais moment.",
-      evidence: {
-        capacite_full_text: role.capacite_full_text,
-        usage_label: role.usage_label,
-        phase_activation: role.phase_activation,
-        allowedPhases: [...exp.allowedPhases],
-      },
-    });
-  }
-  if (mentioned.free && !mentioned.gathering && allowsGathering && !allowsFree) {
-    out.push({
-      ...base,
-      severity: "high",
-      dedupeKey: `rules:phase-text:${role.slug}`,
-      title: `${role.name_fr} : le texte dit « phase libre / journée » mais la capacité s'utilise au rassemblement`,
-      detail:
-        "Le texte de la carte décrit une action de jour, mais le moteur ne l'autorise qu'au rassemblement. Incohérence texte ↔ phase d'activation.",
+        "Refonte boucle : toutes les capacités actives se jouent en Enquête (le Débat n'en porte plus aucune). Le texte de la carte mentionne encore le rassemblement — vestige à migrer, sinon le joueur cherchera son action au mauvais moment.",
       evidence: {
         capacite_full_text: role.capacite_full_text,
         usage_label: role.usage_label,

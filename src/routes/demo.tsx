@@ -805,9 +805,9 @@ function DemoMenu() {
               <button
                 onClick={ring}
                 className="px-2.5 py-1.5 text-xs rounded border border-border hover:bg-card flex items-center gap-1.5"
-                title="Forcer le rassemblement"
+                title="Forcer le Débat"
               >
-                <Bell className="size-3.5" /> Rass.
+                <Bell className="size-3.5" /> Débat
               </button>
               <button
                 onClick={openV}
@@ -1437,8 +1437,8 @@ function PhaseDurationsEditor({ game }: { game: GameRow }) {
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
                 Durées des phases (s)
               </div>
-              <Row label="Jour (libre)" value={free} setValue={setFree} min={2} max={3600} />
-              <Row label="Rassemblement" value={gath} setValue={setGath} min={2} max={3600} />
+              <Row label="Enquête" value={free} setValue={setFree} min={2} max={3600} />
+              <Row label="Débat" value={gath} setValue={setGath} min={2} max={3600} />
               <Row label="Vote" value={vote} setValue={setVote} min={2} max={600} />
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
                 <button

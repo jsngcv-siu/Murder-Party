@@ -16,27 +16,10 @@ if (!Array.isArray(roles)) {
 }
 
 // ── engine mirrors ──────────────────────────────────────────────────────────
-const SCHEDULES_AT_GATHERING = new Set([
-  "maitre_chanteur",
-  "barman",
-  "babysitter",
-  "accusateur",
-  "veuve_noire",
-  "marionnettiste",
-  "falsificateur",
-]);
-function allowedActivePhases(role) {
-  if (SCHEDULES_AT_GATHERING.has(role.slug)) return new Set(["gathering"]);
-  const src =
-    `${role.usage_label ?? ""} ${role.frequency_label ?? ""} ${role.phase_activation ?? ""}`.toLowerCase();
-  const phases = new Set();
-  if (/phase[\s_]*libre/.test(src)) phases.add("free");
-  if (/rassemblement/.test(src)) phases.add("gathering");
-  if (phases.size === 0) {
-    if (role.slug === "tueur") return new Set(["free"]);
-    return new Set(["free", "annonce", "gathering", "vote"]);
-  }
-  return phases;
+// Refonte boucle : toutes les capacités actives se jouent en ENQUÊTE (`free`).
+// Le Débat ne porte aucune capacité active → allowedActivePhases est constant.
+function allowedActivePhases(_role) {
+  return new Set(["free"]);
 }
 function parseTotalLimit(role, n) {
   const lbl = role.usage_label ?? "";
@@ -95,13 +78,11 @@ function auditRoleStatic(role, n) {
     isPassive: (role.target_mode ?? "single") === "none",
   };
   const mentioned = phasesMentionedInText(role);
-  const allowsFree = exp.allowedPhases.has("free");
-  const allowsGathering = exp.allowedPhases.has("gathering");
 
-  if (mentioned.gathering && !mentioned.free && allowsFree && !allowsGathering)
-    out.push(["high", "rules", `texte dit « rassemblement » mais capacité en phase LIBRE`]);
-  if (mentioned.free && !mentioned.gathering && allowsGathering && !allowsFree)
-    out.push(["high", "rules", `texte dit « phase libre/journée » mais capacité au RASSEMBLEMENT`]);
+  // Refonte boucle : tout se joue en Enquête. Un texte parlant encore de
+  // « rassemblement » est un vestige legacy à migrer.
+  if (mentioned.gathering && !mentioned.free && !exp.isPassive)
+    out.push(["high", "rules", `texte parle encore de « rassemblement » — capacité en ENQUÊTE`]);
   if (oneShotMentioned(role) && exp.totalLimit === Infinity)
     out.push(["medium", "rules", `texte annonce usage unique mais moteur n'impose AUCUNE limite`]);
   if (exp.isPassive && hasTargetingVerb(role) && !passiveMentioned(role))

@@ -55,7 +55,7 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       icon: FlaskConical,
       label: "Empoisonné",
       tone: "emerald",
-      desc: "Poison en toi. Sans soin, c'est la mort au prochain rassemblement.",
+      desc: "Poison en toi. Sans soin, c'est la mort à la prochaine Annonce.",
     },
     blocked: {
       icon: Ban,

@@ -1,7 +1,7 @@
 // PlayerShell — shell joueur unique, partagé entre /g/$code et /demo.
 // Rend EXACTEMENT ce que voit un joueur sur son téléphone : header phase,
 // O5 reveal, MJ dashboard, Vote plein écran, body avec tabs, overlay Méchants,
-// menu d'aide, transition de rassemblement. Aucune logique spécifique à la démo.
+// menu d'aide, transition de Débat. Aucune logique spécifique à la démo.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { tickPhase } from "@/engine/actions";
@@ -360,10 +360,10 @@ export function PlayerShell({
   // annonce PUBLIQUE arrive et que l'onglet n'est pas déjà ouvert.
   // Les événements qui ME concernent (ma mort / prison) sont exclus : ils ont
   // déjà leur modale plein écran (PlayerEventModal) → on évite le doublon.
-  // On ne toaste QUE pendant les phases `free` (libre) et `gathering`
-  // (rassemblement) : pendant la phase `annonce`, l'AnnonceScreen montre déjà
+  // On ne toaste QUE pendant les phases `free` (Enquête) et `gathering`
+  // (Débat) : pendant la phase `annonce`, l'AnnonceScreen montre déjà
   // l'événement → un toast ferait doublon. On sort AVANT de marquer "toasté",
-  // pour que l'annonce ressorte bien une fois en phase libre.
+  // pour que l'annonce ressorte bien une fois en Enquête.
   const announcesUnread = useAnnouncementsUnread(game.id, me.id, players);
   const toastedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -521,7 +521,7 @@ export function PlayerShell({
   const isLoup = myRole?.faction === "Méchant";
   const isJour = game.current_phase === "free";
   const isAnnonce = game.current_phase === "annonce";
-  const isRassemblement = game.current_phase === "gathering";
+  const isDebat = game.current_phase === "gathering";
   const isVote = game.current_phase === "vote";
 
   // Wrapper inline — NE PAS définir comme composant local, sinon React voit
@@ -546,7 +546,7 @@ export function PlayerShell({
 
   const PhaseIntros = waitingStart ? null : (
     <>
-      {isRassemblement && <T1Transition {...ctx} />}
+      {isDebat && <T1Transition {...ctx} />}
       {isVote && <T2VoteIntro {...ctx} />}
       {isJour && <FreeEntry {...ctx} />}
     </>
@@ -804,7 +804,7 @@ export function PlayerShell({
 }
 
 // Calque d'ambiance derrière le contenu : une teinte douce qui change selon
-// la phase (libre = chaud doré, rassemblement = bleu nuit, vote = rouge tension).
+// la phase (Enquête = chaud doré, Débat = violet nuit, vote = rouge tension).
 function AmbientTint({ phase }: { phase: string }) {
   const { wash } = phasePalette(phase);
   const bg =

@@ -70,8 +70,8 @@ export interface SubmitIntentInput {
 
 /**
  * Pose une intention dans `role_actions`. AUCUN effet immédiat — l'effet
- * réel est appliqué par `resolveDeferredIntents()` au prochain
- * rassemblement (ou au clic pour les INSTANT, hors scope de ce batch).
+ * réel est appliqué par `resolveDeferredIntents()` à la prochaine
+ * Annonce (ou au clic pour les INSTANT, hors scope de ce batch).
  */
 export async function submitIntent(input: SubmitIntentInput): Promise<string> {
   const layer = LAYER_BY_CATEGORY[input.category];

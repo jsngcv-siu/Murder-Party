@@ -18,8 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 // démarrent qu'après la disparition de cette frame.
 export const INTRO_MS = 2500;
 
-// Durée de l'écran de résultat du vote, joué au tout début de la phase libre qui
-// suit un vote — AVANT la bascule "phase libre" proprement dite.
+// Durée de l'écran de résultat du vote, joué au tout début de l'Enquête qui
+// suit un vote — AVANT la bascule "Enquête" proprement dite.
 export const VOTE_RESULT_MS = 4000;
 
 // ---------------------------------------------------------------------------
@@ -677,7 +677,7 @@ type TransitionDef = {
   scatter: ReactNode;
 };
 
-// Couronne de rayons solaires + halo (uniquement Phase libre).
+// Couronne de rayons solaires + halo (uniquement Enquête).
 const SunRays = (
   <>
     <div
@@ -944,7 +944,7 @@ function DossierCard({ def, tour }: { def: TransitionDef; tour: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Overlay de bascule (forced-sync) — libre / rassemblement / vote
+// Overlay de bascule (forced-sync) — Enquête / Débat / vote
 // ---------------------------------------------------------------------------
 
 function PhaseIntro({
@@ -957,7 +957,7 @@ function PhaseIntro({
   delayMs?: number;
 }) {
   const def = TRANSITIONS[phase];
-  // `delayMs` décale la fenêtre d'affichage : pour la phase libre qui suit un
+  // `delayMs` décale la fenêtre d'affichage : pour l'Enquête qui suit un
   // vote, la bascule "LE JOUR SE LÈVE" n'apparaît qu'après l'écran de résultat.
   const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() + delayMs : 0;
   useServerTimeOffset();
@@ -1016,7 +1016,7 @@ export function T3FreeIntro(ctx: FrameContext) {
 // ---------------------------------------------------------------------------
 // Écran de RÉSULTAT du vote — transition jouée au timer 0 du vote
 // ---------------------------------------------------------------------------
-// Affiché pendant VOTE_RESULT_MS au tout début de la phase libre qui suit un
+// Affiché pendant VOTE_RESULT_MS au tout début de l'Enquête qui suit un
 // vote, AVANT la bascule "LE JOUR SE LÈVE". Annonce le verdict (emprisonnement,
 // égalité tranchée au sort, ou personne) sans jamais révéler rôle/faction. Les
 // données viennent de la notif `vote_result` broadcastée par closeVote.
@@ -1323,7 +1323,7 @@ function VoteResultScreen({ ctx }: { ctx: FrameContext }) {
   );
 }
 
-// Entrée en phase libre : la première phase libre (tour 1) n'est précédée
+// Entrée en Enquête : la première Enquête (tour 1) n'est précédée
 // d'aucun vote → bascule directe. Toutes les suivantes rejouent d'abord le
 // résultat du vote, PUIS la bascule "LE JOUR SE LÈVE" (décalée de VOTE_RESULT_MS).
 export function FreeEntry(ctx: FrameContext) {
@@ -1340,8 +1340,8 @@ export function FreeEntry(ctx: FrameContext) {
 // ---------------------------------------------------------------------------
 // AnnonceScreen — la « gazette » persistante de la phase ANNONCE
 // ---------------------------------------------------------------------------
-// Écran affiché pendant toute la phase "annonce" (entre la Phase libre et le
-// Rassemblement). Présente le dénouement du tour — morts, prisons, événements
+// Écran affiché pendant toute la phase "annonce" (entre l'Enquête et le
+// Débat). Présente le dénouement du tour — morts, prisons, événements
 // rares du MJ — sous forme de dépêches de presse épinglées. Données réelles
 // issues du resolver (collectAnnouncements), pas du mock.
 
@@ -1491,8 +1491,8 @@ export function AnnonceScreen({ game, players, roles }: FrameContext) {
 
         <p className="px-5 pt-1 pb-6 text-center text-[11px] italic" style={{ color: "#9a8d76" }}>
           {isMjMode
-            ? "En attente du Rassemblement… le MJ va ouvrir le débat."
-            : "Le Rassemblement va s'ouvrir…"}
+            ? "En attente du Débat… le MJ va ouvrir la discussion."
+            : "Le Débat va s'ouvrir…"}
         </p>
       </div>
 

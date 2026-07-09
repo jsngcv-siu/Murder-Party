@@ -111,7 +111,7 @@ export function describeWinCondition(
         );
       } else {
         base.push(
-          "🔮 À la 1ère phase libre, prédis quelle faction (Civils, Méchants ou Neutres) gagnera. Tu gagnes avec elle si tu es en vie à la fin.",
+          "🔮 À la 1ère Enquête, prédis quelle faction (Civils, Méchants ou Neutres) gagnera. Tu gagnes avec elle si tu es en vie à la fin.",
         );
       }
       break;
@@ -153,7 +153,7 @@ export function describeWinCondition(
     case "conservateur": {
       base.length = 0;
       base.push(
-        "🗝️ À chaque phase libre et à chaque rassemblement, tu confies une relique maudite au hasard à une cible.",
+        "🗝️ À chaque Enquête (2× par tour), tu confies une relique maudite au hasard à une cible.",
       );
       base.push(
         "🫀 Tu gagnes (victoire SOLO immédiate) dès qu'une personne reçoit la relique « Le Cœur du Manoir ».",

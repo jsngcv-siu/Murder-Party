@@ -151,8 +151,9 @@ export function parseTotalLimit(role: RoleRow, playerCount: number): number {
   return Infinity;
 }
 function isPerCycle(role: RoleRow): boolean {
-  // Couvre "1×/TOUR", "1×/tour", "1×/phase libre", "1×/rassemblement" et variantes.
-  return /\/\s*(tour|phase\s*libre|rassemblement)/i.test(role.usage_label ?? "");
+  // Couvre "1×/TOUR", "1×/Enquête", "1×/Débat" et — tant que la base n'est pas
+  // migrée — les anciens libellés "phase libre"/"rassemblement".
+  return /\/\s*(tour|phase\s*libre|rassemblement|enqu[eê]te|d[eé]bat)/i.test(role.usage_label ?? "");
 }
 function cooldownCycles(role: RoleRow): number {
   const lbl = (role.usage_label ?? "") + " " + (role.capacite_full_text ?? "");
@@ -163,8 +164,15 @@ function cooldownCycles(role: RoleRow): number {
   return 0;
 }
 
-/** Rôles dont l'action bloque/affecte le prochain tour d'autrui : choix verrouillé au Rassemblement, effet au tour suivant. */
-export const SCHEDULES_AT_GATHERING = new Set<string>([
+/**
+ * Rôles dont l'action programme un effet sur le PROCHAIN tour d'autrui.
+ * Refonte boucle : ils se jouent désormais en ENQUÊTE (phase `free`) comme tous
+ * les autres, mais leur effet (blocage / protection / marquage) ne tombe qu'au
+ * tour suivant — conséquence directe : aucun ne peut bloquer/protéger au tour 1.
+ * (Anciennement joués au Rassemblement ; le timing "tour+1" est porté par les
+ * handlers eux-mêmes via `opts.tour + 1`, pas par la phase.)
+ */
+export const SCHEDULES_NEXT_TOUR = new Set<string>([
   "maitre_chanteur",
   "barman",
   "babysitter",
@@ -175,30 +183,18 @@ export const SCHEDULES_AT_GATHERING = new Set<string>([
 ]);
 
 /**
- * Phases actives où la capacité d'un rôle est utilisable, déduites du libellé
- * JOUEUR (`usage_label`/`frequency_label`) — source de vérité — avec repli
- * tolérant sur `phase_activation` (toutes orthographes : "Phase Libre",
- * "PHASE_LIBRE", "phase_libre", "Rassemblement", "PHASE_RASSEMBLEMENT"…).
+ * Refonte boucle : TOUTES les capacités actives se jouent en ENQUÊTE (phase
+ * `free`). Le Débat (`gathering`) ne porte plus aucune capacité active — c'est
+ * une phase 100 % sociale. Cette fonction retourne donc toujours `{ free }`
+ * pour tout rôle actif, ce qui verrouille l'usage hors Enquête côté UI/moteur.
  *
- * Règles :
- *  - rôle "scheduled" → rassemblement uniquement (effet au tour suivant) ;
- *  - libellé "phase libre" et/ou "rassemblement" → ces phases uniquement
- *    (`conservateur` = les deux) ;
- *  - aucune restriction explicite → toutes les phases actives (le Tueur reste
- *    cantonné à la phase libre).
+ * (Auparavant la phase était déduite du texte français "phase libre"/"rassemblement" ;
+ * ce couplage est supprimé — l'unique phase d'action est l'Enquête. Les rôles à
+ * effet différé — cf. SCHEDULES_NEXT_TOUR — se jouent aussi ici, leur effet
+ * tombant au tour suivant.)
  */
-export function allowedActivePhases(role: RoleRow): Set<Phase> {
-  if (SCHEDULES_AT_GATHERING.has(role.slug)) return new Set<Phase>(["gathering"]);
-  const src =
-    `${role.usage_label ?? ""} ${(role as { frequency_label?: string | null }).frequency_label ?? ""} ${role.phase_activation ?? ""}`.toLowerCase();
-  const phases = new Set<Phase>();
-  if (/phase[\s_]*libre/.test(src)) phases.add("free");
-  if (/rassemblement/.test(src)) phases.add("gathering");
-  if (phases.size === 0) {
-    if (role.slug === "tueur") return new Set<Phase>(["free"]);
-    return new Set<Phase>(["free", "annonce", "gathering", "vote"]);
-  }
-  return phases;
+export function allowedActivePhases(_role: RoleRow): Set<Phase> {
+  return new Set<Phase>(["free"]);
 }
 
 /** Renvoie true si la cible est falsifiée (flag posé par le Falsificateur, permanent). */
@@ -235,9 +231,10 @@ export function policierVerdict(
 
 /** Nombre d'utilisations autorisées par tour pour les rôles "per cycle". */
 function perCycleLimit(role: RoleRow): number {
-  // Conservateur a un quota PAR PHASE (1× phase libre + 1× rassemblement) géré séparément.
-  if (role.slug === "conservateur") return 1;
-  const m = (role.usage_label ?? "").match(/(\d+)\s*×\s*\/\s*(tour|phase\s*libre)/i);
+  // Conservateur : ses 2 distributions de reliques se jouent désormais en Enquête
+  // (auparavant 1× phase libre + 1× rassemblement) → 2×/tour, même phase.
+  if (role.slug === "conservateur") return 2;
+  const m = (role.usage_label ?? "").match(/(\d+)\s*×\s*\/\s*(tour|phase\s*libre|enqu[eê]te)/i);
   if (m) return parseInt(m[1], 10);
   return 1;
 }
@@ -260,40 +257,26 @@ export function whyCannotUse(
     ((m.blocked_from_cycle as number | undefined) ?? -Infinity) <= tour
   )
     return "Capacité bloquée";
-  if (phase) {
-    const allowed = allowedActivePhases(role);
-    if (!allowed.has(phase)) {
-      if (allowed.has("gathering") && !allowed.has("free")) return "À utiliser au Rassemblement";
-      if (allowed.has("free") && !allowed.has("gathering")) return "À utiliser en phase libre";
-      return "Hors de la phase d'utilisation";
-    }
+  if (phase && !allowedActivePhases(role).has(phase)) {
+    // Toutes les capacités actives se jouent en Enquête (phase `free`).
+    return "À utiliser en Enquête";
   }
   const total = parseTotalLimit(role, playerCount);
   if (usesOf(m, role.slug) >= total) return "Capacité épuisée";
   const cd = cooldownCycles(role);
   if (cd > 0 && tour - lastUseOf(m, role.slug) < cd) return "En cooldown";
   if (isPerCycle(role)) {
-    if (role.slug === "conservateur") {
-      // Quota par PHASE : 1× en phase libre + 1× au rassemblement.
-      const map = (m.conservateur_phase_uses ?? {}) as Record<string, number>;
-      const ph = phase ?? "free";
-      const key = `${tour}:${ph}`;
-      if ((map[key] ?? 0) >= 1) {
-        return ph === "free" ? "Déjà utilisé cette phase libre" : "Déjà utilisé ce rassemblement";
-      }
-    } else {
-      const limit = perCycleLimit(role);
-      const counts = (m.used_cycle_count ?? {}) as Record<string, { tour: number; count: number }>;
-      const entry = counts[role.slug];
-      const usedNow = entry && entry.tour === tour ? entry.count : 0;
-      if (usedNow >= limit)
-        return limit > 1 ? `Déjà utilisé ${limit}× ce tour` : "Déjà utilisé ce tour";
-    }
+    const limit = perCycleLimit(role);
+    const counts = (m.used_cycle_count ?? {}) as Record<string, { tour: number; count: number }>;
+    const entry = counts[role.slug];
+    const usedNow = entry && entry.tour === tour ? entry.count : 0;
+    if (usedNow >= limit)
+      return limit > 1 ? `Déjà utilisé ${limit}× ce tour` : "Déjà utilisé ce tour";
   }
   return null;
 }
 
-async function markUsage(actor: PlayerRow, role: RoleRow, tour: number, phase?: Phase) {
+async function markUsage(actor: PlayerRow, role: RoleRow, tour: number) {
   const m = meta(actor);
   const uses = { ...((m.uses ?? {}) as Record<string, number>) };
   uses[role.slug] = (uses[role.slug] ?? 0) + 1;
@@ -307,14 +290,7 @@ async function markUsage(actor: PlayerRow, role: RoleRow, tour: number, phase?: 
   const prev = used_cycle_count[role.slug];
   used_cycle_count[role.slug] =
     prev && prev.tour === tour ? { tour, count: prev.count + 1 } : { tour, count: 1 };
-  const patch: Record<string, unknown> = { uses, last_use, used_cycle, used_cycle_count };
-  if (role.slug === "conservateur") {
-    const map = { ...((m.conservateur_phase_uses ?? {}) as Record<string, number>) };
-    const key = `${tour}:${phase ?? "free"}`;
-    map[key] = (map[key] ?? 0) + 1;
-    patch.conservateur_phase_uses = map;
-  }
-  await patchMeta(actor.id, patch);
+  await patchMeta(actor.id, { uses, last_use, used_cycle, used_cycle_count });
 }
 
 // ─────────────── Role drawing ───────────────
@@ -780,7 +756,7 @@ async function applySetupEffects(gameId: string) {
     });
   };
 
-  // ── Indices : objets distribués au setup pour relancer la phase libre. ──
+  // ── Indices : objets distribués au setup pour relancer l'Enquête. ──
   // Info TOUJOURS VRAIE sur la compo (voir src/engine/indices.ts), distribution
   // aveugle à la faction. Le type « fragmenté » coupe une info en 2 moitiés
   // (recollées à la table, IRL — aucune fusion codée).
@@ -841,9 +817,9 @@ async function applySetupEffects(gameId: string) {
   }
 
   // Chasseur de Vampire : PAS de pré-désignation. Il est choisi aléatoirement
-  // à la 1ère morsure (résolue au rassemblement) — voir applyVampireConversion.
+  // à la 1ère morsure (résolue à l'Annonce) — voir applyVampireConversion.
 
-  // Entremetteur → choix manuel à la 1ère phase libre. Pas d'auto-lien.
+  // Entremetteur → choix manuel à la 1ère Enquête. Pas d'auto-lien.
   const entremetteur = ofSlug("entremetteur");
   if (entremetteur) {
     await patchMeta(entremetteur.id, { pending_link_choice: true, linked_pair: null });
@@ -852,17 +828,17 @@ async function applySetupEffects(gameId: string) {
       playerId: entremetteur.id,
       type: "entremetteur_setup",
       title: "💞 Tisse tes liens",
-      body: "À la 1ère phase libre, choisis 2 joueurs (autres que toi) à lier. Si l'un meurt, l'autre suit. Vous gagnez ensemble si le couple et toi survivez.",
+      body: "À la 1ère Enquête, choisis 2 joueurs (autres que toi) à lier. Si l'un meurt, l'autre suit. Vous gagnez ensemble si le couple et toi survivez.",
       mjTitle: "💞 Entremetteur",
-      mjBody: `${entremetteur.pseudo} (Entremetteur) doit lier 2 joueurs à la 1ère phase libre.`,
+      mjBody: `${entremetteur.pseudo} (Entremetteur) doit lier 2 joueurs à la 1ère Enquête.`,
     });
-    await logSetup(entremetteur.id, "Tu choisiras 2 joueurs à lier à la 1ère phase libre.", {
+    await logSetup(entremetteur.id, "Tu choisiras 2 joueurs à lier à la 1ère Enquête.", {
       effect: "entremetteur_pending",
     });
   }
 
   // Vengeur → propose 2 Civils au hasard (≠ Vengeur) : il en choisira 1 comme être
-  // cher à la 1ère phase libre. Limite la fuite d'info (il sait que ces 2-là sont
+  // cher à la 1ère Enquête. Limite la fuite d'info (il sait que ces 2-là sont
   // Civils, sans cartographier toute la table comme avec une liste complète).
   const vengeur = ofSlug("vengeur");
   if (vengeur) {
@@ -889,20 +865,20 @@ async function applySetupEffects(gameId: string) {
       title: "🤍 Choisis ton être cher",
       body:
         choices.length >= 2
-          ? `À la 1ère phase libre, choisis ton être cher parmi 2 Civils : ${choiceNames}. Tu sais donc que ces deux-là sont des Civils. S'il/elle meurt, tu recevras un couteau pour te venger.`
-          : "À la 1ère phase libre, choisis ton être cher. S'il/elle meurt, tu recevras un couteau pour te venger.",
+          ? `À la 1ère Enquête, choisis ton être cher parmi 2 Civils : ${choiceNames}. Tu sais donc que ces deux-là sont des Civils. S'il/elle meurt, tu recevras un couteau pour te venger.`
+          : "À la 1ère Enquête, choisis ton être cher. S'il/elle meurt, tu recevras un couteau pour te venger.",
       mjTitle: "🤍 Vengeur",
       mjBody: `${vengeur.pseudo} (Vengeur) choisira son être cher parmi : ${choiceNames || "(aucun civil)"}.`,
     });
     await logSetup(
       vengeur.id,
-      `Tu choisiras ton être cher${choiceNames ? ` parmi 2 Civils : ${choiceNames}` : ""} à la 1ère phase libre.`,
+      `Tu choisiras ton être cher${choiceNames ? ` parmi 2 Civils : ${choiceNames}` : ""} à la 1ère Enquête.`,
       { effect: "vengeur_pending" },
     );
   }
 
   // Usurpateur → 3 couvertures tirées au sort parmi rôles Citoyens absents.
-  // Le joueur choisira sa cover à la 1ère phase libre via l'UI.
+  // Le joueur choisira sa cover à la 1ère Enquête via l'UI.
   const usurpateur = ofSlug("usurpateur");
   if (usurpateur) {
     const absent = shuffle(
@@ -924,13 +900,13 @@ async function applySetupEffects(gameId: string) {
         playerId: usurpateur.id,
         type: "cover_pending",
         title: "🎭 Choisis ta couverture",
-        body: `À la prochaine phase libre : ${labels}`,
+        body: `À la prochaine Enquête : ${labels}`,
         mjTitle: "🎭 Usurpateur",
         mjBody: `${usurpateur.pseudo} (Usurpateur) doit choisir parmi : ${labels}.`,
       });
       await logSetup(
         usurpateur.id,
-        `À la prochaine phase libre, choisis ta couverture parmi : ${labels}.`,
+        `À la prochaine Enquête, choisis ta couverture parmi : ${labels}.`,
         { effect: "cover_pending" },
       );
     }
@@ -986,10 +962,10 @@ async function applySetupEffects(gameId: string) {
     }
   }
 
-  // Mouchard → notif d'activation (capacité active à la phase libre : choisir 1 joueur).
+  // Mouchard → notif d'activation (capacité active en Enquête : choisir 1 joueur).
   const mouchard = ofSlug("mouchard");
   if (mouchard) {
-    const body = "À la première phase libre, désigne 1 joueur : tu apprendras son rôle exact.";
+    const body = "À la première Enquête, désigne 1 joueur : tu apprendras son rôle exact.";
     await notify({
       gameId,
       playerId: mouchard.id,
@@ -997,7 +973,7 @@ async function applySetupEffects(gameId: string) {
       title: "📢 Mouchard",
       body,
       mjTitle: "📢 Mouchard",
-      mjBody: `${mouchard.pseudo} (Mouchard) doit désigner 1 joueur à la phase libre.`,
+      mjBody: `${mouchard.pseudo} (Mouchard) doit désigner 1 joueur en Enquête.`,
     });
     await logSetup(mouchard.id, body, { effect: "mouchard_setup" });
   }
@@ -1006,7 +982,7 @@ async function applySetupEffects(gameId: string) {
   const oracle = ofSlug("oracle");
   if (oracle) {
     const body =
-      "À la première phase libre, prédis quelle faction (Civils, Méchants ou Neutres) remportera la partie. Tu gagneras avec elle si tu es en vie à la fin.";
+      "À la première Enquête, prédis quelle faction (Civils, Méchants ou Neutres) remportera la partie. Tu gagneras avec elle si tu es en vie à la fin.";
     await notify({
       gameId,
       playerId: oracle.id,
@@ -1022,11 +998,11 @@ async function applySetupEffects(gameId: string) {
   // Stratège → tueur « embuscade ». Reçoit un couteau (kill immédiat) au setup,
   // et marque ses cibles via sa capacité (kill télégraphié) — voir Phase 2.
 
-  // Veuve noire → notif d'activation. Pas de mariage auto au setup : elle choisit 2 cibles à chaque rassemblement.
+  // Veuve noire → notif d'activation. Pas de mariage auto au setup : elle choisit 2 cibles à chaque Enquête.
   const veuve = ofSlug("veuve_noire");
   if (veuve) {
     const body =
-      "À chaque rassemblement, choisis 2 cibles. Si l'une d'elles vote contre toi durant le vote suivant, les deux meurent au rassemblement d'après.";
+      "À chaque Enquête, choisis 2 cibles. Si l'une d'elles vote contre toi au vote suivant, les deux meurent à la prochaine Annonce.";
     await notify({
       gameId,
       playerId: veuve.id,
@@ -1034,7 +1010,7 @@ async function applySetupEffects(gameId: string) {
       title: "🕷️ Veuve noire",
       body,
       mjTitle: "🕷️ Veuve noire",
-      mjBody: `${veuve.pseudo} (Veuve noire) prête à désigner ses cibles au rassemblement.`,
+      mjBody: `${veuve.pseudo} (Veuve noire) prête à désigner ses cibles en Enquête.`,
     });
     await logSetup(veuve.id, body, { effect: "veuve_setup" });
   }
@@ -1072,7 +1048,7 @@ async function applySetupEffects(gameId: string) {
       }),
     );
     const body =
-      "Tu es le Stratège. Chaque phase libre, marque une cible (elle sera prévenue et mourra à l'annonce du tour suivant), ou frappe immédiatement avec ton couteau.";
+      "Tu es le Stratège. Chaque Enquête, marque une cible (elle sera prévenue et mourra à l'Annonce du tour suivant), ou frappe immédiatement avec ton couteau.";
     await notify({
       gameId,
       playerId: stratege.id,
@@ -1118,12 +1094,12 @@ async function applySetupEffects(gameId: string) {
   }
 
   // Conservateur → ne reçoit RIEN au setup. Il distribuera les reliques à d'autres
-  // joueurs via sa capacité active (1×/phase libre). S'il distribue Le Cœur du
+  // joueurs via sa capacité active (2×/Enquête). S'il distribue Le Cœur du
   // Manoir, la partie se termine immédiatement avec une victoire spéciale.
   const conserv = ofSlug("conservateur");
   if (conserv) {
     const body =
-      "Une fois par phase libre ET une fois par rassemblement, désigne un joueur : il recevra une relique maudite au hasard. Tu gagnes si Le Cœur du Manoir est distribué.";
+      "Deux fois par Enquête, désigne un joueur : il recevra une relique maudite au hasard. Tu gagnes si Le Cœur du Manoir est distribué.";
     await notify({
       gameId,
       playerId: conserv.id,
@@ -1558,7 +1534,7 @@ async function autoPickUsurpateur(gameId: string, tour: number): Promise<void> {
 export async function ringGathering(gameId: string, reason = "MJ"): Promise<string> {
   const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
   const tour = (g as { current_tour: number } | null)?.current_tour ?? 1;
-  // Auto-pick (uniquement à la 1ère phase libre pour les rôles "SETUP") :
+  // Auto-pick (uniquement à la 1ère Enquête pour les rôles "SETUP") :
   // on tire au sort à la place du joueur qui n'a pas validé, pour ne pas
   // bloquer la suite de la partie.
   await autoPickMouchard(gameId, tour);
@@ -1571,8 +1547,8 @@ export async function ringGathering(gameId: string, reason = "MJ"): Promise<stri
     .select()
     .single();
   if (error) throw error;
-  // Nouvelle boucle : fin de phase libre → phase ANNONCE (dénouement du resolver).
-  // Le Rassemblement (débat) s'ouvre ensuite via openGathering().
+  // Boucle : fin d'Enquête → phase ANNONCE (dénouement du resolver).
+  // Le Débat s'ouvre ensuite via openGathering().
   await setPhase(gameId, "annonce");
 
   // Resolver v2 : applique d'abord les intentions catégorisées (PROTECT → ATTACK → CASCADE)
@@ -1584,7 +1560,7 @@ export async function ringGathering(gameId: string, reason = "MJ"): Promise<stri
   // Stratège — embuscade : 2 passes lues sur le flag `targeted_by_stratege`.
   await deliverStrategeMarks(gameId, tour);
 
-  // Mouchard : capacité désormais active (révélation 1×/partie). Aucun scan automatique au rassemblement.
+  // Mouchard : capacité désormais active (révélation 1×/partie). Aucun scan automatique à l'Annonce.
 
   // Guetteur : résumé des visiteurs du tour (tour courant)
   const { data: guetteurs } = await supabase
@@ -1677,12 +1653,12 @@ async function deliverStrategeMarks(gameId: string, tour: number): Promise<void>
 }
 
 /**
- * Annonce → Rassemblement (débat). Le dénouement (resolver) a déjà été appliqué
- * à l'entrée de la phase Annonce ; ici on ne fait qu'ouvrir le débat.
+ * Annonce → Débat (clé moteur `gathering`). Le dénouement (resolver) a déjà été
+ * appliqué à l'entrée de la phase Annonce ; ici on ne fait qu'ouvrir le débat.
  */
 export async function openGathering(gameId: string): Promise<void> {
   await setPhase(gameId, "gathering");
-  emit("gather_open", "🔔 Rassemblement ouvert", { gameId });
+  emit("gather_open", "🔔 Débat ouvert", { gameId });
 }
 
 // ─────────────── Vote ───────────────
@@ -1815,7 +1791,7 @@ export async function closeVote(gameId: string) {
     .limit(1);
   if ((already ?? []).length > 0) return;
 
-  // ─── Veuve noire : déclencheur "un époux a voté contre moi" → kill des deux au prochain rassemblement.
+  // ─── Veuve noire : déclencheur "un époux a voté contre moi" → kill des deux à la prochaine Annonce.
   const { data: veuves } = await supabase
     .from("players")
     .select()
@@ -1876,7 +1852,7 @@ export async function closeVote(gameId: string) {
       playerId: v.id,
       type: "veuve_trigger",
       title: "🕷️ La toile se referme",
-      body: `Un époux a voté contre toi. ${toKill.length} cible(s) mourront au prochain rassemblement.`,
+      body: `Un époux a voté contre toi. ${toKill.length} cible(s) mourront à la prochaine Annonce.`,
       mjTitle: "🕷️ Veuve noire",
       mjBody: `${v.pseudo} (Veuve noire) déclenche la mort de ${toKill.length} époux (vote contre elle).`,
     });
@@ -1970,7 +1946,7 @@ export async function cancelVote(gameId: string, voterId: string) {
  * le joueur reste is_alive=true (et continue à agir) jusqu'au prochain
  * `ringGathering()` qui appelle `flushPendingDeaths()`. À ce moment-là, les
  * cascades (Entremetteur, Vengeur, Tueur→Acolyte, Rêveur, autopsie) sont
- * exécutées et `is_alive` bascule à false. Pendant la phase libre, on stocke
+ * exécutées et `is_alive` bascule à false. Pendant l'Enquête, on stocke
  * `role_meta.pending_death = { reason, tour, ts }`.
  *
  * Les morts en phase `gathering` ou `vote` restent immédiates (visibilité OK).
@@ -1991,7 +1967,7 @@ export async function killPlayer(
     return false;
   }
   if (!player.is_alive) return false;
-  if (m.pending_death) return false; // déjà condamné, en attente du rassemblement
+  if (m.pending_death) return false; // déjà condamné, en attente de l'Annonce
   const { data: g } = await supabase
     .from("games")
     .select("current_tour, current_phase")
@@ -2027,9 +2003,9 @@ export async function killPlayer(
     const isMechantReason = reason === "tueur" || reason === "croque_mitaine";
     if (isMechantReason && typeof m.guarded_by === "string") {
       const guard = m.guarded_by as string;
-      // Le Majordome meurt en héros — même règle de différé pendant la phase libre.
+      // Le Majordome meurt en héros — même règle de différé pendant l'Enquête.
       await killPlayer(gameId, guard, "majordome_trade");
-      // Attaquant méchant meurt aussi (différé idem si phase libre).
+      // Attaquant méchant meurt aussi (différé idem si Enquête).
       const killerId = attackerId;
       if (killerId) await killPlayer(gameId, killerId, "majordome_riposte");
       else if (reason === "tueur") {
@@ -2063,14 +2039,14 @@ export async function killPlayer(
   const publicFaction = cleanedBroadcast ? "inconnue" : realFaction;
   const whenLabel =
     deathPhase === "free"
-      ? "durant la phase libre"
+      ? "durant l'Enquête"
       : deathPhase === "gathering"
-        ? "au rassemblement"
+        ? "durant le Débat"
         : deathPhase === "vote"
           ? "lors du vote"
           : "";
 
-  // Broadcast death notification (déjà filtré par PA4Notebook pendant la phase libre).
+  // Broadcast death notification (déjà filtré par PA4Notebook pendant l'Enquête).
   // On ne précise plus la raison ni le moment de la mort — uniquement la faction.
   const { data: allForKill } = await supabase.from("players").select("id").eq("game_id", gameId);
   const killBroadcast = ((allForKill ?? []) as Array<{ id: string }>).map((row) => ({
@@ -2096,7 +2072,7 @@ export async function killPlayer(
     gameId,
     type: cleanedBroadcast ? "death_cleaned" : "death",
     title: `💀 Mort de ${player.pseudo}`,
-    body: `${player.pseudo} n'est plus en vie${whenLabel ? " " + whenLabel : ""} (cause : ${reason}, faction réelle : ${realFaction})${cleanedBroadcast ? " — faction masquée par le Cleaner" : ""}${deathPhase === "free" ? " — RÉVÉLATION DIFFÉRÉE au rassemblement" : ""}.`,
+    body: `${player.pseudo} n'est plus en vie${whenLabel ? " " + whenLabel : ""} (cause : ${reason}, faction réelle : ${realFaction})${cleanedBroadcast ? " — faction masquée par le Cleaner" : ""}${deathPhase === "free" ? " — RÉVÉLATION DIFFÉRÉE à l'Annonce" : ""}.`,
     payload: {
       target_id: playerId,
       tour,
@@ -2109,7 +2085,7 @@ export async function killPlayer(
   });
 
   if (deathPhase === "free") {
-    // Différé : on garde is_alive=true, le joueur continue à jouer jusqu'au rassemblement.
+    // Différé : on garde is_alive=true, le joueur continue à jouer jusqu'à l'Annonce.
     await patchMeta(playerId, {
       pending_death: { reason, tour, ts: new Date().toISOString(), attacker_id: attackerId },
       death_cycle: tour,
@@ -2263,7 +2239,7 @@ async function runDeathCascades(
 }
 
 /**
- * Flushe toutes les morts différées de la phase libre passée : bascule
+ * Flushe toutes les morts différées de l'Enquête passée : bascule
  * `is_alive=false`, exécute les cascades, émet une annonce MJ par mort.
  * Appelé au tout début de `ringGathering()`.
  */
@@ -2280,7 +2256,7 @@ async function flushPendingDeaths(gameId: string): Promise<void> {
     return !!m.pending_death;
   });
 
-  // Compte les morts confirmées ce rassemblement (resolver inclus, via notifications "death" du tour courant).
+  // Compte les morts confirmées à cette Annonce (resolver inclus, via notifications "death" du tour courant).
   const { count: deathCount } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
@@ -2509,7 +2485,7 @@ async function revertTempVampirePromotion(gameId: string): Promise<void> {
 /**
  * Effet de conversion vampire — appelé par le resolver (catégorie CONVERT,
  * layer 3) UNIQUEMENT si le Vampire est encore vivant après les attaques. Le
- * clan est recalculé en LIVE (la morsure ayant été posée en phase libre, l'état
+ * clan est recalculé en LIVE (la morsure ayant été posée en Enquête, l'état
  * a pu changer d'ici la résolution). Renvoie false si la cible est déjà vampire.
  */
 async function applyVampireConversion(
@@ -2886,7 +2862,7 @@ export type CapabilityResult = {
   ok: boolean;
   message: string;
   reveal?: Record<string, unknown>;
-  /** Effet différé (résolu au rassemblement) : l'issue réelle n'est pas encore
+  /** Effet différé (résolu à l'Annonce) : l'issue réelle n'est pas encore
    *  connue. La carte Résultat affiche « En cours » jusqu'à la résolution. */
   pending?: boolean;
 };
@@ -2926,18 +2902,10 @@ export async function executeCapability(opts: {
     .single();
   const gp = gameRow as { current_phase: Phase; status: string } | null;
   if (!gp || gp.status === "ended") return { ok: false, message: "Partie terminée." };
-  // Verrou de phase unifié : la phase autorisée est déduite du libellé joueur
-  // (usage_label / frequency_label), avec repli sur phase_activation. Les passifs/
-  // permanents (aucun mot-clé de phase) restent utilisables partout.
-  const allowedPhases = allowedActivePhases(role);
-  if (!allowedPhases.has(gp.current_phase)) {
-    const msg =
-      allowedPhases.has("gathering") && !allowedPhases.has("free")
-        ? "À utiliser au Rassemblement."
-        : allowedPhases.has("free") && !allowedPhases.has("gathering")
-          ? "À utiliser en phase libre."
-          : "Hors de la phase d'utilisation.";
-    return { ok: false, message: msg };
+  // Verrou de phase unifié : toutes les capacités actives se jouent en ENQUÊTE
+  // (phase `free`). Le Débat ne porte aucune capacité active.
+  if (!allowedActivePhases(role).has(gp.current_phase)) {
+    return { ok: false, message: "À utiliser en Enquête." };
   }
 
   const playerCount = opts.allPlayers.filter((p) => !p.is_mj).length;
@@ -2968,7 +2936,7 @@ export async function executeCapability(opts: {
       payload: { role: slug, ...payload },
     });
   const used = async (extra: Record<string, unknown> = {}) => {
-    await markUsage(actor, role, opts.tour, opts.phase);
+    await markUsage(actor, role, opts.tour);
     await log(extra);
   };
 
@@ -3013,7 +2981,7 @@ export async function executeCapability(opts: {
             body: `${t1.pseudo} est la cible de cette nuit.`,
           });
         }
-        // V2 : on POSE une intention DEFERRED. Le resolver la traite au rassemblement,
+        // V2 : on POSE une intention DEFERRED. Le resolver la traite à l'Annonce,
         // en revérifiant protection / blocage / cible vivante.
         await submitIntent({
           gameId: opts.gameId,
@@ -3027,7 +2995,7 @@ export async function executeCapability(opts: {
           payload: { kill_reason: "tueur", target_pseudo: t1.pseudo, mechant_mechanic: true },
         });
         await used({ effect: "kill_intent", target: t1.id });
-        return { ok: true, pending: true, message: `Dénouement au rassemblement.` };
+        return { ok: true, pending: true, message: `Dénouement à l'Annonce.` };
       }
       case "vengeur": {
         // Le kill du Vengeur n'est PAS porté par la capacité de rôle : c'est l'OBJET
@@ -3091,9 +3059,9 @@ export async function executeCapability(opts: {
         };
       }
 
-      // ── Armurier : 1×/phase libre. Remet anonymement un couteau à un joueur vivant.
+      // ── Armurier : 1×/Enquête. Remet anonymement un couteau à un joueur vivant.
       // Le porteur ignore l'identité du donneur. Le kill par couteau est résolu au
-      // rassemblement suivant (mécanique standard de l'objet couteau).
+      // à la prochaine Annonce (mécanique standard de l'objet couteau).
       case "armurier": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (!t1.is_alive) return { ok: false, message: "Cible morte" };
@@ -3105,7 +3073,7 @@ export async function executeCapability(opts: {
             originFaction: "Méchant",
             nameOverride: "Couteau de l'Armurier",
             descriptionOverride:
-              "Un couteau anonyme remis par l'Armurier apparaît dans ton inventaire. Tu peux l'utiliser une fois pour tuer un joueur — résolu au rassemblement suivant.",
+              "Un couteau anonyme remis par l'Armurier apparaît dans ton inventaire. Tu peux l'utiliser une fois pour tuer un joueur — résolu à la prochaine Annonce.",
             // `gifted_by_id` : permet de notifier l'Armurier quand SON couteau est
             // utilisé (cf. useItem, case "couteau"). Reste invisible au porteur.
             payload: {
@@ -3128,7 +3096,7 @@ export async function executeCapability(opts: {
         return { ok: true, message: `Un couteau a été remis anonymement à ${t1.pseudo}.` };
       }
 
-      // ── Empoisonneur : 1×/phase libre. Malédiction permanente, NON LÉTALE.
+      // ── Empoisonneur : 1×/Enquête. Malédiction permanente, NON LÉTALE.
       // Victoire = tous les survivants hors prison sont empoisonnés.
       case "empoisonneur": {
         if (!t1) return { ok: false, message: "Cible requise" };
@@ -3150,7 +3118,7 @@ export async function executeCapability(opts: {
           payload: { sub_effect: "poison_curse", target_pseudo: t1.pseudo },
         });
         await used({ effect: "poison_curse" });
-        return { ok: true, pending: true, message: `Dénouement au rassemblement.` };
+        return { ok: true, pending: true, message: `Dénouement à l'Annonce.` };
       }
 
       // ── Vampire (conversion) ──
@@ -3184,7 +3152,7 @@ export async function executeCapability(opts: {
         )
           return { ok: false, message: `${t1.pseudo} est sous bénédiction — morsure annulée.` };
         // Conversion ET émergence du Chasseur sont DIFFÉRÉES : la morsure est posée
-        // en intention CONVERT (layer 3), résolue au prochain rassemblement APRÈS
+        // en intention CONVERT (layer 3), résolue à la prochaine Annonce APRÈS
         // les attaques (si le Vampire est tué ce tour, le resolver l'annule). La
         // rumeur publique + le choix ALÉATOIRE du Chasseur (1ère morsure) sont
         // déclenchés à la résolution — voir applyVampireConversion.
@@ -3202,7 +3170,7 @@ export async function executeCapability(opts: {
         });
         return {
           ok: true,
-          message: `Morsure programmée sur ${t1.pseudo} — résolue au prochain rassemblement`,
+          message: `Morsure programmée sur ${t1.pseudo} — résolue à la prochaine Annonce`,
         };
       }
 
@@ -3226,7 +3194,7 @@ export async function executeCapability(opts: {
         return {
           ok: true,
           message: isVamp
-            ? `🔴 ${t1.pseudo} EST un vampire — exécution programmée au rassemblement`
+            ? `🔴 ${t1.pseudo} EST un vampire — exécution programmée à l'Annonce`
             : `🟢 ${t1.pseudo} n'est pas un vampire`,
           reveal: { isVampire: isVamp },
         };
@@ -3411,7 +3379,7 @@ export async function executeCapability(opts: {
           gameId: opts.gameId,
           type: "protected",
           title: "🛡️ Protection Majordome",
-          body: `${actor.pseudo} (Majordome) protège ${t1.pseudo} — résolu au rassemblement.`,
+          body: `${actor.pseudo} (Majordome) protège ${t1.pseudo} — résolu à l'Annonce.`,
         });
         return { ok: true, message: `${t1.pseudo} : protection programmée` };
       }
@@ -3419,8 +3387,8 @@ export async function executeCapability(opts: {
         if (!t1) return { ok: false, message: "Cible requise" };
         const c = opts.tour + 1;
         // Babysitter : la protection et le blocage de capacité s'appliquent au
-        // PROCHAIN tour (pas au rassemblement courant). L'intention de protection
-        // est donc programmée pour le rassemblement du tour suivant.
+        // PROCHAIN tour (pas ce tour). L'intention de protection
+        // est donc programmée pour l'Annonce du tour suivant.
         await submitIntent({
           gameId: opts.gameId,
           tour: c,
@@ -3459,7 +3427,7 @@ export async function executeCapability(opts: {
           source: "role:ange_gardien",
         });
         await used({ effect: "shield_intent", target });
-        return { ok: true, message: "Bouclier programmé — actif au rassemblement" };
+        return { ok: true, message: "Bouclier programmé — actif à l'Annonce" };
       }
       case "paranoiaque": {
         const targetId = m.paranoid_target_id as string | undefined;
@@ -3483,7 +3451,7 @@ export async function executeCapability(opts: {
             source: "role:paranoiaque",
           });
           await used({ effect: "paranoid_protect", target: target.id });
-          return { ok: true, message: `Tu protèges ${target.pseudo} au rassemblement` };
+          return { ok: true, message: `Tu protèges ${target.pseudo} à l'Annonce` };
         } else {
           await submitIntent({
             gameId: opts.gameId,
@@ -3497,7 +3465,7 @@ export async function executeCapability(opts: {
             payload: { kill_reason: "paranoiaque", target_pseudo: target.pseudo },
           });
           await used({ effect: "paranoid_kill", target: target.id });
-          return { ok: true, message: `Tu attaques ${target.pseudo} au rassemblement` };
+          return { ok: true, message: `Tu attaques ${target.pseudo} à l'Annonce` };
         }
       }
       case "saint": {
@@ -3507,7 +3475,7 @@ export async function executeCapability(opts: {
           return { ok: false, message: "Bénédiction déjà utilisée." };
         }
         // Bénédiction : 2 cycles complets à partir de la phase d'activation.
-        // Activée en PL T3 → valide jusqu'à la fin de la PL T5. Activée au rassemblement T3 → jusqu'à la fin du rassemblement T5.
+        // Activée en Enquête T3 → valide jusqu'à la fin de l'Enquête T5.
         await submitIntent({
           gameId: opts.gameId,
           tour: opts.tour,
@@ -3749,8 +3717,8 @@ export async function executeCapability(opts: {
       case "veuve_noire": {
         if (!t1 || !t2) return { ok: false, message: "Choisis 2 cibles." };
         if (t1.id === t2.id) return { ok: false, message: "Choisis 2 joueurs différents." };
-        // Mémorise la paire active : si un époux vote contre toi à ce rassemblement,
-        // les DEUX époux meurent au PROCHAIN rassemblement (closeVote programme l'attaque).
+        // Mémorise la paire active : si un époux vote contre toi ce tour,
+        // les DEUX époux meurent à la PROCHAINE Annonce (closeVote programme l'attaque).
         const pairs = (m.veuve_pairs as Array<{ tour: number; pair: string[] }> | undefined) ?? [];
         pairs.push({ tour: opts.tour, pair: [t1.id, t2.id] });
         const married = (m.married_targets as string[] | undefined) ?? [];
@@ -3765,7 +3733,7 @@ export async function executeCapability(opts: {
           playerId: actor.id,
           type: "veuve_pair",
           title: "🕷️ Toile tendue",
-          body: `Si ${spouseText} vote contre toi ce rassemblement, les deux mourront au prochain.`,
+          body: `Si ${spouseText} vote contre toi ce tour, les deux mourront à la prochaine Annonce.`,
           mjTitle: "🕷️ Veuve noire",
           mjBody: `${actor.pseudo} (Veuve noire) cible ${spouseText} — déclencheur sur vote contre elle.`,
         });
@@ -3833,7 +3801,7 @@ export async function executeCapability(opts: {
         const loserPseudo = meLoses ? actor.pseudo : t1.pseudo;
         if (meLoses) await patchMeta(actor.id, { parieur_lost_at_dice: true });
         // Le perdant ne meurt PAS instantanément : on pose une attaque DIFFÉRÉE
-        // (résolue au rassemblement). Elle passe ainsi par les protections — Ange
+        // (résolue à l'Annonce). Elle passe ainsi par les protections — Ange
         // Gardien, objets de protection, etc. peuvent sauver le perdant.
         await submitIntent({
           gameId: opts.gameId,
@@ -3891,7 +3859,7 @@ export async function executeCapability(opts: {
           gameId: opts.gameId,
           type: "dice_duel",
           title: "🎲 Parieur tricheur",
-          body: `${actor.pseudo} (3d6 → ${meBest}) vs ${t1.pseudo} (${themRoll}) → ${loserPseudo} perd (mort différée au rassemblement).${rounds.length > 1 ? ` (${rounds.length - 1} égalité${rounds.length - 1 > 1 ? "s" : ""} relancée${rounds.length - 1 > 1 ? "s" : ""})` : ""}`,
+          body: `${actor.pseudo} (3d6 → ${meBest}) vs ${t1.pseudo} (${themRoll}) → ${loserPseudo} perd (mort différée à l'Annonce).${rounds.length > 1 ? ` (${rounds.length - 1} égalité${rounds.length - 1 > 1 ? "s" : ""} relancée${rounds.length - 1 > 1 ? "s" : ""})` : ""}`,
           payload: { ...duelPayload, mj_view: true },
         });
         return {
@@ -3943,9 +3911,9 @@ export async function executeCapability(opts: {
         } as const;
         const giftDesc = {
           fiole_vie:
-            "💚 Tu as reçu une Fiole de vie de l'Apothicaire. Utilise-la depuis ton Carnet pour protéger un joueur jusqu'au prochain rassemblement.",
+            "💚 Tu as reçu une Fiole de vie de l'Apothicaire. Utilise-la depuis ton Carnet pour protéger un joueur jusqu'à la prochaine Annonce.",
           fiole_mort:
-            "☠️ Tu as reçu une Fiole de mort de l'Apothicaire. Utilise-la depuis ton Carnet pour empoisonner une cible — elle mourra au prochain rassemblement.",
+            "☠️ Tu as reçu une Fiole de mort de l'Apothicaire. Utilise-la depuis ton Carnet pour empoisonner une cible — elle mourra à la prochaine Annonce.",
           fiole_clairvoyance:
             "🔮 Tu as reçu une Fiole de clairvoyance de l'Apothicaire. Utilise-la depuis ton Carnet sur un joueur pour découvrir, toi seul, sa faction.",
         } as const;
@@ -4028,7 +3996,7 @@ export async function executeCapability(opts: {
           await used({ effect: "tarot_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        // Espionne le tableau de suspicion live de la cible jusqu'à la prochaine phase libre.
+        // Espionne le tableau de suspicion live de la cible jusqu'à la prochaine Enquête.
         await patchMeta(actor.id, { card_target_id: t1.id, card_target_cycle: opts.tour });
         await used({ effect: "tarot_spy", target: t1.id });
         return { ok: true, message: `🔮 Tu lis le tableau de ${t1.pseudo} jusqu'au prochain tour` };
@@ -4252,7 +4220,7 @@ export async function executeCapability(opts: {
 
       // ── Stratège : tueur « embuscade ». Marque une cible (kill télégraphié) ──
       // L'intention d'attaque est posée pour le TOUR SUIVANT : la cible est
-      // prévenue au rassemblement (cf. ringGathering) et meurt à l'annonce du tour
+      // prévenue (cf. ringGathering) et meurt à l'Annonce du tour
       // suivant — sauf protection, ou si le Stratège est mort entre-temps.
       case "stratege": {
         if (!t1) return { ok: false, message: "Cible requise" };

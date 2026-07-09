@@ -212,8 +212,8 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
         setBotAction(bot.id, "réfléchit…");
       }
 
-      // Usage d'objets — uniquement en phase libre : un objet offensif (couteau,
-      // fiole de mort) se dénoue au rassemblement qui SUIT la phase libre. C'est
+      // Usage d'objets — uniquement en Enquête : un objet offensif (couteau,
+      // fiole de mort) se dénoue à l'Annonce qui SUIT l'Enquête. C'est
       // ce qui ferme la chaîne « l'Armurier arme un allié → l'allié tue ».
       if (game.current_phase === "free") {
         await maybeUseItem({

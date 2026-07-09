@@ -102,7 +102,7 @@ export async function probeCapability(opts: {
         dedupeKey: `bug:pending-no-intent:${role.slug}:${tour}`,
         title: `${role.name_fr} : « effet en cours » annoncé sans intention soumise`,
         detail:
-          "La capacité a renvoyé pending=true (effet différé au rassemblement) mais aucune ligne role_actions DEFERRED n'existe pour ce tour. L'effet promis ne se résoudra jamais.",
+          "La capacité a renvoyé pending=true (effet différé à l'Annonce) mais aucune ligne role_actions DEFERRED n'existe pour ce tour. L'effet promis ne se résoudra jamais.",
         evidence: { tour },
       });
     }

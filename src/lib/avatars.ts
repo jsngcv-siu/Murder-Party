@@ -187,12 +187,13 @@ export function useAvatars(): AvatarDef[] {
   return listAvatars();
 }
 
-/** Vocabulaire produit : "TOUR N — <PHASE>", PHASE = PHASE LIBRE / RASSEMBLEMENT / VOTE. */
+/** Vocabulaire produit : "TOUR N — <PHASE>", PHASE = ENQUÊTE / ANNONCE / DÉBAT / VOTE.
+ *  NB : les clés moteur restent `free`/`gathering` (DB, historique) ; seul l'affichage change. */
 export function phaseLabel(phase: string, tour: number): string {
   const tourLabel = `TOUR ${tour}`;
-  if (phase === "free") return `${tourLabel} — PHASE LIBRE`;
+  if (phase === "free") return `${tourLabel} — ENQUÊTE`;
   if (phase === "annonce") return `${tourLabel} — ANNONCE`;
-  if (phase === "gathering") return `${tourLabel} — RASSEMBLEMENT`;
+  if (phase === "gathering") return `${tourLabel} — DÉBAT`;
   if (phase === "vote") return `${tourLabel} — VOTE`;
   if (phase === "ended") return "FIN DE PARTIE";
   return phase.toUpperCase();
@@ -206,7 +207,7 @@ export function phasePalette(phase: string): { accent: string; wash: string } {
   if (phase === "annonce")
     return { accent: "var(--phase-annonce)", wash: "var(--phase-annonce-wash)" };
   if (phase === "gathering")
-    return { accent: "var(--phase-rassemblement)", wash: "var(--phase-rassemblement-wash)" };
+    return { accent: "var(--phase-debat)", wash: "var(--phase-debat-wash)" };
   if (phase === "vote") return { accent: "var(--phase-vote)", wash: "var(--phase-vote-wash)" };
   return { accent: "var(--muted-foreground)", wash: "transparent" };
 }
