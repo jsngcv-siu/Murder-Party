@@ -2,12 +2,44 @@
 // run over EVERY role in the set (not just those drawn in a single game).
 // Mirrors allowedActivePhases / parseTotalLimit from src/engine/actions.ts.
 
-const URL = "https://svxjejyaytytfwjnkubv.supabase.co";
-const KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2eGplanlheXR5dGZ3am5rdWJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTgyNzIsImV4cCI6MjA5NDE3NDI3Mn0.54T7Sr6VqZ7F19GP45iX7O3i6zqiomIqtsAGAO1tZi8";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-const res = await fetch(`${URL}/rest/v1/roles?set_id=eq.set1&select=*`, {
-  headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
+// Config Supabase = MÊME source de vérité que l'app (le .env à la racine).
+// AUCUNE URL/clé en dur : l'ancien hardcode (svxjejyaytytfwjnkubv) avait survécu
+// au passage du projet à eqcfagjvbiwhsofzmqtg → l'audit interrogeait une base
+// morte. En lisant le .env, le script suit toujours le vrai projet de l'app.
+// Ordre : variables d'environnement d'abord, puis .env à la racine.
+function loadEnv() {
+  const out = { ...process.env };
+  try {
+    const envPath = fileURLToPath(new URL("../.env", import.meta.url));
+    for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+      if (line.trim().startsWith("#")) continue;
+      const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && out[m[1]] == null) out[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    /* pas de .env → on se rabat sur process.env seul */
+  }
+  return out;
+}
+
+const env = loadEnv();
+// NB : ne PAS nommer ces constantes `URL`/`KEY` — `const URL` masquerait la
+// classe globale `URL` sur tout le module et casserait `new URL()` dans loadEnv.
+const SUPABASE_URL = env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = env.VITE_SUPABASE_PUBLISHABLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error(
+    "❌ Config Supabase manquante. Renseigne VITE_SUPABASE_URL et " +
+      "VITE_SUPABASE_PUBLISHABLE_KEY dans .env (à la racine du projet) ou dans l'environnement.",
+  );
+  process.exit(1);
+}
+
+const res = await fetch(`${SUPABASE_URL}/rest/v1/roles?set_id=eq.set1&select=*`, {
+  headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` },
 });
 const roles = await res.json();
 if (!Array.isArray(roles)) {
