@@ -63,7 +63,33 @@ function HomePage() {
           </TabsContent>
         </Tabs>
       </main>
+      <VersionBadge />
     </div>
+  );
+}
+
+/** Version déployée (hash de commit + date de build). Permet de vérifier d'un
+ *  coup d'œil que l'URL publique sert bien le dernier commit. */
+function VersionBadge() {
+  const built = (() => {
+    try {
+      return new Date(__BUILD_TIME__).toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  })();
+  return (
+    <footer className="pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 text-center">
+      <span className="text-[10px] font-mono tracking-wide text-muted-foreground/50 select-all">
+        v{__APP_VERSION__}
+        {built ? ` · ${built}` : ""}
+      </span>
+    </footer>
   );
 }
 
