@@ -130,7 +130,7 @@ const SCATTER_BASE: CSSProperties = {
 function FreeScatter() {
   return (
     <>
-      {/* Polaroïd "grand jour" — soleil */}
+      {/* Polaroïd "enquête" — soleil */}
       <div
         className="bd-scatter"
         style={{
@@ -195,7 +195,7 @@ function FreeScatter() {
             marginTop: 2,
           }}
         >
-          grand jour
+          enquête
         </div>
       </div>
 
@@ -239,7 +239,7 @@ function FreeScatter() {
         </div>
       </div>
 
-      {/* Polaroïd horloge "le jour" */}
+      {/* Polaroïd horloge "l'enquête" */}
       <div
         className="bd-scatter"
         style={{
@@ -291,7 +291,7 @@ function FreeScatter() {
             marginTop: 2,
           }}
         >
-          le jour
+          l'enquête
         </div>
       </div>
 
@@ -319,7 +319,7 @@ function FreeScatter() {
             marginBottom: 1,
           }}
         >
-          LIBRE D'AGIR
+          À TOI D'AGIR
         </span>
         <span
           style={{
@@ -717,8 +717,8 @@ const TRANSITIONS: Record<PhaseKey, TransitionDef> = {
     bg: "radial-gradient(120% 62% at 50% 0%,rgba(247,202,96,.32),transparent 52%),radial-gradient(circle at 50% 46%,#7a5226,#2a1b10 86%)",
     dust: { color: "rgba(0,0,0,.14)", opacity: 0.4 },
     topDecor: SunRays,
-    header: "— LE JOUR SE LÈVE —",
-    stampWord: "LIBRE",
+    header: "— L'ENQUÊTE COMMENCE —",
+    stampWord: "ENQUÊTE",
     stampColor: "#a8772a",
     stampFontSize: 22,
     subtitle: (
@@ -735,9 +735,9 @@ const TRANSITIONS: Record<PhaseKey, TransitionDef> = {
     bg: "radial-gradient(circle at 50% 30%,#6e3a2e,#34191a 82%)",
     dust: { color: "rgba(0,0,0,.18)", opacity: 0.6 },
     header: "— CONVOCATION —",
-    stampWord: "RASSEMBLEMENT",
+    stampWord: "DÉBAT",
     stampColor: "#7a4fa6",
-    stampFontSize: 20,
+    stampFontSize: 22,
     subtitle: (
       <>
         Débattez des annonces

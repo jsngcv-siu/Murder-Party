@@ -203,7 +203,7 @@ export function phaseLabel(phase: string, tour: number): string {
  *  consommée par l'en-tête (PhaseBar), l'AmbientTint et le PhaseTakeover —
  *  remplace les anciennes classes Tailwind ad hoc (sky/amber/rose). */
 export function phasePalette(phase: string): { accent: string; wash: string } {
-  if (phase === "free") return { accent: "var(--phase-jour)", wash: "var(--phase-jour-wash)" };
+  if (phase === "free") return { accent: "var(--phase-enquete)", wash: "var(--phase-enquete-wash)" };
   if (phase === "annonce")
     return { accent: "var(--phase-annonce)", wash: "var(--phase-annonce-wash)" };
   if (phase === "gathering")

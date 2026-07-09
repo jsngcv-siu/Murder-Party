@@ -876,11 +876,11 @@ function ShellHeader({
         : Math.max(0, Math.min(1, displayedRemaining / dur));
   const fillColor = urgent ? "var(--destructive)" : over ? "var(--warning)" : pal.accent;
 
-  // Stepper de phase — toujours droit, contenu fixe : LIBRE · ANNONCE · RASSEMBL. · VOTE.
+  // Stepper de phase — toujours droit, contenu fixe : ENQUÊTE · ANNONCE · DÉBAT · VOTE.
   const STEPS: { key: string; label: string }[] = [
-    { key: "free", label: "Libre" },
+    { key: "free", label: "Enquête" },
     { key: "annonce", label: "Annonce" },
-    { key: "gathering", label: "Rassembl." },
+    { key: "gathering", label: "Débat" },
     { key: "vote", label: "Vote" },
   ];
 
@@ -943,7 +943,7 @@ function ShellHeader({
           </div>
         </div>
 
-        {/* Ligne 2 — stepper de phase : Libre · Annonce · Rassembl. · Vote */}
+        {/* Ligne 2 — stepper de phase : Enquête · Annonce · Débat · Vote */}
         <div className="mt-2 flex gap-1.5">
           {STEPS.map((s) => {
             const active = game.current_phase === s.key;

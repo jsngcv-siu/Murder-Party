@@ -691,7 +691,7 @@ function PacingPanel({
               action: onNext,
               badge: undefined,
               warn: false,
-              hint: "Partie figée — relance un tour libre.",
+              hint: "Partie figée — relance un nouveau tour.",
             };
 
   // Stepper de phase — ordre canonique DA « Enquête › Annonce › Débat › Vote ».
@@ -724,7 +724,7 @@ function PacingPanel({
           <PhaseChrono startedAt={phaseStartedAt} plannedDur={plannedDur} paused={paused} compact />
         </div>
 
-        {/* Stepper Libre → Annonce → Rassembl. → Vote */}
+        {/* Stepper Enquête → Annonce → Débat → Vote */}
         <div className="flex items-center gap-0.5">
           {PHASE_STEPS.map((p, i) => (
             <Fragment key={p.key}>
@@ -769,7 +769,7 @@ function PacingPanel({
 
 // Ordre canonique des phases (DA « tableau d'enquête ») + teinte d'identité.
 const PHASE_STEPS = [
-  { key: "free", label: "Enquête", color: "var(--phase-jour)" },
+  { key: "free", label: "Enquête", color: "var(--phase-enquete)" },
   { key: "annonce", label: "Annonce", color: "var(--phase-annonce)" },
   { key: "gathering", label: "Débat", color: "var(--phase-debat)" },
   { key: "vote", label: "Vote", color: "var(--phase-vote)" },

@@ -241,14 +241,14 @@ export const RELIQUE_CATALOG: Record<ReliqueVariant, ReliqueDef> = {
     icon: "🏅",
     weight: 4.0,
     effect: "protect_self",
-    description: "Te protège pendant 1 jour entier.",
+    description: "Te protège pendant 1 tour entier.",
   },
   lettre_scellee: {
     name: "La Lettre Scellée",
     icon: "✉️",
     weight: 4.0,
     effect: "block_target",
-    description: "Bloque la capacité d'un joueur ciblé pendant 1 jour.",
+    description: "Bloque la capacité d'un joueur ciblé pendant 1 tour.",
   },
   miroir_minuit: {
     name: "Le Miroir de Minuit",
@@ -550,7 +550,7 @@ export async function consumeItem(opts: {
         }
         await notify(actorId, "👁️ L'Œil de la Damnation", message);
       } else if (variant === "medaillon_vieux_maitre") {
-        // Protection pour 1 jour (cycle courant)
+        // Protection pour 1 tour (cycle courant)
         const { data: row } = await supabase
           .from("players")
           .select("role_meta")
@@ -562,7 +562,7 @@ export async function consumeItem(opts: {
           .from("players")
           .update({ role_meta: { ...meta0, protected_until_cycle: protUntil } as never })
           .eq("id", actorId);
-        message = "🏅 Le Médaillon du Vieux Maître te protège pour le restant du jour.";
+        message = "🏅 Le Médaillon du Vieux Maître te protège pour le restant du tour.";
         await notify(actorId, "🏅 Médaillon activé", message);
       } else if (variant === "lettre_scellee") {
         if (!target) {
@@ -580,11 +580,11 @@ export async function consumeItem(opts: {
           .from("players")
           .update({ role_meta: { ...meta0, blocked_until_cycle: blockUntil } as never })
           .eq("id", target.id);
-        message = `✉️ La Lettre Scellée bloque la capacité de ${target.pseudo} pour le jour.`;
+        message = `✉️ La Lettre Scellée bloque la capacité de ${target.pseudo} pour le tour.`;
         await notify(
           target.id,
           "✉️ Capacité scellée",
-          "Une Lettre Scellée bloque ta capacité pour le restant du jour.",
+          "Une Lettre Scellée bloque ta capacité pour le restant du tour.",
         );
         await notify(actorId, "✉️ Lettre Scellée utilisée", message);
       } else {
