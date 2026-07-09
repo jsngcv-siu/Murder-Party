@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { createGame, joinGame } from "@/lib/game";
 import { setStoredPseudo, getStoredPseudo } from "@/lib/session";
 import { useBackButtonGuard } from "@/hooks/useBackButtonGuard";
+import { APP_VERSION } from "@/version";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -68,8 +69,8 @@ function HomePage() {
   );
 }
 
-/** Version déployée (hash de commit + date de build). Permet de vérifier d'un
- *  coup d'œil que l'URL publique sert bien le dernier commit. */
+/** Version déployée (numéro manuel src/version.ts + date de build auto). Permet
+ *  de vérifier d'un coup d'œil que l'URL publique sert bien la dernière version. */
 function VersionBadge() {
   const built = (() => {
     try {
@@ -86,7 +87,7 @@ function VersionBadge() {
   return (
     <footer className="pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 text-center">
       <span className="text-[10px] font-mono tracking-wide text-muted-foreground/50 select-all">
-        v{__APP_VERSION__}
+        V {APP_VERSION}
         {built ? ` · ${built}` : ""}
       </span>
     </footer>
