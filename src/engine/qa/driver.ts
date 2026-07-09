@@ -7,6 +7,7 @@ import { auditRoleStatic } from "./expectations";
 import { runInvariants, type InvariantCtx } from "./invariants";
 import { addFindings, withGame } from "./report";
 import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
+import { serverNow } from "@/lib/serverTime";
 
 /** Seconds the current phase is overdue past its (intro-adjusted) duration. 0 if on time/paused. */
 export function computeSecondsOverdue(game: GameRow): number {
@@ -14,7 +15,7 @@ export function computeSecondsOverdue(game: GameRow): number {
   const dur = game.phase_duration_s ?? 0;
   if (!dur || !game.phase_started_at) return 0;
   const started = new Date(game.phase_started_at).getTime();
-  const elapsed = (Date.now() - started) / 1000 - INTRO_S;
+  const elapsed = (serverNow() - started) / 1000 - INTRO_S;
   // La phase Vote garde volontairement VOTE_RESULT_S de plus après la fenêtre de
   // vote (écran de verdict) avant nextCycle — ce n'est pas un retard.
   const effectiveDur = dur + (game.current_phase === "vote" ? VOTE_RESULT_S : 0);

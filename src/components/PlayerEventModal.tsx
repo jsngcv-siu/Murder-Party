@@ -15,6 +15,7 @@ import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
 import { INTRO_MS } from "@/components/frames/screens/T1Transition";
+import { serverNow } from "@/lib/serverTime";
 import {
   BoardPin,
   BoardStringArc,
@@ -211,7 +212,7 @@ export function PlayerEventModal({
       // afficher (sauf si jamais affichées et survenues très récemment).
       for (const r of rows) {
         if (seenRef.current.has(r.id)) continue;
-        const ageMs = Date.now() - new Date(r.created_at).getTime();
+        const ageMs = serverNow() - new Date(r.created_at).getTime();
         if (ageMs > 30_000) {
           seenRef.current.add(r.id);
           continue;
@@ -248,12 +249,12 @@ export function PlayerEventModal({
   const current = queue[0];
   const phaseStart = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
   const introEnd = phaseStart + INTRO_MS;
-  const [nowTick, setNowTick] = useState(Date.now());
+  const [nowTick, setNowTick] = useState(serverNow());
   useEffect(() => {
     if (!current) return;
-    const wait = introEnd - Date.now();
+    const wait = introEnd - serverNow();
     if (wait <= 0) return;
-    const t = setTimeout(() => setNowTick(Date.now()), wait + 50);
+    const t = setTimeout(() => setNowTick(serverNow()), wait + 50);
     return () => clearTimeout(t);
   }, [current, introEnd]);
 

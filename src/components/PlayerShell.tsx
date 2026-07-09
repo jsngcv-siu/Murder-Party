@@ -26,7 +26,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
-import { useServerTimeOffset, serverNow } from "@/lib/serverTime";
+import { useServerTimeOffset, serverNow, serverNowISO } from "@/lib/serverTime";
 import { KillerTargetBanner } from "@/components/KillerTargetBanner";
 import { HoldToReveal } from "@/components/HoldToReveal";
 import { Sigil } from "@/components/Sigil";
@@ -220,7 +220,7 @@ export function PlayerShell({
       restampedRef.current = true;
       void supabase
         .from("games")
-        .update({ phase_started_at: new Date().toISOString() })
+        .update({ phase_started_at: serverNowISO() })
         .eq("id", game.id);
     }
   }, [

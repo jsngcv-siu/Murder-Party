@@ -6,6 +6,7 @@ import { notify, notifyMJ } from "./notify";
 import { checkAndEndGame } from "./winConditions";
 import { submitIntent, resolveDeferredIntents } from "./resolver";
 import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
+import { serverNow, serverNowISO } from "@/lib/serverTime";
 
 export type Phase = "lobby" | "free" | "annonce" | "gathering" | "vote" | "ended";
 export type RoleRow = Database["public"]["Tables"]["roles"]["Row"];
@@ -689,7 +690,7 @@ export async function startGame(gameId: string) {
       current_phase: "free",
       current_tour: 1,
       started_at: new Date().toISOString(),
-      phase_started_at: new Date().toISOString(),
+      phase_started_at: serverNowISO(),
       phase_duration_s: freeDur,
     })
     .eq("id", gameId);
@@ -1120,7 +1121,7 @@ export async function setPhase(gameId: string, phase: Phase) {
     .from("games")
     .update({
       current_phase: phase,
-      phase_started_at: new Date().toISOString(),
+      phase_started_at: serverNowISO(),
       phase_duration_s: dur,
     })
     .eq("id", gameId);
@@ -1138,7 +1139,7 @@ export async function nextCycle(gameId: string) {
     .update({
       current_tour: tour,
       current_phase: "free",
-      phase_started_at: new Date().toISOString(),
+      phase_started_at: serverNowISO(),
       phase_duration_s: freeDur,
     })
     .eq("id", gameId);
@@ -1178,7 +1179,7 @@ export async function tickPhase(gameId: string): Promise<void> {
     const started = new Date(game.phase_started_at).getTime();
     // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
     // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
-    const elapsed = (Date.now() - started) / 1000 - INTRO_S;
+    const elapsed = (serverNow() - started) / 1000 - INTRO_S;
     if (elapsed < game.phase_duration_s) return;
     if (game.current_phase === "free") {
       await ringGathering(gameId, "Auto");

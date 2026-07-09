@@ -37,6 +37,18 @@ export function serverNow(): number {
   return Date.now() + (cachedOffset ?? 0);
 }
 
+/** Maintenant côté serveur, en ISO — à utiliser pour ÉCRIRE tout timestamp de
+ *  phase (phase_started_at). Garantit que l'écriture et la lecture des timers
+ *  partagent la MÊME horloge (serveur), même si l'horloge du téléphone dérive. */
+export function serverNowISO(): string {
+  return new Date(serverNow()).toISOString();
+}
+
+// Pré-charge l'offset dès le chargement du module (client uniquement) : le moteur
+// (tickPhase, setPhase…) peut ainsi lire/écrire en heure serveur sans attendre
+// qu'un composant monte le hook. Sur le serveur (SSR) on garde l'horloge locale.
+if (typeof window !== "undefined") void fetchOffset();
+
 /** Hook React : déclenche un fetch au mount, retourne l'offset connu. */
 export function useServerTimeOffset(): number {
   const [offset, setOffset] = useState<number>(cachedOffset ?? 0);

@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { gsap } from "gsap";
 import { supabase } from "@/integrations/supabase/client";
+import { serverNow } from "@/lib/serverTime";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import { AvatarImg } from "@/components/AvatarImg";
 import { avatarOf } from "@/lib/avatars";
@@ -112,7 +113,7 @@ export function DiceDuelModal({
       for (const r of rows) {
         const pid = (r.payload as { duelId?: string } | null)?.duelId;
         if (pid && seenRef.current.has(pid)) continue;
-        const ageMs = Date.now() - new Date(r.created_at).getTime();
+        const ageMs = serverNow() - new Date(r.created_at).getTime();
         if (ageMs > 30_000) {
           if (pid) seenRef.current.add(pid);
           continue;
