@@ -155,7 +155,9 @@ export function parseTotalLimit(role: RoleRow, playerCount: number): number {
 function isPerCycle(role: RoleRow): boolean {
   // Couvre "1×/TOUR", "1×/Enquête", "1×/Débat" et — tant que la base n'est pas
   // migrée — les anciens libellés "phase libre"/"rassemblement".
-  return /\/\s*(tour|phase\s*libre|rassemblement|enqu[eê]te|d[eé]bat)/i.test(role.usage_label ?? "");
+  return /\/\s*(tour|phase\s*libre|rassemblement|enqu[eê]te|d[eé]bat)/i.test(
+    role.usage_label ?? "",
+  );
 }
 function cooldownCycles(role: RoleRow): number {
   const lbl = (role.usage_label ?? "") + " " + (role.capacite_full_text ?? "");
@@ -1155,11 +1157,14 @@ export async function nextCycle(gameId: string) {
 // setPhase n'a pas encore committé) et relancent toute la résolution → chaque
 // notification est émise en double/triple. Le verrou garantit qu'une seule
 // transition tourne à la fois pour une partie donnée (un seul onglet pilote).
-const _tickInFlight = new Set<string>();
+const TICK_LOCK_TTL_MS = 30_000;
+const _tickInFlight = new Map<string, number>();
 
 export async function tickPhase(gameId: string): Promise<void> {
-  if (_tickInFlight.has(gameId)) return;
-  _tickInFlight.add(gameId);
+  const now = Date.now();
+  const lockedAt = _tickInFlight.get(gameId);
+  if (lockedAt && now - lockedAt < TICK_LOCK_TTL_MS) return;
+  _tickInFlight.set(gameId, now);
   try {
     const { data: g } = await supabase
       .from("games")
@@ -1224,6 +1229,20 @@ export async function endGameWithWinner(
 ): Promise<void> {
   const { data: g } = await supabase.from("games").select("status").eq("id", gameId).single();
   if ((g as { status: string } | null)?.status === "ended") return;
+  await supabase
+    .from("role_actions")
+    .update({
+      resolved_at: new Date().toISOString(),
+      resolution: { status: "cancelled", reason: "game_ended", winner } as never,
+      result: {
+        summary: "La partie s'est terminée avant le dénouement de cette action.",
+        outcome: "info",
+      } as never,
+    })
+    .eq("game_id", gameId)
+    .is("resolved_at", null)
+    .eq("timing", "DEFERRED")
+    .not("category", "is", null);
   await supabase
     .from("games")
     .update({ status: "ended", ended_at: new Date().toISOString() })
@@ -1879,6 +1898,20 @@ export async function closeVote(gameId: string) {
     // Saint loss check
     if (slug === "saint") {
       await supabase
+        .from("role_actions")
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolution: { status: "cancelled", reason: "game_ended", winner: "MÃ©chants" } as never,
+          result: {
+            summary: "La partie s'est terminée avant le dénouement de cette action.",
+            outcome: "info",
+          } as never,
+        })
+        .eq("game_id", gameId)
+        .is("resolved_at", null)
+        .eq("timing", "DEFERRED")
+        .not("category", "is", null);
+      await supabase
         .from("games")
         .update({ status: "ended", ended_at: new Date().toISOString() })
         .eq("id", gameId);
@@ -1926,7 +1959,6 @@ export async function closeVote(gameId: string) {
     }));
     if (broadcast.length) await supabase.from("notifications").insert(broadcast);
   }
-  await setPhase(gameId, "free");
   emit("vote_close", targetId ? "🔒 Vote → emprisonnement" : "Vote → personne", { targetId });
 }
 

@@ -6,6 +6,30 @@ import { getMeta } from "./roleMeta";
 export type Winner = string | null;
 export type WinResult = { winner: Winner; reason: string };
 
+async function cancelUnresolvedDeferredIntents(gameId: string, result: WinResult): Promise<void> {
+  const endedAt = new Date().toISOString();
+  const resolution = {
+    status: "cancelled",
+    reason: "game_ended",
+    winner: result.winner,
+  };
+  const playerResult = {
+    summary: "La partie s'est terminée avant le dénouement de cette action.",
+    outcome: "info",
+  };
+  await supabase
+    .from("role_actions")
+    .update({
+      resolved_at: endedAt,
+      resolution: resolution as never,
+      result: playerResult as never,
+    })
+    .eq("game_id", gameId)
+    .is("resolved_at", null)
+    .eq("timing", "DEFERRED")
+    .not("category", "is", null);
+}
+
 // L'Oracle prédit une FAMILLE de camp (Civil / Méchant / Neutre), pas un libellé exact.
 // Tout camp neutre (Vampires, Amoureux, Empoisonneur, Veuve noire, Parieur…) compte comme
 // "Neutre" — sinon prédire "Neutre" ne pouvait JAMAIS payer (les libellés de victoire sont
@@ -205,6 +229,7 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   const { data: ps2 } = await supabase.from("players").select().eq("game_id", gameId);
   r = withOracleWinners(r, (ps2 ?? []) as PlayerRow[]);
   r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
+  await cancelUnresolvedDeferredIntents(gameId, r);
   await supabase
     .from("games")
     .update({ status: "ended", ended_at: new Date().toISOString() })

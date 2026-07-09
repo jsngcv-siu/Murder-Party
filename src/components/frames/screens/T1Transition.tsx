@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { gsap } from "gsap";
 import { Skull } from "lucide-react";
 import type { FrameContext } from "../registry";
@@ -957,17 +957,25 @@ function PhaseIntro({
   // `delayMs` décale la fenêtre d'affichage : pour l'Enquête qui suit un
   // vote, la bascule "LE JOUR SE LÈVE" n'apparaît qu'après l'écran de résultat.
   const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() + delayMs : 0;
-  useServerTimeOffset();
-  const [now, setNow] = useState(serverNow());
+  const serverOffset = useServerTimeOffset();
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
     if (!started) return;
-    const appear = started - serverNow();
-    const disappear = started + INTRO_MS - serverNow();
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    if (appear > 0) timers.push(setTimeout(() => setNow(serverNow()), appear + 20));
-    if (disappear > 0) timers.push(setTimeout(() => setNow(serverNow()), disappear + 50));
-    return () => timers.forEach(clearTimeout);
-  }, [started]);
+    const update = () => setNow(serverNow());
+    update();
+
+    const interval = setInterval(update, 200);
+    const stopAfter = Math.max(0, started + INTRO_MS + 250 - serverNow());
+    const stop = setTimeout(() => {
+      update();
+      clearInterval(interval);
+    }, stopAfter);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(stop);
+    };
+  }, [started, serverOffset]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const elapsed = now - started;
@@ -1031,9 +1039,7 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
   const { game, players } = ctx;
   // `offsetMs` décale la fenêtre : le verdict s'affiche à la FIN de la phase Vote
   // (après la fenêtre de vote = INTRO_MS + durée), avant le passage au tour suivant.
-  const started = game.phase_started_at
-    ? new Date(game.phase_started_at).getTime() + offsetMs
-    : 0;
+  const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() + offsetMs : 0;
   useServerTimeOffset();
   const [now, setNow] = useState(serverNow());
   useEffect(() => {
@@ -1073,16 +1079,13 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
   const visible = started > 0 && elapsed >= 0 && elapsed <= VOTE_RESULT_MS;
   useBoardIntro(rootRef, [started, visible]);
 
-  if (!visible) return null;
-
   // Fallback si la notif n'est pas (encore) disponible : on déduit l'emprisonné
   // du tour COURANT depuis l'état joueurs (verdict `null` = requête sans ligne).
   const derived =
     players.find((p) => {
       const m = (p.role_meta ?? {}) as Record<string, unknown>;
       return (
-        p.is_imprisoned &&
-        (m.imprisoned_since_cycle as number | undefined) === game.current_tour
+        p.is_imprisoned && (m.imprisoned_since_cycle as number | undefined) === game.current_tour
       );
     }) ?? null;
 
@@ -1099,6 +1102,76 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
       )
     : undefined;
   const votedTour = game.current_tour;
+  const candidates = useMemo(
+    () =>
+      players
+        .filter((p) => !p.is_mj)
+        .slice()
+        .sort((a, b) => {
+          const byVotes = (verdict?.counts?.[b.id] ?? 0) - (verdict?.counts?.[a.id] ?? 0);
+          if (byVotes !== 0) return byVotes;
+          return a.pseudo.localeCompare(b.pseudo);
+        })
+        .slice(0, 8),
+    [players, verdict?.counts],
+  );
+  const candidateIds = candidates.map((p) => p.id).join("|");
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!targetId || candidates.length === 0) {
+      setActiveCandidateId(null);
+      return;
+    }
+    const root = rootRef.current;
+    if (!root) return;
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: reduce)", () => {
+      setActiveCandidateId(targetId);
+      gsap.set(root.querySelectorAll(".vr-candidate"), { clearProps: "all" });
+    });
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      const ctx = gsap.context(() => {
+        const nodes = gsap.utils.toArray<HTMLElement>(".vr-candidate", root);
+        const targetIndex = candidates.findIndex((p) => p.id === targetId);
+        if (nodes.length === 0 || targetIndex < 0) {
+          setActiveCandidateId(targetId);
+          return;
+        }
+        const steps = nodes.length * 2 + targetIndex + 1;
+        const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
+        gsap.set(nodes, { scale: 1, y: 0, rotation: 0 });
+        for (let i = 0; i < steps; i++) {
+          const node = nodes[i % nodes.length];
+          const id = node.dataset.playerId ?? null;
+          const isLast = i === steps - 1;
+          tl.to(node, {
+            scale: isLast ? 1.28 : 1.16,
+            y: isLast ? -7 : -4,
+            rotation: isLast ? -3 : 0,
+            duration: isLast ? 0.18 : 0.07,
+            onStart: () => setActiveCandidateId(id),
+          }).to(node, {
+            scale: isLast ? 1.18 : 1,
+            y: isLast ? -4 : 0,
+            rotation: isLast ? -2 : 0,
+            duration: isLast ? 0.42 : 0.06,
+          });
+        }
+        tl.fromTo(
+          ".vr-final-ring",
+          { scale: 0.78, autoAlpha: 0 },
+          { scale: 1, autoAlpha: 1, duration: 0.35, ease: "back.out(1.8)" },
+          ">-0.18",
+        );
+      }, root);
+      return () => ctx.revert();
+    });
+    return () => mm.revert();
+  }, [visible, targetId, candidateIds, candidates]);
+
+  if (!visible) return null;
 
   return (
     <div ref={rootRef} className="absolute inset-0 z-50 overflow-hidden">
@@ -1175,6 +1248,66 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
             </p>
           ) : target ? (
             <>
+              <div
+                style={{
+                  margin: "15px -8px 6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  minHeight: 46,
+                }}
+              >
+                {candidates.map((p) => {
+                  const meta = (p.role_meta ?? {}) as Record<string, unknown>;
+                  const candidateAv = avatarOf(meta.avatar as string | undefined, p.id);
+                  const active = activeCandidateId === p.id;
+                  const winner = targetId === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      data-player-id={p.id}
+                      className="vr-candidate"
+                      style={{
+                        position: "relative",
+                        width: 34,
+                        height: 39,
+                        flex: "0 0 auto",
+                        borderRadius: 4,
+                        padding: 2,
+                        background: winner
+                          ? "#fff7dd"
+                          : active
+                            ? "#f6e4b6"
+                            : "rgba(255,255,255,.42)",
+                        border: `1.5px solid ${
+                          winner && active ? "#c2202f" : active ? "#a8772a" : "#d8c8a8"
+                        }`,
+                        boxShadow: active
+                          ? "0 8px 16px -8px rgba(0,0,0,.75)"
+                          : "0 4px 10px -9px rgba(0,0,0,.65)",
+                        opacity: active || winner ? 1 : 0.68,
+                      }}
+                    >
+                      <AvatarImg avatar={candidateAv} fill rounded="none" />
+                      {winner && active && (
+                        <span
+                          className="vr-final-ring"
+                          aria-hidden
+                          style={{
+                            position: "absolute",
+                            inset: -5,
+                            borderRadius: 8,
+                            border: "2px solid #c2202f",
+                            boxShadow: "0 0 0 2px rgba(194,32,47,.16),0 0 18px rgba(194,32,47,.42)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
               <div style={{ margin: "16px 0 4px", display: "flex", justifyContent: "center" }}>
                 <div
                   style={{

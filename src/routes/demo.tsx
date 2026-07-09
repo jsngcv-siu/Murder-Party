@@ -346,30 +346,6 @@ function DemoMenu() {
     setPlayers([]);
   }
 
-  // Bot driver + tickPhase auto pilotés ici, pas par le PlayerShell embarqué.
-  // En démo on accélère : tickPhase plus rapide + timeMultiplier = 5 (cf. defaultBotConfig).
-  useEffect(() => {
-    if (!gameId || !game || game.status !== "in_progress") return;
-    const tick = setInterval(() => {
-      void tickPhase(gameId);
-    }, 2000);
-    if (!botsActive) {
-      return () => {
-        clearInterval(tick);
-      };
-    }
-    const d = startBotDriver({
-      gameId,
-      getConfig: () => ({ ...defaultBotConfig, timeMultiplier: 5, qa: true }),
-      embodiedPlayerId: () => embodiedId,
-    });
-    return () => {
-      d?.stop();
-      stopBotDriver();
-      clearInterval(tick);
-    };
-  }, [gameId, game?.status, embodiedId, game, botsActive]);
-
   // ── Agents QA : rapport + sweeps d'invariants + audit de fin ───────────────
   // Refs pour un intervalle STABLE (game/players changent à chaque event realtime,
   // sinon l'intervalle serait reset en boucle et les sweeps ne se déclencheraient pas).
@@ -379,7 +355,37 @@ function DemoMenu() {
   playersRef.current = players;
   const rolesRef = useRef<Map<string, RoleRow>>(roles);
   rolesRef.current = roles;
+  const embodiedIdRef = useRef<string | null>(null);
+  embodiedIdRef.current = embodiedId;
   const endHandledRef = useRef<string | null>(null);
+
+  // Bot driver + tickPhase auto pilotés ici, pas par le PlayerShell embarqué.
+  // Le tick est volontairement isolé du driver : l'objet game change souvent via realtime.
+  useEffect(() => {
+    if (!gameId) return;
+    const tick = setInterval(() => {
+      const current = gameRef.current;
+      if (!current || current.status !== "in_progress") return;
+      void tickPhase(gameId);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [gameId]);
+
+  useEffect(() => {
+    if (!gameId || game?.status !== "in_progress" || !botsActive) {
+      stopBotDriver();
+      return;
+    }
+    const d = startBotDriver({
+      gameId,
+      getConfig: () => ({ ...defaultBotConfig, timeMultiplier: 5, qa: true }),
+      embodiedPlayerId: () => embodiedIdRef.current,
+    });
+    return () => {
+      d?.stop();
+      stopBotDriver();
+    };
+  }, [gameId, game?.status, botsActive]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -520,10 +526,7 @@ function DemoMenu() {
   }
   async function restartTimer() {
     if (!gameId) return;
-    await supabase
-      .from("games")
-      .update({ phase_started_at: serverNowISO() })
-      .eq("id", gameId);
+    await supabase.from("games").update({ phase_started_at: serverNowISO() }).eq("id", gameId);
   }
 
   async function addBot() {
@@ -574,7 +577,9 @@ function DemoMenu() {
             onClick={() => {
               try {
                 localStorage.removeItem(DEMO_GAME_KEY);
-              } catch {}
+              } catch {
+                // La démo peut repartir même si le stockage local est indisponible.
+              }
               location.reload();
             }}
             className="px-4 py-2 text-sm rounded bg-gold text-primary-foreground font-semibold"
@@ -596,7 +601,9 @@ function DemoMenu() {
           onClick={() => {
             try {
               localStorage.removeItem(DEMO_GAME_KEY);
-            } catch {}
+            } catch {
+              // La démo peut repartir même si le stockage local est indisponible.
+            }
             location.reload();
           }}
           className="text-xs text-muted-foreground hover:text-gold underline"

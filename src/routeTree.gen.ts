@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as FxLabRouteImport } from './routes/fx-lab'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 
+const FxLabRoute = FxLabRouteImport.update({
+  id: '/fx-lab',
+  path: '/fx-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DevRoute = DevRouteImport.update({
   id: '/dev',
   path: '/dev',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
+  '/fx-lab': typeof FxLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
+  '/fx-lab': typeof FxLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesById {
@@ -52,25 +60,34 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
+  '/fx-lab': typeof FxLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demo' | '/dev' | '/g/$code'
+  fullPaths: '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo' | '/dev' | '/g/$code'
-  id: '__root__' | '/' | '/demo' | '/dev' | '/g/$code'
+  to: '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
+  id: '__root__' | '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
   DevRoute: typeof DevRoute
+  FxLabRoute: typeof FxLabRoute
   GCodeRoute: typeof GCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/fx-lab': {
+      id: '/fx-lab'
+      path: '/fx-lab'
+      fullPath: '/fx-lab'
+      preLoaderRoute: typeof FxLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dev': {
       id: '/dev'
       path: '/dev'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
   DevRoute: DevRoute,
+  FxLabRoute: FxLabRoute,
   GCodeRoute: GCodeRoute,
 }
 export const routeTree = rootRouteImport

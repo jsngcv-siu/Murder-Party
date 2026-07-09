@@ -41,6 +41,12 @@ function HomePage() {
             🧪 Dev
           </Link>
           <Link
+            to="/fx-lab"
+            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] left-[calc(max(0.75rem,env(safe-area-inset-left))+4.4rem)] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
+          >
+            FX
+          </Link>
+          <Link
             to="/demo"
             className="absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
           >
@@ -106,7 +112,9 @@ function ResumeBanner() {
       if (parsed?.code && parsed.ts && Date.now() - parsed.ts < 24 * 3600 * 1000) {
         setCode(parsed.code);
       }
-    } catch {}
+    } catch {
+      // Ignore les donnees locales invalides.
+    }
   }, []);
   if (!code) return null;
   return (
@@ -125,7 +133,9 @@ function ResumeBanner() {
           onClick={() => {
             try {
               window.localStorage.removeItem("mp_last_game");
-            } catch {}
+            } catch {
+              // Ignore les erreurs de stockage local.
+            }
             setCode(null);
           }}
         >
