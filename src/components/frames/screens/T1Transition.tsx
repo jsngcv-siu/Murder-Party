@@ -14,13 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 // Chaque bascule = un dossier tamponné épinglé sur un fond bois/liège, ficelle
 // rouge tendue entre quatre punaises, polaroïds & post-its qui flottent autour.
 //
-// Durée alignée sur INTRO_MS (cf. PlayerShell) — les compteurs de phase ne
-// démarrent qu'après la disparition de cette frame.
-export const INTRO_MS = 2500;
-
-// Durée de l'écran de résultat du vote, joué au tout début de l'Enquête qui
-// suit un vote — AVANT la bascule "Enquête" proprement dite.
-export const VOTE_RESULT_MS = 4000;
+// Durées d'intro/transition : source UNIQUE dans src/lib/phaseTiming.ts (partagée
+// avec le moteur/démo/QA). Ré-export ici pour les nombreux imports historiques.
+export { INTRO_MS, VOTE_RESULT_MS } from "@/lib/phaseTiming";
+import { INTRO_MS, VOTE_RESULT_MS } from "@/lib/phaseTiming";
 
 // ---------------------------------------------------------------------------
 // Briques décoratives communes au plateau
@@ -1013,27 +1010,40 @@ export function T3FreeIntro(ctx: FrameContext) {
   return <PhaseIntro game={ctx.game} phase="free" />;
 }
 
+// Verdict du vote, joué à la FIN de la phase Vote (après la fenêtre de vote de
+// durée `phase_duration_s`), juste avant le passage au tour suivant.
+export function VoteOutro(ctx: FrameContext) {
+  const dur = ctx.game.phase_duration_s ?? 0;
+  return <VoteResultScreen ctx={ctx} offsetMs={INTRO_MS + dur * 1000} />;
+}
+
 // ---------------------------------------------------------------------------
-// Écran de RÉSULTAT du vote — transition jouée au timer 0 du vote
+// Écran de RÉSULTAT du vote — verdict joué à la FIN de la phase Vote
 // ---------------------------------------------------------------------------
-// Affiché pendant VOTE_RESULT_MS au tout début de l'Enquête qui suit un
-// vote, AVANT la bascule "LE JOUR SE LÈVE". Annonce le verdict (emprisonnement,
-// égalité tranchée au sort, ou personne) sans jamais révéler rôle/faction. Les
-// données viennent de la notif `vote_result` broadcastée par closeVote.
+// Affiché pendant VOTE_RESULT_MS après la fenêtre de vote (via VoteOutro),
+// AVANT le passage au tour suivant. Annonce le verdict (emprisonnement, égalité
+// tranchée au sort, ou personne) sans jamais révéler rôle/faction. Les données
+// viennent de la notif `vote_result` broadcastée par closeVote.
 
 type VotePayload = { target_id: string | null; tied?: boolean; counts?: Record<string, number> };
 
-function VoteResultScreen({ ctx }: { ctx: FrameContext }) {
+function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?: number }) {
   const { game, players } = ctx;
-  const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
+  // `offsetMs` décale la fenêtre : le verdict s'affiche à la FIN de la phase Vote
+  // (après la fenêtre de vote = INTRO_MS + durée), avant le passage au tour suivant.
+  const started = game.phase_started_at
+    ? new Date(game.phase_started_at).getTime() + offsetMs
+    : 0;
   useServerTimeOffset();
   const [now, setNow] = useState(serverNow());
   useEffect(() => {
     if (!started) return;
-    const remaining = started + VOTE_RESULT_MS - serverNow();
-    if (remaining <= 0) return;
-    const t = setTimeout(() => setNow(serverNow()), remaining + 60);
-    return () => clearTimeout(t);
+    const appear = started - serverNow();
+    const disappear = started + VOTE_RESULT_MS - serverNow();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (appear > 0) timers.push(setTimeout(() => setNow(serverNow()), appear + 20));
+    if (disappear > 0) timers.push(setTimeout(() => setNow(serverNow()), disappear + 50));
+    return () => timers.forEach(clearTimeout);
   }, [started]);
 
   // Verdict authoritatif : dernière notif vote_result de la partie (le vote qui
@@ -1066,13 +1076,13 @@ function VoteResultScreen({ ctx }: { ctx: FrameContext }) {
   if (!visible) return null;
 
   // Fallback si la notif n'est pas (encore) disponible : on déduit l'emprisonné
-  // du tour écoulé depuis l'état joueurs (verdict `null` = requête sans ligne).
+  // du tour COURANT depuis l'état joueurs (verdict `null` = requête sans ligne).
   const derived =
     players.find((p) => {
       const m = (p.role_meta ?? {}) as Record<string, unknown>;
       return (
         p.is_imprisoned &&
-        (m.imprisoned_since_cycle as number | undefined) === game.current_tour - 1
+        (m.imprisoned_since_cycle as number | undefined) === game.current_tour
       );
     }) ?? null;
 
@@ -1088,7 +1098,7 @@ function VoteResultScreen({ ctx }: { ctx: FrameContext }) {
         target.id,
       )
     : undefined;
-  const votedTour = Math.max(1, game.current_tour - 1);
+  const votedTour = game.current_tour;
 
   return (
     <div ref={rootRef} className="absolute inset-0 z-50 overflow-hidden">
@@ -1324,17 +1334,11 @@ function VoteResultScreen({ ctx }: { ctx: FrameContext }) {
 }
 
 // Entrée en Enquête : la première Enquête (tour 1) n'est précédée
-// d'aucun vote → bascule directe. Toutes les suivantes rejouent d'abord le
-// résultat du vote, PUIS la bascule "LE JOUR SE LÈVE" (décalée de VOTE_RESULT_MS).
+// d'aucun vote → bascule directe. Le verdict du vote est désormais montré à la
+// FIN de la phase Vote (VoteOutro), donc l'entrée en Enquête est une bascule
+// simple et identique à chaque tour.
 export function FreeEntry(ctx: FrameContext) {
-  const followsVote = ctx.game.current_tour > 1;
-  if (!followsVote) return <PhaseIntro game={ctx.game} phase="free" />;
-  return (
-    <>
-      <VoteResultScreen ctx={ctx} />
-      <PhaseIntro game={ctx.game} phase="free" delayMs={VOTE_RESULT_MS} />
-    </>
-  );
+  return <PhaseIntro game={ctx.game} phase="free" />;
 }
 
 // ---------------------------------------------------------------------------

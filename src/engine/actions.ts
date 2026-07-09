@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { notify, notifyMJ } from "./notify";
 import { checkAndEndGame } from "./winConditions";
 import { submitIntent, resolveDeferredIntents } from "./resolver";
+import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
 
 export type Phase = "lobby" | "free" | "annonce" | "gathering" | "vote" | "ended";
 export type RoleRow = Database["public"]["Tables"]["roles"]["Row"];
@@ -1175,8 +1176,8 @@ export async function tickPhase(gameId: string): Promise<void> {
     if (game.paused) return;
     if (!game.phase_started_at || !game.phase_duration_s) return;
     const started = new Date(game.phase_started_at).getTime();
-    // Les compteurs de phase ne démarrent qu'après la frame d'intro (3s côté UI).
-    const INTRO_S = 3;
+    // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
+    // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
     const elapsed = (Date.now() - started) / 1000 - INTRO_S;
     if (elapsed < game.phase_duration_s) return;
     if (game.current_phase === "free") {
@@ -1186,7 +1187,12 @@ export async function tickPhase(gameId: string): Promise<void> {
     } else if (game.current_phase === "gathering") {
       await openVote(gameId);
     } else if (game.current_phase === "vote") {
+      // Fin de la fenêtre de vote → on clôt (verdict + emprisonnement, idempotent)
+      // et on laisse l'écran de résultat s'afficher pendant VOTE_RESULT_S AVANT de
+      // passer au tour suivant. Le verdict est donc montré à la FIN du vote, plus
+      // au début de l'Enquête suivante.
       await closeVote(gameId);
+      if (elapsed < game.phase_duration_s + VOTE_RESULT_S) return;
       await nextCycle(gameId);
     }
   } finally {

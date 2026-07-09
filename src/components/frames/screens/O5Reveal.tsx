@@ -19,13 +19,24 @@ export function O5Reveal({
   role,
   onDone,
   skipCountdown = false,
+  readyCount,
+  total,
 }: {
   player: RevealPlayer;
   role: RoleRow;
   onDone: () => void;
   skipCountdown?: boolean;
+  /** Nombre de joueurs prêts / total (bots inclus) — affiché sur le bouton. */
+  readyCount?: number;
+  total?: number;
 }) {
   const [count, setCount] = useState(3);
+  // Après avoir cliqué « Entrer », on reste sur un écran d'attente jusqu'à ce que
+  // tout le monde soit prêt (la partie se lance alors automatiquement).
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (waiting && total != null && (readyCount ?? 0) >= total) onDone();
+  }, [waiting, readyCount, total, onDone]);
   // skipCountdown : aperçu /dev — on saute le décompte 3-2-1 et on montre le dossier.
   const [phase, setPhase] = useState<"countdown" | "card">(skipCountdown ? "card" : "countdown");
 
@@ -125,7 +136,10 @@ export function O5Reveal({
       .from("players")
       .update({ role_meta: meta as never })
       .eq("id", player.id);
-    onDone();
+    // Si on connaît le décompte de prêts, on passe en attente (lancement auto
+    // quand tout le monde est prêt). Sinon (ex. aperçu /dev), on entre direct.
+    if (total != null) setWaiting(true);
+    else onDone();
   }
 
   if (phase === "countdown") {
@@ -361,7 +375,8 @@ export function O5Reveal({
         {/* CTA */}
         <button
           onClick={ack}
-          className="reveal-cta press sheen mt-6 h-14 w-full rounded-xl font-bold text-base tracking-wide uppercase"
+          disabled={waiting}
+          className="reveal-cta press sheen mt-6 h-14 w-full rounded-xl font-bold text-base tracking-wide uppercase disabled:opacity-80"
           style={{
             background: "var(--gradient-gold)",
             color: "oklch(0.26 0.05 60)",
@@ -369,10 +384,13 @@ export function O5Reveal({
             boxShadow: "0 12px 26px -8px oklch(0.62 0.16 70 / 0.6)",
           }}
         >
-          Entrer dans la partie
+          {waiting ? "En attente des autres…" : "Entrer dans la partie"}
+          {total != null ? ` · ${readyCount ?? 0}/${total}` : ""}
         </button>
         <p className="reveal-cta mt-7 text-[11px] text-center text-muted-foreground">
-          Les autres joueurs seront prévenus quand tu seras prêt.
+          {waiting
+            ? "La partie démarre dès que tout le monde est prêt."
+            : "Les autres joueurs seront prévenus quand tu seras prêt."}
         </p>
       </div>
     </div>

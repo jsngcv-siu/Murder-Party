@@ -56,6 +56,7 @@ import { E1EndGame } from "@/components/frames/screens/E1EndGame";
 import {
   T1Transition,
   T2VoteIntro,
+  VoteOutro,
   FreeEntry,
   AnnonceScreen,
   INTRO_MS,
@@ -186,16 +187,19 @@ export function PlayerShell({
 
   // Sync de démarrage : on attend que tous les humains vivants aient cliqué
   // « Entrer dans la partie » (revealed_at). Les bots sont considérés prêts.
-  const { pendingReveals, totalToReveal } = useMemo(() => {
+  const { pendingReveals, totalToReveal, totalPlayers } = useMemo(() => {
     let pending = 0;
-    let total = 0;
+    let total = 0; // humains uniquement (ce qui gèle/débloque le démarrage)
+    let everyone = 0; // tous les joueurs vivants, bots inclus → pour l'affichage « N/total »
     for (const p of players) {
-      if (p.is_mj || !p.is_alive || p.pseudo.startsWith("Bot ")) continue;
+      if (p.is_mj || !p.is_alive) continue;
+      everyone++;
+      if (p.pseudo.startsWith("Bot ")) continue;
       total++;
       const revealed = (p.role_meta as Record<string, unknown> | null)?.revealed_at;
       if (!revealed) pending++;
     }
-    return { pendingReveals: pending, totalToReveal: total };
+    return { pendingReveals: pending, totalToReveal: total, totalPlayers: everyone };
   }, [players]);
   const waitingStart =
     game.status === "in_progress" &&
@@ -541,13 +545,22 @@ export function PlayerShell({
   }
 
   if (showReveal && myRole) {
-    return <O5Reveal player={me} role={myRole} onDone={() => setShowReveal(false)} />;
+    return (
+      <O5Reveal
+        player={me}
+        role={myRole}
+        onDone={() => setShowReveal(false)}
+        readyCount={Math.max(0, totalPlayers - pendingReveals)}
+        total={totalPlayers}
+      />
+    );
   }
 
   const PhaseIntros = waitingStart ? null : (
     <>
       {isDebat && <T1Transition {...ctx} />}
       {isVote && <T2VoteIntro {...ctx} />}
+      {isVote && <VoteOutro {...ctx} />}
       {isJour && <FreeEntry {...ctx} />}
     </>
   );
