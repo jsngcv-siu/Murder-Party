@@ -26,10 +26,12 @@ import { C1Council } from "@/components/frames/screens/C1Council";
 import { V1Vote } from "@/components/frames/screens/V1Vote";
 import { V1VoteSuspicion } from "@/components/frames/screens/V1VoteSuspicion";
 import {
+  INTRO_MS,
+  VOTE_RESULT_MS,
   T1Transition,
   T2VoteIntro,
   T3FreeIntro,
-  FreeEntry,
+  VoteOutro,
   AnnonceScreen,
 } from "@/components/frames/screens/T1Transition";
 import { O5Reveal } from "@/components/frames/screens/O5Reveal";
@@ -210,6 +212,50 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
 
   const civil = (r: Roster) => r.byPseudo("Alice");
   const tueur = (r: Roster) => r.byPseudo("Bob");
+  const phasePreview = (phase: GameRow["current_phase"], over: Partial<GameRow> = {}) => ({
+    current_phase: phase,
+    phase_started_at: new Date(Date.now() - 150).toISOString(),
+    phase_duration_s: 3,
+    phase_duration_free_s: 3,
+    phase_duration_gathering_s: 3,
+    phase_duration_vote_s: 3,
+    ...over,
+  });
+  const voteResultCtx = (): FrameContext => {
+    const phaseDurationS = 0;
+    const ctx = ctxFor(civil, {
+      ...phasePreview("vote", {
+        current_tour: 3,
+        phase_duration_s: phaseDurationS,
+        phase_duration_vote_s: phaseDurationS,
+        phase_started_at: new Date(Date.now() - INTRO_MS - 250).toISOString(),
+      }),
+    });
+    const target = ctx.players.find((p) => p.pseudo === "Bob") ?? ctx.players.find((p) => !p.is_mj);
+    if (!target) return ctx;
+    const players = ctx.players.map((p) =>
+      p.id === target.id
+        ? ({
+            ...p,
+            is_imprisoned: true,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              imprisoned_since_cycle: ctx.game.current_tour,
+            },
+          } as PlayerRow)
+        : p,
+    );
+    return {
+      ...ctx,
+      players,
+      devVoteVerdict: {
+        target_id: target.id,
+        tour: ctx.game.current_tour,
+        tied: false,
+        counts: { [target.id]: 5 },
+      },
+    };
+  };
 
   const scenes: Scene[] = [];
   const add = (s: Scene) => scenes.push(s);
@@ -291,43 +337,37 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     id: "T3",
     group: "Phases",
     label: "Intro — Enquête",
-    render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, { current_phase: "free" })} />} />,
+    render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, phasePreview("free"))} />} />,
   });
   add({
     id: "T0",
     group: "Phases",
     label: "Annonce (dénouement)",
-    render: () => (
-      <Frame node={<AnnonceScreen {...ctxFor(civil, { current_phase: "annonce" })} />} />
-    ),
+    render: () => <Frame node={<AnnonceScreen {...ctxFor(civil, phasePreview("annonce"))} />} />,
   });
   add({
     id: "T1",
     group: "Phases",
     label: "Débat",
-    render: () => (
-      <Frame node={<T1Transition {...ctxFor(civil, { current_phase: "gathering" })} />} />
-    ),
+    render: () => <Frame node={<T1Transition {...ctxFor(civil, phasePreview("gathering"))} />} />,
   });
   add({
     id: "T2",
     group: "Phases",
     label: "Intro — Vote",
-    render: () => <Frame node={<T2VoteIntro {...ctxFor(civil, { current_phase: "vote" })} />} />,
+    render: () => <Frame node={<T2VoteIntro {...ctxFor(civil, phasePreview("vote"))} />} />,
   });
   add({
-    id: "VR",
+    id: "VROutro",
     group: "Phases",
-    label: "Résultat du vote → Enquête",
-    render: () => (
-      <Frame node={<FreeEntry {...ctxFor(civil, { current_phase: "free", current_tour: 3 })} />} />
-    ),
+    label: "Résultat du vote",
+    render: () => <VoteResultDevPreview makeCtx={voteResultCtx} />,
   });
   add({
     id: "V1",
     group: "Phases",
     label: "Vote",
-    render: () => <Frame node={<V1Vote {...ctxFor(civil, { current_phase: "vote" })} />} />,
+    render: () => <Frame node={<V1Vote {...ctxFor(civil, phasePreview("vote"))} />} />,
   });
   add({
     id: "V1s",
@@ -336,7 +376,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     render: () => (
       <Frame
         node={
-          <V1VoteSuspicion {...ctxFor(civil, { current_phase: "vote", variant: "suspicion" })} />
+          <V1VoteSuspicion {...ctxFor(civil, phasePreview("vote", { variant: "suspicion" }))} />
         }
       />
     ),
@@ -524,6 +564,18 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
 function Frame({ node }: { node: ReactNode }) {
   // Cadre téléphone : chaque frame est conçue pour un viewport ~390px.
   return <div className="h-full w-full bg-background overflow-hidden">{node}</div>;
+}
+
+function VoteResultDevPreview({ makeCtx }: { makeCtx: () => FrameContext }) {
+  const [cycle, setCycle] = useState(0);
+
+  useEffect(() => {
+    const replayMs = Math.max(4500, VOTE_RESULT_MS - 350);
+    const interval = window.setInterval(() => setCycle((n) => n + 1), replayMs);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return <Frame node={<VoteOutro key={cycle} {...makeCtx()} />} />;
 }
 
 class SceneBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {

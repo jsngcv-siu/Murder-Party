@@ -21,7 +21,7 @@ export const SEVERITY_META: Record<Severity, { emoji: string; label: string; ord
 export const CATEGORY_META: Record<Category, { emoji: string; label: string }> = {
   rules: { emoji: "📐", label: "Règles / textes incohérents" },
   leak: { emoji: "🕵️", label: "Fuites d'information" },
-  bug: { emoji: "🐞", label: "Bugs techniques / intégrations" },
+  bug: { emoji: "🐞", label: "Bugs gameplay / UI visibles" },
   ux: { emoji: "🧭", label: "Friction UX / clarté" },
 };
 

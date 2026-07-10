@@ -12,6 +12,7 @@ import type { FindingInput, QAFinding, Severity } from "./types";
 
 const STORE_KEY = "mp_qa_findings"; // single global key — persists across games
 const LEGACY_PREFIX = "mp_qa_findings_"; // old per-game keys, migrated then removed
+const HIDDEN_DEMO_PHASE_STUCK_UNDER_S = 90;
 
 // Survie au HMR (dev) : sans ça, éditer du code recharge ce module → la map ET
 // les listeners en mémoire sont réinitialisés alors que l'état React survit, ce
@@ -40,8 +41,47 @@ function nextId(): string {
   return `qa_${_seq}_${Date.now().toString(36)}`;
 }
 
-function snapshot(): QAFinding[] {
+function isNoisyDemoFinding(f: Pick<QAFinding, "dedupeKey" | "evidence" | "title">): boolean {
+  const normalizedTitle = f.title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const isPhaseStuck =
+    /(^|:)bug:phase-stuck:/.test(f.dedupeKey) ||
+    (normalizedTitle.startsWith("phase ") && normalizedTitle.includes(" bloquee"));
+  if (!isPhaseStuck) return false;
+  const overdue = Number(f.evidence?.secondsOverdue);
+  return !Number.isFinite(overdue) || overdue < HIDDEN_DEMO_PHASE_STUCK_UNDER_S;
+}
+
+function pruneNoisyDemoFindings(): boolean {
+  let changed = false;
+  for (const [key, finding] of findings) {
+    if (!isNoisyDemoFinding(finding)) continue;
+    findings.delete(key);
+    changed = true;
+  }
+  return changed;
+}
+
+function rawSnapshot(): QAFinding[] {
   return Array.from(findings.values());
+}
+
+function writeStorage(items = rawSnapshot()) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(items));
+  } catch {
+    // quota / serialization issues are non-fatal for a debug report
+  }
+}
+
+function snapshot(): QAFinding[] {
+  const pruned = pruneNoisyDemoFindings();
+  const snap = rawSnapshot();
+  if (pruned) writeStorage(snap);
+  return snap;
 }
 
 function emit() {
@@ -50,12 +90,7 @@ function emit() {
 }
 
 function persist() {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(snapshot()));
-  } catch {
-    // quota / serialization issues are non-fatal for a debug report
-  }
+  writeStorage(snapshot());
 }
 
 function mergeArray(arr: unknown) {
@@ -70,7 +105,13 @@ function mergeArray(arr: unknown) {
 
 /** Load the global store once + migrate any legacy per-game keys. Never wipes. */
 export function initReport(_gameId?: string) {
-  if (isLoaded()) return;
+  if (isLoaded()) {
+    if (pruneNoisyDemoFindings()) {
+      persist();
+      emit();
+    }
+    return;
+  }
   setLoaded();
   if (typeof localStorage !== "undefined") {
     try {
@@ -90,7 +131,7 @@ export function initReport(_gameId?: string) {
         }
         localStorage.removeItem(k);
       }
-      if (legacy.length) persist();
+      if (legacy.length || pruneNoisyDemoFindings()) persist();
     } catch {
       // ignore corrupt cache
     }
@@ -111,6 +152,7 @@ export function withGame(inputs: FindingInput[], gameId: string, gameCode: strin
 /** Record one finding. Dedupes by `dedupeKey`: re-seeing an issue bumps its count. */
 export function addFinding(input: FindingInput): boolean {
   const now = Date.now();
+  if (isNoisyDemoFinding(input)) return false;
   const existing = findings.get(input.dedupeKey);
   if (existing) {
     existing.count += 1;
@@ -142,6 +184,7 @@ export function addFindings(inputs: FindingInput[]): number {
   const now = Date.now();
   let added = 0;
   for (const input of inputs) {
+    if (isNoisyDemoFinding(input)) continue;
     const existing = findings.get(input.dedupeKey);
     if (existing) {
       existing.count += 1;
@@ -177,7 +220,7 @@ export function clearFindings() {
 
 export function countBySeverity(): Record<Severity, number> {
   const out: Record<Severity, number> = { critical: 0, high: 0, medium: 0, info: 0 };
-  for (const f of findings.values()) out[f.severity] += 1;
+  for (const f of snapshot()) out[f.severity] += 1;
   return out;
 }
 

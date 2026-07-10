@@ -1033,46 +1033,73 @@ export function VoteOutro(ctx: FrameContext) {
 // tranchée au sort, ou personne) sans jamais révéler rôle/faction. Les données
 // viennent de la notif `vote_result` broadcastée par closeVote.
 
-type VotePayload = { target_id: string | null; tied?: boolean; counts?: Record<string, number> };
+type VotePayload = {
+  target_id: string | null;
+  tour?: number;
+  tied?: boolean;
+  counts?: Record<string, number>;
+};
 
 function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?: number }) {
   const { game, players } = ctx;
+  const devVoteVerdict = ctx.devVoteVerdict;
+  const usesLocalClock = devVoteVerdict !== undefined;
   // `offsetMs` décale la fenêtre : le verdict s'affiche à la FIN de la phase Vote
   // (après la fenêtre de vote = INTRO_MS + durée), avant le passage au tour suivant.
   const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() + offsetMs : 0;
   useServerTimeOffset();
-  const [now, setNow] = useState(serverNow());
+  const [now, setNow] = useState(() => (usesLocalClock ? Date.now() : serverNow()));
   useEffect(() => {
     if (!started) return;
-    const appear = started - serverNow();
-    const disappear = started + VOTE_RESULT_MS - serverNow();
+    const readNow = () => (usesLocalClock ? Date.now() : serverNow());
+    const appear = started - readNow();
+    const disappear = started + VOTE_RESULT_MS - readNow();
     const timers: ReturnType<typeof setTimeout>[] = [];
-    if (appear > 0) timers.push(setTimeout(() => setNow(serverNow()), appear + 20));
-    if (disappear > 0) timers.push(setTimeout(() => setNow(serverNow()), disappear + 50));
+    if (appear > 0) timers.push(setTimeout(() => setNow(readNow()), appear + 20));
+    if (disappear > 0) timers.push(setTimeout(() => setNow(readNow()), disappear + 50));
     return () => timers.forEach(clearTimeout);
-  }, [started]);
+  }, [started, usesLocalClock]);
 
   // Verdict authoritatif : dernière notif vote_result de la partie (le vote qui
   // vient de se clore). `undefined` = en cours de chargement.
   const [verdict, setVerdict] = useState<VotePayload | null | undefined>(undefined);
   useEffect(() => {
+    if (devVoteVerdict !== undefined) {
+      setVerdict(devVoteVerdict);
+      return;
+    }
     let off = false;
-    void (async () => {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const readNow = () => (usesLocalClock ? Date.now() : serverNow());
+    const fetchVerdict = async () => {
       const { data } = await supabase
         .from("notifications")
         .select("payload")
         .eq("game_id", game.id)
         .eq("type", "vote_result")
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(12);
       if (off) return;
-      const p = ((data ?? [])[0] as { payload: VotePayload | null } | undefined)?.payload ?? null;
-      setVerdict(p);
-    })();
+      const rows = (data ?? []) as Array<{ payload: VotePayload | null }>;
+      const payload = rows.find((row) => row.payload?.tour === game.current_tour)?.payload ?? null;
+      if (payload) {
+        setVerdict(payload);
+        return;
+      }
+      const stillInResultWindow = started > 0 && readNow() < started + VOTE_RESULT_MS - 400;
+      if (stillInResultWindow) {
+        setVerdict(undefined);
+        retryTimer = setTimeout(fetchVerdict, 220);
+        return;
+      }
+      setVerdict(null);
+    };
+    void fetchVerdict();
     return () => {
       off = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [game.id, game.current_tour]);
+  }, [game.id, game.current_tour, devVoteVerdict, started, usesLocalClock]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const elapsed = now - started;
@@ -1089,89 +1116,115 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
       );
     }) ?? null;
 
-  const loading = verdict === undefined;
-  const hasCounts = !!verdict;
   const targetId = verdict ? verdict.target_id : (derived?.id ?? null);
   const tied = verdict?.tied ?? false;
   const target = targetId ? (players.find((p) => p.id === targetId) ?? null) : null;
-  const votes = targetId ? (verdict?.counts?.[targetId] ?? 0) : 0;
-  const av = target
-    ? avatarOf(
-        (target.role_meta as Record<string, unknown>)?.avatar as string | undefined,
-        target.id,
-      )
-    : undefined;
-  const votedTour = game.current_tour;
-  const candidates = useMemo(
-    () =>
-      players
-        .filter((p) => !p.is_mj)
-        .slice()
-        .sort((a, b) => {
-          const byVotes = (verdict?.counts?.[b.id] ?? 0) - (verdict?.counts?.[a.id] ?? 0);
-          if (byVotes !== 0) return byVotes;
-          return a.pseudo.localeCompare(b.pseudo);
-        })
-        .slice(0, 8),
-    [players, verdict?.counts],
-  );
+  const candidates = useMemo(() => {
+    const base = players
+      .filter((p) => !p.is_mj)
+      .slice()
+      .sort((a, b) => a.pseudo.localeCompare(b.pseudo));
+    const visible = base.slice(0, 8);
+    if (targetId && !visible.some((p) => p.id === targetId)) {
+      const targetCandidate = base.find((p) => p.id === targetId);
+      if (targetCandidate) visible[Math.max(0, visible.length - 1)] = targetCandidate;
+    }
+    if (visible.length > 1 && visible[0]?.id === targetId) {
+      const first = visible.shift();
+      if (first) visible.push(first);
+    }
+    return visible;
+  }, [players, targetId]);
   const candidateIds = candidates.map((p) => p.id).join("|");
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [revealedTargetId, setRevealedTargetId] = useState<string | null>(null);
+  const displayedCandidate = activeCandidateId
+    ? (players.find((p) => p.id === activeCandidateId) ?? null)
+    : null;
+  const displayedAvatar = displayedCandidate
+    ? avatarOf(
+        (displayedCandidate.role_meta as Record<string, unknown>)?.avatar as string | undefined,
+        displayedCandidate.id,
+      )
+    : null;
 
   useEffect(() => {
     if (!visible) return;
+    setActiveCandidateId(null);
+    setRevealedTargetId(null);
     if (!targetId || candidates.length === 0) {
-      setActiveCandidateId(null);
       return;
     }
     const root = rootRef.current;
     if (!root) return;
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: reduce)", () => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
       setActiveCandidateId(targetId);
-      gsap.set(root.querySelectorAll(".vr-candidate"), { clearProps: "all" });
-    });
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      const ctx = gsap.context(() => {
-        const nodes = gsap.utils.toArray<HTMLElement>(".vr-candidate", root);
-        const targetIndex = candidates.findIndex((p) => p.id === targetId);
-        if (nodes.length === 0 || targetIndex < 0) {
-          setActiveCandidateId(targetId);
-          return;
-        }
-        const steps = nodes.length * 2 + targetIndex + 1;
-        const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
-        gsap.set(nodes, { scale: 1, y: 0, rotation: 0 });
-        for (let i = 0; i < steps; i++) {
-          const node = nodes[i % nodes.length];
-          const id = node.dataset.playerId ?? null;
-          const isLast = i === steps - 1;
-          tl.to(node, {
-            scale: isLast ? 1.28 : 1.16,
-            y: isLast ? -7 : -4,
-            rotation: isLast ? -3 : 0,
-            duration: isLast ? 0.18 : 0.07,
-            onStart: () => setActiveCandidateId(id),
-          }).to(node, {
-            scale: isLast ? 1.18 : 1,
-            y: isLast ? -4 : 0,
-            rotation: isLast ? -2 : 0,
-            duration: isLast ? 0.42 : 0.06,
-          });
-        }
-        tl.fromTo(
+      setRevealedTargetId(targetId);
+      gsap.set(root.querySelectorAll(".vr-candidate,.vr-card,.vr-ray,.vr-stamp,.vr-final-avatar"), {
+        autoAlpha: 1,
+        clearProps: "transform",
+      });
+      return;
+    }
+    const gctx = gsap.context(() => {
+      const nodes = gsap.utils.toArray<HTMLElement>(".vr-candidate", root);
+      const targetIndex = candidates.findIndex((p) => p.id === targetId);
+      if (nodes.length === 0 || targetIndex < 0) {
+        setActiveCandidateId(targetId);
+        setRevealedTargetId(targetId);
+        return;
+      }
+      const steps = nodes.length * 2 + targetIndex + 1;
+      const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
+      gsap.set(nodes, { scale: 1, y: 0, rotation: 0 });
+      gsap.set(".vr-card", { y: 10, rotation: -1.5, scale: 0.98 });
+      gsap.set(".vr-ray", { scaleX: 0, autoAlpha: 0 });
+      gsap.set(".vr-stamp", { autoAlpha: 0, scale: 0.82, rotation: -7 });
+      tl.to(".vr-card", { y: 0, rotation: -0.4, scale: 1, duration: 0.32 }).to(
+        ".vr-ray",
+        { scaleX: 1, autoAlpha: 1, stagger: 0.045, duration: 0.28 },
+        0.12,
+      );
+      for (let i = 0; i < steps; i++) {
+        const node = nodes[i % nodes.length];
+        const id = node.dataset.playerId ?? null;
+        const isLast = i === steps - 1;
+        tl.to(node, {
+          scale: isLast ? 1.28 : 1.16,
+          y: isLast ? -7 : -4,
+          rotation: isLast ? -3 : 0,
+          duration: isLast ? 0.18 : 0.07,
+          onStart: () => {
+            setActiveCandidateId(id);
+            if (isLast) setRevealedTargetId(id);
+          },
+        }).to(node, {
+          scale: isLast ? 1.18 : 1,
+          y: isLast ? -4 : 0,
+          rotation: isLast ? -2 : 0,
+          duration: isLast ? 0.42 : 0.06,
+        });
+      }
+      tl.call(() => {
+        setActiveCandidateId(targetId);
+        setRevealedTargetId(targetId);
+      })
+        .fromTo(
           ".vr-final-ring",
           { scale: 0.78, autoAlpha: 0 },
           { scale: 1, autoAlpha: 1, duration: 0.35, ease: "back.out(1.8)" },
           ">-0.18",
-        );
-      }, root);
-      return () => ctx.revert();
-    });
-    return () => mm.revert();
+        )
+        .to(".vr-stamp", { autoAlpha: 1, scale: 1, duration: 0.36, ease: "back.out(1.8)" }, "<")
+        .to(".vr-final-avatar", { scale: 1.06, duration: 0.18, yoyo: true, repeat: 1 }, "-=0.2");
+    }, root);
+    return () => gctx.revert();
   }, [visible, targetId, candidateIds, candidates]);
 
-  if (!visible) return null;
+  if (!visible || !target) return null;
 
   return (
     <div ref={rootRef} className="absolute inset-0 z-50 overflow-hidden">
@@ -1206,12 +1259,13 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
           className="bd-card"
           style={{
             position: "relative",
-            width: "min(82%, 272px)",
-            background: "linear-gradient(180deg,#f6eedd,#e8daba)",
-            borderRadius: 3,
-            padding: "26px 22px 24px",
-            transform: "rotate(-1.4deg)",
-            boxShadow: "0 24px 46px -18px rgba(0,0,0,.85)",
+            width: "min(92vw, 390px)",
+            background: "linear-gradient(180deg,#24100c,#150705)",
+            border: "1px solid #5b3226",
+            borderRadius: 28,
+            padding: 14,
+            transform: "none",
+            boxShadow: "0 24px 70px -48px rgba(0,0,0,.95)",
             zIndex: 8,
           }}
         >
@@ -1232,37 +1286,41 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
             — LE VERDICT DES URNES —
           </div>
 
-          {loading ? (
-            <p
-              style={{
-                fontFamily: "Caveat,cursive",
-                fontWeight: 700,
-                fontSize: 20,
-                color: "#4a3322",
-                textAlign: "center",
-                lineHeight: 1.2,
-                margin: "28px 4px",
-              }}
-            >
-              Le dépouillement s'achève…
-            </p>
-          ) : target ? (
+          <div
+            style={{
+              margin: "6px auto 14px",
+              width: "fit-content",
+              border: "1px solid #7a4637",
+              borderRadius: 4,
+              background: "#130806",
+              color: "#f1c35c",
+              fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
+              fontSize: 10,
+              letterSpacing: ".12em",
+              textTransform: "uppercase",
+              padding: "4px 9px",
+            }}
+          >
+            vote clos
+          </div>
+
+          {target ? (
             <>
               <div
                 style={{
-                  margin: "15px -8px 6px",
+                  margin: "10px -4px 14px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 6,
-                  minHeight: 46,
+                  gap: 5,
+                  minHeight: 54,
                 }}
               >
                 {candidates.map((p) => {
                   const meta = (p.role_meta ?? {}) as Record<string, unknown>;
                   const candidateAv = avatarOf(meta.avatar as string | undefined, p.id);
                   const active = activeCandidateId === p.id;
-                  const winner = targetId === p.id;
+                  const revealed = revealedTargetId === p.id;
                   return (
                     <div
                       key={p.id}
@@ -1270,27 +1328,27 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
                       className="vr-candidate"
                       style={{
                         position: "relative",
-                        width: 34,
-                        height: 39,
+                        width: 40,
+                        height: 48,
                         flex: "0 0 auto",
                         borderRadius: 4,
                         padding: 2,
-                        background: winner
+                        background: revealed
                           ? "#fff7dd"
                           : active
                             ? "#f6e4b6"
                             : "rgba(255,255,255,.42)",
                         border: `1.5px solid ${
-                          winner && active ? "#c2202f" : active ? "#a8772a" : "#d8c8a8"
+                          revealed ? "#c2202f" : active ? "#a8772a" : "#d8c8a8"
                         }`,
                         boxShadow: active
                           ? "0 8px 16px -8px rgba(0,0,0,.75)"
                           : "0 4px 10px -9px rgba(0,0,0,.65)",
-                        opacity: active || winner ? 1 : 0.68,
+                        opacity: active || revealed ? 1 : 0.68,
                       }}
                     >
                       <AvatarImg avatar={candidateAv} fill rounded="none" />
-                      {winner && active && (
+                      {revealed && (
                         <span
                           className="vr-final-ring"
                           aria-hidden
@@ -1310,57 +1368,133 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
               </div>
               <div style={{ margin: "16px 0 4px", display: "flex", justifyContent: "center" }}>
                 <div
+                  className="vr-card"
                   style={{
                     position: "relative",
-                    width: 96,
-                    background: "#fbfaf6",
-                    padding: "6px 6px 3px",
-                    transform: "rotate(-3deg)",
-                    boxShadow: "0 8px 16px -6px rgba(0,0,0,.6)",
+                    width: "100%",
+                    overflow: "hidden",
+                    background: "#efe3c7",
+                    border: "1px solid #cdb686",
+                    borderRadius: 2,
+                    padding: "24px 18px 22px",
+                    transform: "rotate(-.4deg)",
+                    boxShadow: "0 24px 60px -34px rgba(0,0,0,.9)",
                   }}
                 >
-                  <div style={{ position: "relative", width: 84, height: 90, overflow: "hidden" }}>
-                    <AvatarImg avatar={av} fill rounded="none" />
+                  <span
+                    className="vr-ray"
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 28,
+                      width: "100%",
+                      height: 1,
+                      transformOrigin: "left center",
+                      background: "rgba(194,32,47,.45)",
+                    }}
+                  />
+                  <span
+                    className="vr-ray"
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      bottom: 38,
+                      width: "100%",
+                      height: 1,
+                      transformOrigin: "left center",
+                      background: "rgba(154,123,82,.35)",
+                    }}
+                  />
+                  <div
+                    className="vr-final-avatar"
+                    style={{
+                      position: "relative",
+                      width: 92,
+                      height: 108,
+                      overflow: "visible",
+                      margin: "0 auto 12px",
+                      border: "1px solid #b99b61",
+                      borderRadius: 4,
+                      padding: 4,
+                      background: "#f7ecd2",
+                      boxShadow: "0 12px 22px -14px rgba(0,0,0,.9)",
+                    }}
+                  >
+                    {displayedAvatar ? (
+                      <AvatarImg avatar={displayedAvatar} fill rounded="none" />
+                    ) : (
+                      <div
+                        aria-hidden
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            "repeating-linear-gradient(135deg,#f1e2bd 0,#f1e2bd 10px,#f8edcf 10px,#f8edcf 20px)",
+                          opacity: 0.86,
+                        }}
+                      />
+                    )}
+                    <div
+                      className="vr-stamp"
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        bottom: 10,
+                        zIndex: 4,
+                        width: "max-content",
+                        fontFamily: "var(--font-display)",
+                        fontSize: 19,
+                        letterSpacing: ".06em",
+                        color: "#c2202f",
+                        border: "2.5px solid #c2202f",
+                        borderRadius: 5,
+                        padding: "6px 16px",
+                        textAlign: "center",
+                        transform: "translateX(-50%) rotate(-3.5deg)",
+                        background: "transparent",
+                        boxShadow: "none",
+                      }}
+                    >
+                      EMPRISONNÉ
+                    </div>
                   </div>
                   <div
                     style={{
                       textAlign: "center",
-                      fontFamily: "Caveat,cursive",
+                      fontFamily: "var(--font-display)",
                       fontWeight: 700,
-                      fontSize: 15,
-                      color: "#2b1d14",
+                      fontSize: 10,
+                      letterSpacing: ".24em",
+                      textTransform: "uppercase",
+                      color: "#9a7b52",
                       lineHeight: 1.1,
-                      marginTop: 2,
+                      marginTop: 0,
                     }}
                   >
-                    {target.pseudo}
+                    verdict des urnes
+                  </div>
+                  <div
+                    style={{
+                      textAlign: "center",
+                      fontWeight: 800,
+                      fontSize: 30,
+                      color: "#351c12",
+                      lineHeight: 1,
+                      marginTop: 9,
+                    }}
+                  >
+                    {displayedCandidate?.pseudo ?? "..."}
                   </div>
                 </div>
-              </div>
-              <div
-                className="bd-stamp"
-                style={{
-                  margin: "6px auto 0",
-                  width: "fit-content",
-                  fontFamily: "var(--font-display)",
-                  fontSize: 19,
-                  letterSpacing: ".06em",
-                  color: "#c2202f",
-                  border: "2.5px solid #c2202f",
-                  borderRadius: 5,
-                  padding: "6px 16px",
-                  transform: "rotate(-3.5deg)",
-                  background: "rgba(194,32,47,.06)",
-                }}
-              >
-                EMPRISONNÉ
               </div>
               <p
                 style={{
                   fontFamily: "Caveat,cursive",
                   fontWeight: 700,
                   fontSize: 17,
-                  color: "#4a3322",
+                  color: "#d7bd8a",
                   textAlign: "center",
                   lineHeight: 1.2,
                   margin: "13px 4px 0",
@@ -1371,51 +1505,12 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
                     Égalité tranchée au sort —<br />
                     le manoir a désigné.
                   </>
-                ) : hasCounts ? (
-                  <>
-                    <b>{votes}</b> voix l'envoient au trou.
-                  </>
                 ) : (
-                  <>La sentence est tombée.</>
+                  <>La decision est appliquee.</>
                 )}
               </p>
             </>
-          ) : (
-            <>
-              <div style={{ margin: "18px 0 2px", display: "flex", justifyContent: "center" }}>
-                <div
-                  className="bd-stamp"
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: 18,
-                    letterSpacing: ".06em",
-                    color: "#9a7b52",
-                    border: "2.5px solid #9a7b52",
-                    borderRadius: 5,
-                    padding: "6px 15px",
-                    transform: "rotate(-3deg)",
-                  }}
-                >
-                  AUCUN VERDICT
-                </div>
-              </div>
-              <p
-                style={{
-                  fontFamily: "Caveat,cursive",
-                  fontWeight: 700,
-                  fontSize: 18,
-                  color: "#4a3322",
-                  textAlign: "center",
-                  lineHeight: 1.2,
-                  margin: "16px 4px 0",
-                }}
-              >
-                Personne ne part en prison
-                <br />
-                ce tour-ci.
-              </p>
-            </>
-          )}
+          ) : null}
 
           <div
             style={{
@@ -1426,18 +1521,18 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
               gap: 9,
             }}
           >
-            <span style={{ height: 1, width: 30, background: "#cbb78f" }} />
+            <span style={{ height: 1, width: 30, background: "#5b3226" }} />
             <span
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: 9,
                 letterSpacing: ".22em",
-                color: "#9a7b52",
+                color: "#d7bd8a",
               }}
             >
-              TOUR {votedTour}
+              TOUR {game.current_tour}
             </span>
-            <span style={{ height: 1, width: 30, background: "#cbb78f" }} />
+            <span style={{ height: 1, width: 30, background: "#5b3226" }} />
           </div>
 
           <span

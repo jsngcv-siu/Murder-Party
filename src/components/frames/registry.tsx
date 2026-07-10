@@ -19,4 +19,12 @@ export type FrameContext = {
   /** Sandbox /dev uniquement : force le camp gagnant de la frame de fin (E1)
    *  sans dépendre de la base. Ignoré en partie réelle. */
   devWinner?: string;
+  /** Sandbox /dev uniquement : verdict de vote injecté pour prévisualiser
+   *  l'écran de résultat sans notification Supabase réelle. */
+  devVoteVerdict?: {
+    target_id: string | null;
+    tour?: number;
+    tied?: boolean;
+    counts?: Record<string, number>;
+  };
 };

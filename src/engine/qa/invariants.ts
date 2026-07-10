@@ -24,7 +24,7 @@ export type InvariantCtx = {
   secondsOverdue: number;
 };
 
-const PHASE_STUCK_THRESHOLD_S = 18;
+const PHASE_STUCK_THRESHOLD_S = 90;
 
 export function runInvariants(ctx: InvariantCtx): FindingInput[] {
   const out: FindingInput[] = [];

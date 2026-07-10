@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as FxLabRouteImport } from './routes/fx-lab'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as DemoRouteImport } from './routes/demo'
+import { Route as AnnonceLabRouteImport } from './routes/annonce-lab'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 
@@ -30,6 +31,11 @@ const DemoRoute = DemoRouteImport.update({
   path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnnonceLabRoute = AnnonceLabRouteImport.update({
+  id: '/annonce-lab',
+  path: '/annonce-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const GCodeRoute = GCodeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/fx-lab': typeof FxLabRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/fx-lab': typeof FxLabRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/fx-lab': typeof FxLabRoute
@@ -65,14 +74,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
+  fullPaths: '/' | '/annonce-lab' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
-  id: '__root__' | '/' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
+  to: '/' | '/annonce-lab' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/annonce-lab'
+    | '/demo'
+    | '/dev'
+    | '/fx-lab'
+    | '/g/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnnonceLabRoute: typeof AnnonceLabRoute
   DemoRoute: typeof DemoRoute
   DevRoute: typeof DevRoute
   FxLabRoute: typeof FxLabRoute
@@ -102,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/annonce-lab': {
+      id: '/annonce-lab'
+      path: '/annonce-lab'
+      fullPath: '/annonce-lab'
+      preLoaderRoute: typeof AnnonceLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -121,6 +145,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnnonceLabRoute: AnnonceLabRoute,
   DemoRoute: DemoRoute,
   DevRoute: DevRoute,
   FxLabRoute: FxLabRoute,

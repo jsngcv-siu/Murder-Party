@@ -1117,20 +1117,20 @@ async function applySetupEffects(gameId: string) {
   }
 }
 
-export async function setPhase(gameId: string, phase: Phase) {
+export async function setPhase(gameId: string, phase: Phase, phaseStartedAt = serverNowISO()) {
   const dur = await phaseDurationFor(gameId, phase);
   await supabase
     .from("games")
     .update({
       current_phase: phase,
-      phase_started_at: serverNowISO(),
+      phase_started_at: phaseStartedAt,
       phase_duration_s: dur,
     })
     .eq("id", gameId);
   emit("phase_change", `Phase → ${phase}`, { gameId, phase });
 }
 
-export async function nextCycle(gameId: string) {
+export async function nextCycle(gameId: string, phaseStartedAt = serverNowISO()) {
   // Resolve pending effects first (poisons, expirations)
   await resolveCycleTransition(gameId);
   const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
@@ -1141,7 +1141,7 @@ export async function nextCycle(gameId: string) {
     .update({
       current_tour: tour,
       current_phase: "free",
-      phase_started_at: serverNowISO(),
+      phase_started_at: phaseStartedAt,
       phase_duration_s: freeDur,
     })
     .eq("id", gameId);
@@ -1159,6 +1159,7 @@ export async function nextCycle(gameId: string) {
 // transition tourne à la fois pour une partie donnée (un seul onglet pilote).
 const TICK_LOCK_TTL_MS = 30_000;
 const _tickInFlight = new Map<string, number>();
+const MAX_TICK_TRANSITIONS = 6;
 
 export async function tickPhase(gameId: string): Promise<void> {
   const now = Date.now();
@@ -1166,40 +1167,54 @@ export async function tickPhase(gameId: string): Promise<void> {
   if (lockedAt && now - lockedAt < TICK_LOCK_TTL_MS) return;
   _tickInFlight.set(gameId, now);
   try {
-    const { data: g } = await supabase
-      .from("games")
-      .select("current_phase, phase_started_at, phase_duration_s, status, paused")
-      .eq("id", gameId)
-      .single();
-    const game = g as {
-      current_phase: Phase;
-      phase_started_at: string | null;
-      phase_duration_s: number | null;
-      status: string;
-      paused?: boolean;
-    } | null;
-    if (!game || game.status === "ended") return;
-    if (game.paused) return;
-    if (!game.phase_started_at || !game.phase_duration_s) return;
-    const started = new Date(game.phase_started_at).getTime();
-    // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
-    // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
-    const elapsed = (serverNow() - started) / 1000 - INTRO_S;
-    if (elapsed < game.phase_duration_s) return;
-    if (game.current_phase === "free") {
-      await ringGathering(gameId, "Auto");
-    } else if (game.current_phase === "annonce") {
-      await openGathering(gameId);
-    } else if (game.current_phase === "gathering") {
-      await openVote(gameId);
-    } else if (game.current_phase === "vote") {
-      // Fin de la fenêtre de vote → on clôt (verdict + emprisonnement, idempotent)
-      // et on laisse l'écran de résultat s'afficher pendant VOTE_RESULT_S AVANT de
-      // passer au tour suivant. Le verdict est donc montré à la FIN du vote, plus
-      // au début de l'Enquête suivante.
-      await closeVote(gameId);
-      if (elapsed < game.phase_duration_s + VOTE_RESULT_S) return;
-      await nextCycle(gameId);
+    for (let transitionCount = 0; transitionCount < MAX_TICK_TRANSITIONS; transitionCount++) {
+      const { data: g } = await supabase
+        .from("games")
+        .select("current_phase, phase_started_at, phase_duration_s, status, paused")
+        .eq("id", gameId)
+        .single();
+      const game = g as {
+        current_phase: Phase;
+        phase_started_at: string | null;
+        phase_duration_s: number | null;
+        status: string;
+        paused?: boolean;
+      } | null;
+      if (!game || game.status === "ended") return;
+      if (game.paused) return;
+      if (!game.phase_started_at || !game.phase_duration_s) return;
+      const started = new Date(game.phase_started_at).getTime();
+      // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
+      // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
+      const elapsed = (serverNow() - started) / 1000 - INTRO_S;
+      if (elapsed < game.phase_duration_s) return;
+
+      const nextPhaseStartedAt = new Date(
+        started + (INTRO_S + game.phase_duration_s) * 1000,
+      ).toISOString();
+
+      if (game.current_phase === "free") {
+        await ringGathering(gameId, "Auto", nextPhaseStartedAt);
+      } else if (game.current_phase === "annonce") {
+        await openGathering(gameId, nextPhaseStartedAt);
+      } else if (game.current_phase === "gathering") {
+        await openVote(gameId, nextPhaseStartedAt);
+      } else if (game.current_phase === "vote") {
+        // Fin de la fenêtre de vote → on clôt (verdict + emprisonnement, idempotent)
+        // et on laisse l'écran de résultat s'afficher pendant VOTE_RESULT_S AVANT de
+        // passer au tour suivant. Le verdict est donc montré à la FIN du vote, plus
+        // au début de l'Enquête suivante.
+        await closeVote(gameId);
+        if (elapsed < game.phase_duration_s + VOTE_RESULT_S) return;
+        await nextCycle(
+          gameId,
+          new Date(
+            started + (INTRO_S + game.phase_duration_s + VOTE_RESULT_S) * 1000,
+          ).toISOString(),
+        );
+      } else {
+        return;
+      }
     }
   } finally {
     _tickInFlight.delete(gameId);
@@ -1557,7 +1572,11 @@ async function autoPickUsurpateur(gameId: string, tour: number): Promise<void> {
 }
 
 // ─────────────── Gathering ───────────────
-export async function ringGathering(gameId: string, reason = "MJ"): Promise<string> {
+export async function ringGathering(
+  gameId: string,
+  reason = "MJ",
+  phaseStartedAt?: string,
+): Promise<string> {
   const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
   const tour = (g as { current_tour: number } | null)?.current_tour ?? 1;
   // Auto-pick (uniquement à la 1ère Enquête pour les rôles "SETUP") :
@@ -1575,7 +1594,7 @@ export async function ringGathering(gameId: string, reason = "MJ"): Promise<stri
   if (error) throw error;
   // Boucle : fin d'Enquête → phase ANNONCE (dénouement du resolver).
   // Le Débat s'ouvre ensuite via openGathering().
-  await setPhase(gameId, "annonce");
+  await setPhase(gameId, "annonce", phaseStartedAt);
 
   // Resolver v2 : applique d'abord les intentions catégorisées (PROTECT → ATTACK → CASCADE)
   // en couches déterministes. Ignore les lignes legacy (category=NULL).
@@ -1682,14 +1701,14 @@ async function deliverStrategeMarks(gameId: string, tour: number): Promise<void>
  * Annonce → Débat (clé moteur `gathering`). Le dénouement (resolver) a déjà été
  * appliqué à l'entrée de la phase Annonce ; ici on ne fait qu'ouvrir le débat.
  */
-export async function openGathering(gameId: string): Promise<void> {
-  await setPhase(gameId, "gathering");
+export async function openGathering(gameId: string, phaseStartedAt?: string): Promise<void> {
+  await setPhase(gameId, "gathering", phaseStartedAt);
   emit("gather_open", "🔔 Débat ouvert", { gameId });
 }
 
 // ─────────────── Vote ───────────────
-export async function openVote(gameId: string) {
-  await setPhase(gameId, "vote");
+export async function openVote(gameId: string, phaseStartedAt?: string) {
+  await setPhase(gameId, "vote", phaseStartedAt);
   emit("vote_open", "🗳️ Vote ouvert");
 }
 

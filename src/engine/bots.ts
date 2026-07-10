@@ -12,7 +12,7 @@ import {
 } from "./actions";
 import { BOT_TICK_BASE_MS } from "./constants";
 import { readInventory, itemIsUsable, itemNeedsTarget, consumeItem } from "./items";
-import { probeCapability } from "./qa/probes";
+import { probeCapability, probeItemUse } from "./qa/probes";
 import { maybeBotChat } from "./qa/chat";
 
 export type Aggression = "passive" | "normal" | "aggressive";
@@ -218,11 +218,13 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
       if (game.current_phase === "free") {
         await maybeUseItem({
           gameId,
+          gameCode: (game as { code?: string }).code ?? null,
           bot,
           alive,
           rolesBySlug,
           tour: game.current_tour,
           aggressionW: w,
+          qa: cfg.qa === true,
         });
       }
     }
@@ -413,13 +415,15 @@ function pickRandom<T>(arr: T[]): T {
  */
 async function maybeUseItem(opts: {
   gameId: string;
+  gameCode?: string | null;
   bot: PlayerRow;
   alive: PlayerRow[];
   rolesBySlug: Map<string, RoleRow>;
   tour: number;
   aggressionW: number;
+  qa?: boolean;
 }): Promise<void> {
-  const { gameId, bot, alive, rolesBySlug, tour, aggressionW } = opts;
+  const { gameId, gameCode, bot, alive, rolesBySlug, tour, aggressionW, qa } = opts;
   const botMeta = (bot.role_meta ?? {}) as Record<string, unknown>;
   // 1 objet/tour : si déjà servi ce tour, inutile d'essayer.
   if ((botMeta.last_item_use_cycle as number | undefined) === tour) return;
@@ -461,18 +465,33 @@ async function maybeUseItem(opts: {
   if (needsTarget && !target) return;
 
   try {
-    const res = await consumeItem({
-      gameId,
-      actorId: bot.id,
-      actorPseudo: bot.pseudo,
-      item,
-      target: target ? { id: target.id, pseudo: target.pseudo, role_slug: target.role_slug } : null,
-      tour,
-      rolesBySlug: rolesBySlug as unknown as Map<
-        string,
-        { slug: string; name_fr: string; icon: string; faction: string }
-      >,
-    });
+    const runItem = () =>
+      consumeItem({
+        gameId,
+        actorId: bot.id,
+        actorPseudo: bot.pseudo,
+        item,
+        target: target
+          ? { id: target.id, pseudo: target.pseudo, role_slug: target.role_slug }
+          : null,
+        tour,
+        rolesBySlug: rolesBySlug as unknown as Map<
+          string,
+          { slug: string; name_fr: string; icon: string; faction: string }
+        >,
+      });
+    const res = qa
+      ? await probeItemUse({
+          gameId,
+          gameCode,
+          bot,
+          item,
+          target,
+          phase: "free",
+          tour,
+          run: runItem,
+        })
+      : await runItem();
     if (res.ok) setBotAction(bot.id, `${item.icon} → ${target?.pseudo ?? "—"}`);
   } catch (e) {
     console.error("[bot item]", item.slug, e);
