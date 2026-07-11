@@ -99,6 +99,10 @@
   --paper: oklch(0.93 0.02 85);
   --paper-ink: oklch(0.28 0.02 45);
   --paper-ink-soft: oklch(0.5 0.02 50);
+  /* Rouge de l'épingle du dossier (feuille papier) — motif d'affordance partagé
+     par `.pin::before` ET la flèche de navigation du slider de rôle. */
+  --pin-red-hi: oklch(0.78 0.16 18);
+  --pin-red-lo: oklch(0.5 0.2 18);
 
   /* ── Action = ficelle rouge · accent = or détective ── */
   --primary: oklch(0.55 0.22 18); /* ficelle rouge / CTA principal */
@@ -113,6 +117,10 @@
 
   --accent: oklch(0.8 0.15 78); /* or détective (highlights, actif) */
   --accent-foreground: oklch(0.2 0.03 40);
+  /* Or plein (token couleur, distinct de --gradient-gold) : provenance « Le
+   * Manoir », sceaux, liserés. Était référencé (factionToken, annonce-lab) sans
+   * être défini → couleur cassée. */
+  --gold: oklch(0.8 0.15 78);
 
   --destructive: oklch(0.55 0.22 18); /* danger = même rouge que la ficelle */
   --destructive-foreground: oklch(0.98 0.01 90);
@@ -556,7 +564,7 @@
     height: 12px;
     border-radius: 50%;
     transform: translateX(-50%);
-    background: radial-gradient(circle at 35% 30%, oklch(0.78 0.16 18), oklch(0.5 0.2 18));
+    background: radial-gradient(circle at 35% 30%, var(--pin-red-hi), var(--pin-red-lo));
     box-shadow: var(--shadow-pin);
   }
 

@@ -120,7 +120,9 @@ const ROLES = [
   { slug: "vengeur", faction: "Civil", type: "TUEUR", dw: 1.0, min: 7, avenger: true },
   { slug: "executeur", faction: "Civil", type: "TUEUR", dw: 1.0, min: 8, executioner: true },
   { slug: "cuisinier", faction: "Civil", type: "TUEUR", dw: 1.0, min: 7, vigilante: true },
-  { slug: "guetteur", faction: "Civil", type: "BOULET", dw: 1.0, min: 7 },
+  // Investigation indirecte : elle dépend des actions réellement dirigées vers la cible.
+  // Le modèle lui attribue donc une fiabilité plus basse qu'un verdict direct.
+  { slug: "guetteur", faction: "Civil", type: "INVESTIGATION", dw: 1.0, min: 7, invest: 0.35 },
   // — NEUTRES —
   { slug: "oracle", faction: "Neutre", type: "BÉNIN", dw: 0.7, min: 8 },
   { slug: "entremetteur", faction: "Neutre", type: "CHAOS", dw: 1.0, min: 7, matchmaker: true },

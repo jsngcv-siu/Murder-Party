@@ -16,6 +16,8 @@ import { describeWinCondition } from "@/engine/winCondText";
 import { ChatPanel } from "@/components/ChatPanel";
 import { colorize } from "@/lib/factionText";
 import { highlightCapacity } from "@/lib/highlightCapacity";
+import { RoleDossierSlider } from "@/components/RoleDossierSlider";
+import { extraInfoFor, type RoleInfoPage } from "@/lib/roleExtraInfo";
 import { RoleIcon } from "@/components/RoleIcon";
 import { AvatarImg } from "@/components/AvatarImg";
 import { ITEM_CATALOG, RELIQUE_CATALOG, type ItemOrigin } from "@/engine/items";
@@ -25,8 +27,8 @@ import {
   Axe,
   Ban,
   Bird,
-  Check,
   ChefHat,
+  ChevronDown,
   CircleCheck,
   CircleHelp,
   Crown,
@@ -43,14 +45,11 @@ import {
   KeyRound,
   Lock,
   LockOpen,
-  MessageCircle,
-  Moon,
   Network,
   NotebookPen,
   Orbit,
   Radar,
   Scale,
-  ScrollText,
   Search,
   Shield,
   ShieldCheck,
@@ -65,7 +64,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Sigil } from "@/components/Sigil";
+import {
+  ChatIcon,
+  HistoriqueIcon,
+  RoleIcon as RoleTabIcon,
+  VictoireIcon,
+} from "@/components/icons/tabIcons";
 import { frequencyChips } from "@/lib/roleUsageChips";
+import { roleTypeMeta } from "@/lib/roleTypeMeta";
 
 // Couleur DA (token de faction / accent) par ton de panneau de rôle. Source UNIQUE
 // consommée par PanelCard pour la bordure, le fond, le label ET le glyphe Sigil —
@@ -325,65 +331,146 @@ export function ResultBlock({
   );
 }
 
-// ───────── État de l'action (carte claire sous le rôle)
-// Traduit le motif de whyCannotUse() en statut lisible + un indice de TIMING dans
-// la boucle (Enquête → Annonce). Copie non-genrée.
-// État de la capacité pour la pastille « TON ACTION ». Un mot court + une
-// couleur d'accent (sourde) + une phrase d'explication. `color` sert le point
-// et le mot d'état ; le reste du texte reste discret.
-function capabilityState(
-  blockedReason: string | null,
-  mode: string,
-): { label: string; Icon: LucideIcon; color: string; hint: string } | null {
-  if (mode === "none")
-    return {
-      label: "Passive",
-      Icon: Moon,
-      color: "var(--muted-foreground)",
-      hint: "Automatique — rien à faire de ta part.",
-    };
-  if (!blockedReason)
-    return {
-      label: "Disponible",
-      Icon: Zap,
-      color: "oklch(0.78 0.13 80)",
-      hint: "C'est le moment d'agir — le dénouement est révélé à l'Annonce.",
-    };
-  if (/^Déjà utilisé/i.test(blockedReason))
-    return {
-      label: "Faite",
-      Icon: Check,
-      color: "oklch(0.7 0.13 158)",
-      hint: "C'est joué — rendez-vous à l'Annonce.",
-    };
-  if (/setup|verrouill/i.test(blockedReason))
-    return {
-      label: "Verrouillé",
-      Icon: Lock,
-      color: "oklch(0.66 0.1 305)",
-      hint: "Scellé au setup — rien à activer ce tour.",
-    };
-  if (/épuisée/i.test(blockedReason))
-    return {
-      label: "Épuisée",
-      Icon: Ban,
-      color: "var(--muted-foreground)",
-      hint: "Plus aucune utilisation disponible.",
-    };
-  if (/cooldown/i.test(blockedReason))
-    return {
-      label: "En attente",
-      Icon: Hourglass,
-      color: "oklch(0.74 0.11 72)",
-      hint: "Pas encore utilisable — bientôt de nouveau prête.",
-    };
-  // Autres motifs (mauvaise phase, condition non remplie…).
-  return {
-    label: "Indisponible",
-    Icon: Hourglass,
-    color: "oklch(0.74 0.11 72)",
-    hint: blockedReason,
-  };
+// ── Fiche rôle : tampon de type + compteur de charges (DA validée FX lab) ──
+// Code couleur des charges : vert = utilisable maintenant, orange = dispo mais
+// pas actionnable là, creux = déjà utilisée / épuisée.
+const CHARGE_GREEN = "var(--success)";
+const CHARGE_ORANGE = "oklch(0.72 0.17 55)";
+const CHARGE_BEIGE = "oklch(0.79 0.045 78)";
+
+function chargeState(blockedReason: string | null, mode: string): "green" | "orange" | "used" {
+  if (mode === "none") return "green"; // passif : pas de pastilles (freqs vide)
+  if (!blockedReason) return "green";
+  if (/^Déjà utilisé/i.test(blockedReason) || /épuisée/i.test(blockedReason)) return "used";
+  return "orange";
+}
+
+// Tampon de type (remplace l'ancien tag de faction : la couleur du nom + de
+// l'anneau de l'avatar dit déjà la faction).
+function TypeStamp({ type }: { type: string | null | undefined }) {
+  const m = roleTypeMeta(type);
+  return (
+    <span
+      className="inline-flex -rotate-2 items-center rounded-[3px] border px-2 py-0.5 font-display text-[11px] uppercase tracking-[0.14em]"
+      style={{
+        color: `color-mix(in oklab, ${m.color} 68%, black)`,
+        borderColor: `color-mix(in oklab, ${m.color} 55%, transparent)`,
+        background: `color-mix(in oklab, ${m.color} 10%, transparent)`,
+      }}
+    >
+      {m.label}
+    </span>
+  );
+}
+
+// Compteur de charges encadré (beige), avec pastilles vert/orange/creux.
+// Exporté : réutilisé sur l'écran de révélation (O5Reveal).
+export function CapacityChargeChip({
+  label,
+  state,
+}: {
+  label: string;
+  state: "green" | "orange" | "used";
+}) {
+  const m = label.match(/^(\d+)\s*×/);
+  if (!m) {
+    // Passif : trait toujours actif (Permanent/Passive) → même cadre que les
+    // autres chips, avec une pastille verte pleine (= toujours active).
+    if (/passif|permanent|passive/i.test(label)) {
+      const passiveLabel = /permanent/i.test(label) ? "Permanent" : "Passif";
+      return (
+        <span
+          className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1"
+          style={{
+            borderColor: CHARGE_BEIGE,
+            background: `color-mix(in oklab, ${CHARGE_BEIGE} 14%, transparent)`,
+          }}
+        >
+          <span
+            className="size-2.5 rounded-full"
+            style={{
+              background: CHARGE_GREEN,
+              boxShadow: `0 0 0 1px color-mix(in oklab, ${CHARGE_GREEN} 40%, transparent)`,
+            }}
+          />
+          <span className="font-mono text-[10px]" style={{ color: "var(--paper-ink)" }}>
+            {passiveLabel}
+          </span>
+        </span>
+      );
+    }
+    // Setup : reçoit objet(s) ou info au départ → 1 pastille verte + « Setup »
+    // (on ne compte pas les objets, ex. les 3 fioles de l'Apothicaire).
+    if (/setup/i.test(label)) {
+      return (
+        <span
+          className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1"
+          style={{
+            borderColor: CHARGE_BEIGE,
+            background: `color-mix(in oklab, ${CHARGE_BEIGE} 14%, transparent)`,
+          }}
+        >
+          <span
+            className="size-2.5 rounded-full"
+            style={{
+              background: CHARGE_GREEN,
+              boxShadow: `0 0 0 1px color-mix(in oklab, ${CHARGE_GREEN} 40%, transparent)`,
+            }}
+          />
+          <span className="font-mono text-[10px]" style={{ color: "var(--paper-ink)" }}>
+            Setup
+          </span>
+        </span>
+      );
+    }
+    // Autre libellé non-cadencé → affiché tel quel, discret.
+    return (
+      <span
+        className="font-mono text-[10px] uppercase tracking-wide"
+        style={{ color: "var(--paper-ink-soft)" }}
+      >
+        {label}
+      </span>
+    );
+  }
+  const total = Math.max(1, Math.min(6, Number(m[1])));
+  const color = state === "green" ? CHARGE_GREEN : CHARGE_ORANGE;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1"
+      style={{
+        borderColor: CHARGE_BEIGE,
+        background: `color-mix(in oklab, ${CHARGE_BEIGE} 14%, transparent)`,
+      }}
+    >
+      <span className="flex items-center gap-1">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            className="size-2.5 rounded-full"
+            style={
+              state === "used"
+                ? {
+                    border: "1px solid color-mix(in oklab, var(--paper-ink) 30%, transparent)",
+                    opacity: 0.5,
+                    transform: "scale(0.85)",
+                  }
+                : {
+                    background: color,
+                    boxShadow: `0 0 0 1px color-mix(in oklab, ${color} 40%, transparent)`,
+                  }
+            }
+          />
+        ))}
+      </span>
+      <span
+        className="font-mono text-[10px]"
+        style={{ color: state === "used" ? "var(--paper-ink-soft)" : "var(--paper-ink)" }}
+      >
+        {label}
+      </span>
+    </span>
+  );
 }
 
 // Déduit un ton FIABLE à partir des données (CapabilityResult.ok + type de rôle),
@@ -475,6 +562,37 @@ function PanelCard({
   );
 }
 
+// ── Feuille « infos supplémentaires » du dossier (page slidée) ──
+// Mise en page sobre, pensée pour la lisibilité : eyebrow + liste de notes
+// (label court + phrase). Un fin trait d'accent (couleur de faction) borde
+// chaque note. Le corps passe par highlightCapacity pour colorer les notions.
+function RoleSubtletyPage({ page, accent }: { page: RoleInfoPage; accent: string }) {
+  return (
+    <div className="px-8 pb-4 pt-5">
+      <div className="mb-3 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
+        {page.title}
+      </div>
+      <ul className="space-y-3">
+        {page.notes.map((n, i) => (
+          <li key={i} className="relative pl-3">
+            <span
+              aria-hidden
+              className="absolute bottom-1 left-0 top-1 w-[2px] rounded-full"
+              style={{ background: `color-mix(in oklab, ${accent} 60%, var(--paper-ink))` }}
+            />
+            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[color:var(--paper-ink-soft)]">
+              {n.tag}
+            </div>
+            <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--paper-ink)]">
+              {highlightCapacity(n.body, "paper")}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PA2Capability(ctx: FrameContext) {
   const { me, myRole, game, players, roles, gameId } = ctx;
   const isMechant = myRole?.faction === "Méchant";
@@ -492,28 +610,28 @@ export function PA2Capability(ctx: FrameContext) {
         <TabBtn
           active={tab === "role"}
           onClick={() => setTab("role")}
-          icon={<Drama className="size-5" />}
+          icon={<RoleTabIcon className="size-6" />}
           label="Rôle"
           accent="oklch(0.74 0.15 300)"
         />
         <TabBtn
           active={tab === "history"}
           onClick={() => setTab("history")}
-          icon={<ScrollText className="size-5" />}
+          icon={<HistoriqueIcon className="size-6" />}
           label="Historique"
           accent="var(--citoyens)"
         />
         <TabBtn
           active={tab === "win"}
           onClick={() => setTab("win")}
-          icon={<Trophy className="size-5" />}
+          icon={<VictoireIcon className="size-6" />}
           label="Victoire"
           accent="var(--primary)"
         />
         <TabBtn
           active={tab === "chat"}
           onClick={() => chatAvailable && setTab("chat")}
-          icon={<MessageCircle className="size-5" />}
+          icon={<ChatIcon className="size-6" />}
           label="Chat"
           accent="var(--vampires)"
           disabled={!chatAvailable}
@@ -622,7 +740,15 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
   const [result, setResult] = useState<CapabilityResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [capOpen, setCapOpen] = useState(false);
+  const capRef = useRef<HTMLParagraphElement>(null);
+  const [capMore, setCapMore] = useState(false);
   const [fiole, setFiole] = useState<"heal" | "poison" | "reveal">("heal");
+
+  // Le texte de capacité déborde-t-il (clampé à 3 lignes) ? → indicateur « voir plus ».
+  useEffect(() => {
+    const el = capRef.current;
+    setCapMore(!!el && el.scrollHeight - el.clientHeight > 2);
+  }, [myRole?.capacite_full_text, capOpen]);
 
   const mode = (myRole?.target_mode ?? "single") as
     | "none"
@@ -836,112 +962,116 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         const orig = (meMeta as Record<string, unknown>).original_slug as string | undefined;
         const origRole = orig ? roles.get(orig) : null;
         const freqs = frequencyChips(myRole);
-        return (
-          // Feuille épinglée : la punaise (.pin) suffit — pas de scotch en plus.
-          <div className="role-zone paper pin mt-1 px-4 pb-4 pt-5">
+        const extra = extraInfoFor(myRole?.slug);
+        // `cleanCapacity` sort les subtilités du texte de capacité quand celui-ci
+        // les entassait en vrac (Assistant, Policier). Sinon, texte de la base.
+        const capacityText = extra?.cleanCapacity ?? myRole?.capacite_full_text ?? null;
+
+        // Page 1 de la feuille : identité + capacité (contenu inchangé).
+        const frontPage = (
+          <div className="px-8 pb-4 pt-5">
             <div className="mb-2 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
               Dossier — ton rôle
             </div>
-            <div className="flex items-center gap-3.5">
+            {/* Nom du rôle sur toute une ligne, aligné sous l'eyebrow. */}
+            <h2
+              className="text-xl font-bold leading-tight"
+              style={{
+                fontFamily: "var(--font-display)",
+                // Couleur de faction, assombrie pour rester lisible sur le papier.
+                color: `color-mix(in oklab, ${factionColor} 72%, black)`,
+              }}
+            >
+              {myRole?.name_fr ?? "—"}
+            </h2>
+            {/* Rangée identité : avatar cerclé + tampon de type + charges. */}
+            <div className="mt-2.5 flex items-center gap-3">
               <div
                 className="relative shrink-0 rounded-full"
                 style={{
                   boxShadow: `0 0 0 1.5px color-mix(in oklab, ${factionColor} 55%, transparent), 0 0 18px -6px ${factionColor}`,
                 }}
               >
-                <RoleIcon role={myRole} size={52} />
+                <RoleIcon role={myRole} size={48} />
               </div>
-              <div className="flex-1 min-w-0">
-                <h2
-                  className="text-xl font-bold leading-tight"
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    // Couleur de faction, assombrie pour rester lisible sur le papier.
-                    color: `color-mix(in oklab, ${factionColor} 72%, black)`,
-                  }}
-                >
-                  {myRole?.name_fr ?? "—"}
-                </h2>
-                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                  {myRole && (
-                    <span
-                      className="text-[9px] uppercase tracking-[0.12em] font-semibold px-2 py-0.5 rounded-md border"
-                      style={{
-                        color: factionColor,
-                        borderColor: `color-mix(in oklab, ${factionColor} 45%, transparent)`,
-                        background: `color-mix(in oklab, ${factionColor} 16%, transparent)`,
-                      }}
-                    >
-                      {f}
-                    </span>
-                  )}
-                  {freqs.map((f, i) => (
-                    <span
-                      key={i}
-                      className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border"
-                      style={{
-                        color: "var(--paper-ink)",
-                        background: "oklch(0.82 0.13 84 / 0.35)",
-                        borderColor: "oklch(0.62 0.1 70 / 0.5)",
-                      }}
-                    >
-                      {f}
-                    </span>
-                  ))}
-                  {origRole && (
-                    <span className="text-[10px] font-normal text-[color:var(--paper-ink-soft)]">
-                      ex {origRole.name_fr}
-                    </span>
-                  )}
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {myRole && <TypeStamp type={myRole.type} />}
+                {freqs.map((lbl, i) => (
+                  <CapacityChargeChip key={i} label={lbl} state={chargeState(blockedReason, mode)} />
+                ))}
+                {origRole && (
+                  <span className="text-[10px] font-normal text-[color:var(--paper-ink-soft)]">
+                    ex {origRole.name_fr}
+                  </span>
+                )}
               </div>
             </div>
-            {myRole?.capacite_full_text && (
-              <p
-                onClick={() => setCapOpen((v) => !v)}
-                title={capOpen ? "Réduire" : "Voir toute la capacité"}
-                className={`mt-3 text-xs leading-relaxed cursor-pointer text-[color:var(--paper-ink)] ${capOpen ? "" : "line-clamp-3"}`}
-              >
-                {highlightCapacity(myRole.capacite_full_text, "paper")}
-              </p>
+            {capacityText && (
+              <div className="relative mt-3">
+                <p
+                  ref={capRef}
+                  onClick={() => setCapOpen((v) => !v)}
+                  title={capOpen ? "Réduire" : "Voir toute la capacité"}
+                  className={`text-xs leading-relaxed cursor-pointer text-[color:var(--paper-ink)] ${capOpen ? "" : "line-clamp-3"}`}
+                >
+                  {highlightCapacity(capacityText, "paper")}
+                </p>
+                {!capOpen && capMore && (
+                  <button
+                    type="button"
+                    onClick={() => setCapOpen(true)}
+                    aria-label="Voir toute la capacité"
+                    className="absolute inset-x-0 bottom-0 flex items-end justify-center pt-7"
+                    style={{ background: "linear-gradient(to bottom, transparent, var(--paper) 72%)" }}
+                  >
+                    <span className="inline-flex animate-pulse items-center gap-1 font-display text-[9px] uppercase tracking-[0.14em] text-[color:var(--paper-ink-soft)]">
+                      Voir plus
+                      <ChevronDown className="size-3" />
+                    </span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         );
-      })()}
 
-      {/* Statut + timing dans la boucle (Enquête → Annonce) */}
-      {(() => {
-        if (!myRole) return null;
-        const st = capabilityState(blockedReason, mode);
-        if (!st) return null;
+        // Pages suivantes : subtilités du rôle (révélées en slidant).
+        const subtletyPages =
+          extra?.pages.map((pg, i) => (
+            <RoleSubtletyPage key={i} page={pg} accent={factionColor} />
+          )) ?? [];
+
         return (
-          <div className="mt-4 flex flex-col gap-1.5">
-            <span
-              className="inline-flex w-fit items-center gap-2 rounded-lg border px-2.5 py-1.5"
-              style={{ background: "var(--panel)", borderColor: "var(--panel-border)" }}
-            >
-              <span
-                className="size-1.5 shrink-0 rounded-full"
-                style={{ background: st.color, boxShadow: `0 0 6px 0 ${st.color}` }}
-              />
-              <span className="font-display text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                Ton action ·{" "}
-                <span className="font-bold" style={{ color: st.color }}>
-                  {st.label}
-                </span>
-              </span>
-            </span>
-            {st.hint && (
-              <p className="px-0.5 text-[11px] leading-snug text-muted-foreground/80">{st.hint}</p>
-            )}
+          // Feuille épinglée : la punaise (.pin) suffit — pas de scotch en plus.
+          <div className="role-zone paper pin mt-1 pb-2">
+            <RoleDossierSlider pages={[frontPage, ...subtletyPages]} />
           </div>
         );
       })()}
 
       {isMechantTeam && (
-        <div className="mt-2 rounded-lg border border-destructive/45 bg-panel p-2 text-xs space-y-1">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-            Liste de tes alliés
+        // Panneau réservé aux Méchants : identité rouge assumée (dégradé + halo
+        // destructif + sigle d'épées) pour le distinguer nettement du reste.
+        <div
+          className="relative mt-3 space-y-1.5 overflow-hidden rounded-xl border p-3 text-xs"
+          style={{
+            borderColor: "color-mix(in oklab, var(--destructive) 55%, transparent)",
+            background:
+              "linear-gradient(155deg, color-mix(in oklab, var(--destructive) 18%, var(--panel)) 0%, var(--panel) 68%)",
+            boxShadow:
+              "inset 0 0 0 1px color-mix(in oklab, var(--destructive) 18%, transparent), 0 0 22px -12px var(--destructive)",
+          }}
+        >
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <Sigil active size={16} accent="var(--destructive)">
+              <Swords className="size-3" aria-hidden />
+            </Sigil>
+            <span
+              className="font-semibold uppercase tracking-[0.16em] text-[10px]"
+              style={{ color: "color-mix(in oklab, var(--destructive) 82%, white)" }}
+            >
+              Liste de tes alliés
+            </span>
           </div>
           {allies.length > 0 ? (
             allies.map((a) => {
@@ -955,8 +1085,12 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               return (
                 <div key={a.id} className="flex items-center gap-2">
                   <RoleIcon role={r} size={18} />
-                  <span className="font-medium">{a.pseudo}</span>
-                  <span className="text-muted-foreground">
+                  <span className="font-medium text-foreground">{a.pseudo}</span>
+                  <span
+                    style={{
+                      color: "color-mix(in oklab, var(--destructive) 45%, var(--muted-foreground))",
+                    }}
+                  >
                     — {roleLabel}
                     {extra}
                   </span>
@@ -964,7 +1098,14 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               );
             })
           ) : (
-            <div className="text-muted-foreground italic">Aucun allié visible.</div>
+            <div
+              className="italic"
+              style={{
+                color: "color-mix(in oklab, var(--destructive) 40%, var(--muted-foreground))",
+              }}
+            >
+              Aucun allié visible.
+            </div>
           )}
         </div>
       )}
@@ -1022,12 +1163,16 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         />
       )}
       {myRole?.slug === "guetteur" && (
-        <GuetteurVisitsPanel
+        <GuetteurWatchPanel
           gameId={gameId}
           meId={me.id}
           players={players}
-          roles={roles}
           tour={game.current_tour}
+          watchHistory={
+            (meMeta.guetteur_watch_history as
+              | Record<string, { target_id: string; target_pseudo: string }>
+              | undefined) ?? {}
+          }
         />
       )}
       {myRole?.slug === "paranoiaque" && (
@@ -3174,35 +3319,83 @@ function VengeurBelovedChoice({
   );
 }
 
-// ───────── Guetteur : visites en direct sur soi (tour courant)
-function GuetteurVisitsPanel({
+// ───────── Guetteur : journal de la cible, en direct puis consultable par tour
+function GuetteurWatchPanel({
   gameId,
   meId,
   players,
-  roles,
   tour,
+  watchHistory,
 }: {
   gameId: string;
   meId: string;
   players: import("@/engine/actions").PlayerRow[];
-  roles: Map<string, RoleRow>;
   tour: number;
+  watchHistory: Record<string, { target_id: string; target_pseudo: string }>;
 }) {
-  const [actors, setActors] = useState<Array<{ actor_player_id: string; tour: number }>>([]);
+  type WatchAction = {
+    id: string;
+    actor_player_id: string;
+    created_at: string;
+    payload: unknown;
+    source: string | null;
+  };
+  const availableTours = Object.keys(watchHistory)
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a);
+  const [selectedTour, setSelectedTour] = useState<number>(tour);
+  const watch = watchHistory[String(selectedTour)];
+  const isLive = selectedTour === tour;
+  const [actions, setActions] = useState<WatchAction[]>([]);
+
+  useEffect(() => {
+    if (availableTours.includes(tour)) setSelectedTour(tour);
+    else if (!availableTours.includes(selectedTour)) setSelectedTour(availableTours[0] ?? tour);
+  }, [tour, selectedTour, availableTours]);
+
   useEffect(() => {
     async function load() {
+      if (!watch) {
+        setActions([]);
+        return;
+      }
       const { data } = await supabase
         .from("role_actions")
-        .select("actor_player_id,tour")
+        .select("id,actor_player_id,created_at,payload,source")
         .eq("game_id", gameId)
-        .eq("tour", tour)
-        .or(`target_player_id.eq.${meId},target_player_id_2.eq.${meId}`)
-        .order("created_at", { ascending: false });
-      setActors((data ?? []) as typeof actors);
+        .eq("tour", selectedTour)
+        .or(`target_player_id.eq.${watch.target_id},target_player_id_2.eq.${watch.target_id}`)
+        .order("created_at", { ascending: true });
+      // Une capacité différée écrit une intention technique puis son journal de rôle.
+      // On ne garde que le journal canonique, avec les objets qui n'en ont pas.
+      const rows = (data ?? []) as WatchAction[];
+      const startedAt = rows.find((action) => {
+        const payload = (action.payload ?? {}) as Record<string, unknown>;
+        return (
+          action.actor_player_id === meId &&
+          payload.role === "guetteur" &&
+          payload.effect === "guetteur_watch"
+        );
+      })?.created_at;
+      setActions(
+        rows.filter((action) => {
+          const payload = (action.payload ?? {}) as Record<string, unknown>;
+          const isCanonicalCapability = typeof payload.role === "string";
+          const isTargetedItem =
+            typeof action.source === "string" && action.source.startsWith("item:");
+          return (
+            action.actor_player_id !== meId &&
+            (isCanonicalCapability || isTargetedItem) &&
+            typeof startedAt === "string" &&
+            action.created_at > startedAt
+          );
+        }),
+      );
     }
     void load();
     const ch = supabase
-      .channel(`guetteur-${meId}-${tour}`)
+      .channel(`guetteur-${meId}-${selectedTour}`)
       .on(
         "postgres_changes",
         {
@@ -3217,25 +3410,66 @@ function GuetteurVisitsPanel({
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [gameId, meId, tour]);
+  }, [gameId, meId, selectedTour, watch]);
+
+  const targetName = watch
+    ? (players.find((p) => p.id === watch.target_id)?.pseudo ?? watch.target_pseudo)
+    : null;
   return (
-    <PanelCard tone="sky" icon={Eye} label={`Visites · Tour ${tour}`}>
-      {actors.length === 0 && (
-        <div className="mt-1 text-muted-foreground italic">
-          Personne ne t'a visité pour l'instant.
+    <PanelCard
+      tone="sky"
+      icon={Eye}
+      label={isLive ? "Journal de veille · En direct" : `Journal de veille · Tour ${selectedTour}`}
+    >
+      {availableTours.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Tours surveillés">
+          {availableTours.map((pastTour) => (
+            <button
+              key={pastTour}
+              type="button"
+              onClick={() => setSelectedTour(pastTour)}
+              className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                selectedTour === pastTour
+                  ? "border-sky-300/60 bg-sky-400/15 text-sky-100"
+                  : "border-border bg-card/40 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Tour {pastTour}
+            </button>
+          ))}
         </div>
       )}
-      {actors.length > 0 && (
-        <ul className="mt-1 space-y-0.5">
-          {actors.map((a, i) => {
-            const p = players.find((pp) => pp.id === a.actor_player_id);
-            return (
-              <li key={i} className="text-foreground/80">
-                • {p?.pseudo ?? "?"}
-              </li>
-            );
-          })}
-        </ul>
+      {!watch ? (
+        <div className="text-muted-foreground italic">
+          Choisis un joueur pour ouvrir son journal de visites.
+        </div>
+      ) : (
+        <>
+          <p className="mb-2 text-foreground/85">
+            Cible : <span className="font-semibold text-sky-100">{targetName}</span>
+          </p>
+          {actions.length === 0 ? (
+            <div className="text-muted-foreground italic">
+              {isLive
+                ? `Personne n'a ciblé ${targetName} pour l'instant.`
+                : `Personne n'a ciblé ${targetName} durant ce tour.`}
+            </div>
+          ) : (
+            <ol className="space-y-1" aria-live={isLive ? "polite" : undefined}>
+              {actions.map((action, index) => {
+                const actor = players.find((p) => p.id === action.actor_player_id);
+                return (
+                  <li key={action.id} className="flex items-center gap-2 text-foreground/85">
+                    <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-400/15 text-[9px] font-bold text-sky-200">
+                      {index + 1}
+                    </span>
+                    <span>{actor?.pseudo ?? "Inconnu"}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </>
       )}
     </PanelCard>
   );
@@ -3584,8 +3818,7 @@ function ParanoiaquePanel({
       action={<span className="text-sm font-bold text-foreground">{pseudo}</span>}
     >
       <div className="text-[11px] text-muted-foreground mb-3">
-        À toi de deviner sa faction. 1× dans la partie : protège-la ou tue-la (résolu à
-        l'Annonce).
+        À toi de deviner sa faction. 1× dans la partie : protège-la ou tue-la (résolu à l'Annonce).
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button

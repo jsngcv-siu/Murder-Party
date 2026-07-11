@@ -17,7 +17,7 @@ const HOLD_MS = 500;
 
 export function HoldToReveal({
   children,
-  label = "Ta capacité",
+  label = "Capacité",
   hint = "Maintiens pour révéler",
 }: {
   children: ReactNode;
@@ -129,13 +129,13 @@ export function HoldToReveal({
 
       {/* En-tête « dossier confidentiel » */}
       <div
-        className="relative text-[11px] uppercase tracking-[0.34em] font-bold"
-        style={{ fontFamily: "var(--font-display)", color: "oklch(0.82 0.13 82)" }}
+        className="relative text-[16px] uppercase tracking-[0.34em] font-bold leading-none text-glow-gold"
+        style={{ fontFamily: "var(--font-display)" }}
       >
         {label}
       </div>
       <div
-        className="relative mt-1 text-[13px]"
+        className="relative mt-1.5 text-[17px] leading-none"
         style={{ fontFamily: "var(--font-hand)", color: "oklch(0.78 0.06 70)" }}
       >
         dossier confidentiel

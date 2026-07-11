@@ -1,629 +1,1075 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { gsap } from "gsap";
-import {
-  Bell,
-  BookOpen,
-  Crown,
-  Eye,
-  Flame,
-  Gavel,
-  Gem,
-  Hand,
-  Lock,
-  ScrollText,
-  Shield,
-  Sparkles,
-  Timer,
-  Vote,
-  WandSparkles,
-} from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
 import { AvatarImg } from "@/components/AvatarImg";
+import { ROLE_TYPE_META, roleTypeMeta } from "@/lib/roleTypeMeta";
+import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
 
 export const Route = createFileRoute("/fx-lab")({
-  beforeLoad: () => {
-    if (import.meta.env.PROD) throw redirect({ to: "/" });
-  },
+  beforeLoad: requireLocalDevelopment,
   component: FxLab,
 });
 
-const suspects = [
-  { id: "alice", name: "Alice", role: "Le Temoin" },
-  { id: "cleo", name: "Cleo", role: "Le Juge" },
-  { id: "leo", name: "Leo", role: "Le Tueur" },
-  { id: "hana", name: "Hana", role: "Le Facteur" },
-  { id: "kya", name: "Kya", role: "Le Guetteur" },
-  { id: "noe", name: "Noe", role: "L'Executeur" },
+// Bac à sable DA : pistes de fiche rôle (type au lieu de faction) + cadres de fréquence.
+const DISPLAY = "var(--font-display)";
+
+// Couleur de faction (ring + nom) — inchangée : c'est elle qui « fait comprendre »
+// la faction, donc on retire le tag texte redondant.
+const FACTION_COLOR: Record<string, string> = {
+  Civil: "var(--citoyens)",
+  Méchant: "var(--destructive)",
+  Neutre: "var(--neutres)",
+};
+
+type RoleEx = {
+  name: string;
+  faction: "Civil" | "Méchant" | "Neutre";
+  type: string; // clé ROLE_TYPE_META
+  freq: string;
+  avatar: string;
+  cap: string;
+};
+
+// Deux exemples : un cas « aligné » (faction rouge = type rouge) et un cas
+// « divergent » (faction bleue, type rose) pour montrer que couleur de faction
+// et couleur de type coexistent sans se confondre.
+const EXAMPLES: RoleEx[] = [
+  {
+    name: "Le Tueur",
+    faction: "Méchant",
+    type: "TUEUR",
+    freq: "1× / Enquête",
+    avatar: "leo",
+    cap: "Une fois par Enquête, désigne 1 joueur vivant. Sa mort est annoncée à la prochaine Annonce.",
+  },
+  {
+    name: "Le Barman",
+    faction: "Civil",
+    type: "SUPPORT",
+    freq: "1× / tour",
+    avatar: "hana",
+    cap: "Sers un verre à un joueur : il est ivre au prochain tour et rate sa capacité.",
+  },
 ];
 
-function FxLab() {
-  const [activePreset, setActivePreset] = useState("vote");
-  const sections = [
-    { id: "vote", label: "Verdict" },
-    { id: "role", label: "Role reveal" },
-    { id: "item", label: "Objet" },
-    { id: "danger", label: "Danger" },
-    { id: "icons", label: "Icones" },
-    { id: "board", label: "Board" },
-  ];
+// Teinte lisible sur le papier crème (assombrie).
+const onPaper = (c: string, pct = 68) => `color-mix(in oklab, ${c} ${pct}%, black)`;
 
+function FxLab() {
   return (
     <div className="min-h-dvh bg-[#130806] text-foreground">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#130806]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-xs text-muted-foreground transition hover:text-gold">
-              Accueil
-            </Link>
-            <span className="h-4 w-px bg-white/15" />
-            <div>
-              <div className="font-display text-[10px] uppercase tracking-[0.34em] text-gold">
-                FX Lab
-              </div>
-              <h1 className="text-lg font-semibold">Motion et UI pour Murder Party</h1>
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-5 py-3">
+          <Link to="/" className="text-xs text-muted-foreground transition hover:text-gold">
+            Accueil
+          </Link>
+          <span className="h-4 w-px bg-white/15" />
+          <div>
+            <div className="font-display text-[10px] uppercase tracking-[0.34em] text-gold">
+              FX Lab · bac à sable DA
             </div>
-          </div>
-          <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1 md:flex">
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setActivePreset(s.id)}
-                className={`rounded-full px-3 py-1.5 text-xs transition ${
-                  activePreset === s.id
-                    ? "bg-gold text-primary-foreground"
-                    : "text-muted-foreground hover:bg-white/8 hover:text-foreground"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+            <h1 className="text-lg font-semibold">Fiche rôle — types de rôle &amp; lisibilité</h1>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[320px_1fr]">
+      <main className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[300px_1fr]">
         <aside className="space-y-4">
           <Panel title="Objectif">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Un terrain d'essai pour valider les effets avant de les intégrer aux vrais écrans :
-              vote, annonces, capacités, inventaire, alertes et icônes.
+              Sur la fiche rôle, on affiche le <strong className="text-foreground">type</strong> (Tueur,
+              Investigation, Tromperie…) au lieu de la faction. Le tag de faction est retiré : la
+              couleur de l'avatar et du nom la disent déjà. Reste à trouver le traitement de badge +
+              la restylisation de la fréquence qui collent à la DA papier.
             </p>
           </Panel>
-          <Panel title="Principes UI">
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <Principle icon={<Sparkles />} text="Une animation = une information de jeu." />
-              <Principle icon={<Timer />} text="Les FX doivent finir vite et lisiblement." />
-              <Principle icon={<Shield />} text="Toujours prévoir une version motion réduite." />
-              <Principle icon={<Eye />} text="Les icônes doivent aider à scanner, pas décorer." />
+
+          <Panel title="Légende des types — pastilles">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {Object.values(ROLE_TYPE_META).map((m) => (
+                <div key={m.label} className="flex items-center gap-2">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ background: m.color }}
+                  />
+                  <span className="truncate text-xs text-muted-foreground">{m.label}</span>
+                </div>
+              ))}
             </div>
           </Panel>
-          <Panel title="Palette proposée">
+
+          <Panel title="Légende des types — avec icône">
             <div className="grid grid-cols-2 gap-2">
-              <Swatch name="Enquête" color="#e8b44a" />
-              <Swatch name="Débat" color="#9b5cf6" />
-              <Swatch name="Vote" color="#d12b3d" />
-              <Swatch name="Objet" color="#55c7d8" />
+              {Object.values(ROLE_TYPE_META).map((m) => (
+                <div
+                  key={m.label}
+                  className="flex items-center gap-2 rounded border px-2 py-1.5"
+                  style={{
+                    borderColor: `color-mix(in oklab, ${m.color} 35%, transparent)`,
+                    background: `color-mix(in oklab, ${m.color} 10%, transparent)`,
+                  }}
+                >
+                  <m.Icon className="size-3.5 shrink-0" style={{ color: m.color }} aria-hidden />
+                  <span className="truncate text-[11px] text-muted-foreground">{m.label}</span>
+                </div>
+              ))}
             </div>
+            <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground/70">
+              À trancher : garder les icônes lucide (repère rapide) ou rester typographique (plus
+              proche de la DA dossier).
+            </p>
           </Panel>
         </aside>
 
-        <section className="grid gap-5 xl:grid-cols-2">
-          <FxCard id="vote" active={activePreset} title="Verdict de vote" kicker="avatar roulette">
-            <VoteRouletteFx />
-          </FxCard>
-          <FxCard
-            id="role"
-            active={activePreset}
-            title="Révélation de rôle"
-            kicker="dossier scellé"
-          >
-            <RoleRevealFx />
-          </FxCard>
-          <FxCard id="item" active={activePreset} title="Nouvel objet" kicker="toast premium">
-            <ItemToastFx />
-          </FxCard>
-          <FxCard
-            id="danger"
-            active={activePreset}
-            title="Phase critique"
-            kicker="timer sous tension"
-          >
-            <DangerTimerFx />
-          </FxCard>
-          <FxCard id="icons" active={activePreset} title="Système d'icônes" kicker="lisibilité">
-            <IconSystemFx />
-          </FxCard>
-          <FxCard
-            id="board"
-            active={activePreset}
-            title="Board de suspicion"
-            kicker="fils et indices"
-          >
-            <BoardFx />
-          </FxCard>
+        <section className="space-y-6">
+          <article className="rounded-lg border border-gold/40 bg-[#1d0d0a] p-4 shadow-[0_0_0_1px_rgba(232,180,74,.15)]">
+            <div className="mb-4">
+              <div className="font-display text-[10px] uppercase tracking-[0.22em] text-gold">
+                ★ Version définitive
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Fiche large (paysage, comme en jeu), type en tampon, cadre beige minimaliste,
+                compteur de charges avec code couleur. Cliquable en démo — sera automatique une fois
+                branché.
+              </p>
+              <FreqColorLegend />
+            </div>
+            <div className="flex flex-col items-center gap-5">
+              <DefinitiveCard
+                ex={CHARGE_EXAMPLES[0]}
+                canAct
+                note="Enquête en cours → capacité utilisable (vert)."
+              />
+              <DefinitiveCard
+                ex={CHARGE_EXAMPLES[2]}
+                canAct={false}
+                note="Hors phase / bloqué → charge dispo mais pas actionnable (orange)."
+              />
+              <DefinitiveCard
+                ex={CHARGE_EXAMPLES[1]}
+                canAct
+                initialUsed={1}
+                note="2×/partie, 1 charge déjà utilisée (creux) + 1 restante (vert)."
+              />
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-white/10 bg-[#1d0d0a] p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold">Variantes de couleurs</h2>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Palettes du code couleur des charges (utilisable / pas maintenant / utilisée) à
+                comparer sur le papier crème. Dis-moi laquelle et je l'applique à la fiche.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {CHARGE_PALETTES.map((p) => (
+                <ColorVariantRow key={p.name} p={p} />
+              ))}
+            </div>
+          </article>
+
+          <Piste
+            id="A"
+            title="Puce + libellé encre"
+            desc="Point coloré + type en petites capitales Special Elite, fréquence en texte discret. Le plus éditorial, zéro pilule."
+            render={badgesDot}
+          />
+          <Piste
+            id="B"
+            title="Tampon encreur"
+            desc="Type comme un tampon légèrement incliné (cadre fin dans la couleur du type). Fréquence à côté, sans fond criard."
+            render={badgesStamp}
+          />
+          <Piste
+            id="C"
+            title="Filet coloré"
+            desc="Un filet dans la couleur du type sous le nom + libellé. Rien qui ressemble à un bouton — juste une règle de composition."
+            render={badgesRule}
+          />
+          <Piste
+            id="D"
+            title="Onglet classé"
+            desc="Type comme un onglet de dossier (coin haut arrondi). Fréquence en petit tampon monospace en bas."
+            render={badgesTab}
+          />
+
+          <article className="rounded-lg border border-white/10 bg-[#1d0d0a] p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold">Fréquence de jeu — cadres &amp; effets</h2>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Traitements de la cadence (« 1×/Enquête », « 2×/partie », « Passif »…) en accent
+                or — la fréquence n'est pas liée au type. Chaque tuile montre l'effet sur 3 cas.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FreqTile name="Pastille de charges" render={freqPips} />
+              <FreqTile name="Cachet de cire" render={freqWax} />
+              <FreqTile name="Ticket perforé" render={freqTicket} />
+              <FreqTile name="Étiquette ficelée" render={freqTag} />
+              <FreqTile name="Tampon ×N" render={freqStamp} />
+              <FreqTile name="Cartouche à coins" render={freqBracket} />
+              <FreqTile name="Ruban" render={freqRibbon} />
+              <FreqTile name="Onglet fréquence" render={freqTab} />
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-white/10 bg-[#1d0d0a] p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold">Interactif — compteur de charges (dans un cadre)</h2>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Type en tampon (piste B) + un cadre « Capacité » qui enferme le compteur cliquable :
+                on voit d'un coup combien d'usages restent <em>et</em> si la capacité a déjà été
+                utilisée. Clique le compteur pour consommer une charge / recharger (démo).
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ChargeCard ex={CHARGE_EXAMPLES[0]} variant="pips" />
+              <ChargeCard ex={CHARGE_EXAMPLES[1]} variant="pips" />
+              <ChargeCard ex={CHARGE_EXAMPLES[2]} variant="wax" />
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-white/10 bg-[#1d0d0a] p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold">Cadre minimaliste — beige</h2>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Sans label « Capacité », compteur compact (jetons + « N×/portée »), cadre beige.
+                Trois épaisseurs de cadre à comparer. Toujours cliquable (démo).
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <MiniCard ex={CHARGE_EXAMPLES[0]} kind="box" />
+              <MiniCard ex={CHARGE_EXAMPLES[1]} kind="outline" />
+              <MiniCard ex={CHARGE_EXAMPLES[2]} kind="rule" />
+            </div>
+          </article>
         </section>
       </main>
     </div>
   );
 }
 
-function FxCard({
+function Piste({
   id,
-  active,
   title,
-  kicker,
-  children,
+  desc,
+  render,
 }: {
   id: string;
-  active: string;
   title: string;
-  kicker: string;
-  children: ReactNode;
+  desc: string;
+  render: (ex: RoleEx) => ReactNode;
 }) {
   return (
-    <article
-      className={`min-h-[360px] overflow-hidden rounded-lg border bg-[#1d0d0a] transition ${
-        id === "vote" ? "xl:col-span-2" : ""
-      } ${
-        active === id ? "border-gold/70 shadow-[0_0_0_1px_rgba(232,180,74,.25)]" : "border-white/10"
-      }`}
-    >
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <div>
-          <div className="font-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            {kicker}
-          </div>
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </div>
-        <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 font-mono text-[10px] text-gold">
-          FX
+    <article className="rounded-lg border border-white/10 bg-[#1d0d0a] p-4">
+      <div className="mb-3 flex items-baseline gap-3">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full border border-gold/40 font-display text-xs text-gold">
+          {id}
         </span>
+        <div>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <p className="text-xs leading-relaxed text-muted-foreground">{desc}</p>
+        </div>
       </div>
-      <div className="min-h-[300px] p-4">{children}</div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {EXAMPLES.map((ex) => (
+          <Dossier key={ex.name} ex={ex}>
+            {render(ex)}
+          </Dossier>
+        ))}
+      </div>
     </article>
   );
 }
 
-function VoteRouletteFx() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const timelineRef = useRef<gsap.core.Timeline | null>(null);
-  const [active, setActive] = useState<string | null>(null);
-  const winner = "leo";
-  const winnerData = suspects.find((p) => p.id === winner) ?? suspects[0];
-
-  const play = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const nodes = gsap.utils.toArray<HTMLElement>(".vote-avatar", root);
-    const fxNodes = gsap.utils.toArray<HTMLElement>(".verdict-fx", root);
-    timelineRef.current?.kill();
-    gsap.killTweensOf([...nodes, ...fxNodes]);
-    const targetIndex = suspects.findIndex((p) => p.id === winner);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setActive(winner);
-      gsap.set(nodes, { clearProps: "all" });
-      gsap.set(fxNodes, { autoAlpha: 1, clearProps: "transform" });
-      return;
-    }
-
-    const ctx = gsap.context(() => {
-      gsap.set(nodes, { scale: 1, y: 0, rotation: 0 });
-      gsap.set(".verdict-stamp", { autoAlpha: 0, scale: 0.82, rotation: -7 });
-      gsap.set(".verdict-paper", { y: 10, rotation: -1.5, scale: 0.98 });
-      gsap.set(".verdict-ray", { scaleX: 0, autoAlpha: 0 });
-      const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
-      timelineRef.current = tl;
-      tl.to(".verdict-paper", { y: 0, rotation: -0.4, scale: 1, duration: 0.32 }).to(
-        ".verdict-ray",
-        { scaleX: 1, autoAlpha: 1, stagger: 0.045, duration: 0.28 },
-        0.12,
-      );
-      for (let i = 0; i < nodes.length * 2 + targetIndex + 1; i++) {
-        const node = nodes[i % nodes.length];
-        const id = node.dataset.id ?? null;
-        const last = i === nodes.length * 2 + targetIndex;
-        tl.to(node, {
-          scale: last ? 1.24 : 1.13,
-          y: last ? -8 : -4,
-          rotation: last ? -2 : 0,
-          duration: last ? 0.18 : 0.055,
-          ease: "power2.out",
-          onStart: () => setActive(id),
-        }).to(node, {
-          scale: last ? 1.16 : 1,
-          y: last ? -3 : 0,
-          rotation: last ? -1 : 0,
-          duration: last ? 0.42 : 0.055,
-          ease: "power2.out",
-        });
-      }
-      tl.to(".verdict-stamp", { autoAlpha: 1, scale: 1, duration: 0.36, ease: "back.out(1.8)" }).to(
-        ".verdict-final-avatar",
-        { scale: 1.06, duration: 0.18, yoyo: true, repeat: 1 },
-        "-=0.2",
-      );
-    }, root);
-    return () => ctx.revert();
-  };
-
-  useEffect(() => {
-    const cleanup = play();
-    return () => {
-      timelineRef.current?.kill();
-      cleanup?.();
-    };
-  }, []);
-
+// Coquille fidèle à la vraie fiche (role-zone paper pin) — seul le bloc badges change.
+function Dossier({ ex, children }: { ex: RoleEx; children: ReactNode }) {
+  const fc = FACTION_COLOR[ex.faction];
   return (
-    <div
-      ref={rootRef}
-      className="relative grid min-h-[640px] place-items-center overflow-hidden rounded border border-[#5b3226] bg-[#1a0b08] p-3 text-[#f3dfb8] sm:p-5"
-    >
-      <div className="absolute inset-0 opacity-55 [background-image:radial-gradient(circle_at_50%_0%,rgba(232,180,74,.22),transparent_42%),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px)] [background-size:100%_100%,22px_22px,22px_22px]" />
-      <div className="absolute left-0 top-0 h-full w-1 bg-[#c2202f]" />
-      <div className="relative flex w-full max-w-[390px] flex-col rounded-[2rem] border border-[#5b3226] bg-[#24100c]/92 p-3 shadow-[0_24px_70px_-48px_rgba(0,0,0,.95)] sm:p-4">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#5b3226] pb-3">
-          <div>
-            <div className="font-display text-[10px] uppercase tracking-[0.28em] text-gold">
-              resultat du vote
-            </div>
-            <div className="mt-1 text-xs text-[#d7bd8a]">Tour 3 - verdict final</div>
-          </div>
-          <div className="rounded border border-[#7a4637] bg-[#130806] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[#f1c35c]">
-            vote clos
-          </div>
-        </div>
-        <div className="mb-4 flex items-end justify-center gap-1.5">
-          {suspects.map((p) => (
-            <div
-              key={p.id}
-              data-id={p.id}
-              className={`vote-avatar relative h-12 w-10 overflow-hidden rounded border bg-[#f7ecd2] p-0.5 sm:h-14 sm:w-11 ${
-                active === p.id
-                  ? "border-gold shadow-[0_12px_30px_-14px_rgba(232,180,74,.95)]"
-                  : "border-[#d7c39c]/65"
-              }`}
-            >
-              <AvatarImg id={p.id} fill rounded="none" />
-              {active === p.id && (
-                <span className="absolute inset-x-1 bottom-1 h-0.5 rounded-full bg-[#c2202f]" />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="verdict-paper verdict-fx relative mx-auto w-full overflow-hidden rounded-sm border border-[#cdb686] bg-[#efe3c7] px-4 py-6 text-center text-[#351c12] shadow-[0_24px_60px_-34px_rgba(0,0,0,.9)]">
-          <span className="verdict-ray verdict-fx absolute left-0 top-7 h-px w-full origin-left bg-[#c2202f]/45" />
-          <span className="verdict-ray verdict-fx absolute bottom-9 left-0 h-px w-full origin-left bg-[#9a7b52]/35" />
-          <div className="verdict-final-avatar relative mx-auto mb-4 h-24 w-20 overflow-hidden rounded border border-[#b99b61] bg-[#f7ecd2] p-1 shadow-lg">
-            <AvatarImg id={winnerData.id} fill rounded="none" />
-          </div>
-          <div className="font-display text-[10px] uppercase tracking-[0.24em] text-[#9a7b52]">
-            verdict des urnes
-          </div>
-          <div className="mt-2 text-3xl font-bold">{winnerData.name}</div>
-          <div className="verdict-stamp verdict-fx mx-auto mt-4 w-fit rotate-[-4deg] rounded border-2 border-[#c2202f] px-5 py-1 font-display text-xl text-[#c2202f]">
-            EMPRISONNE
-          </div>
-        </div>
-        <div className="mt-4 rounded border border-[#5b3226] bg-[#1a0b08]/80 px-3 py-3 text-center text-xs leading-relaxed text-[#d7bd8a]">
-          La decision est appliquee. La partie reprend apres l'annonce.
-        </div>
+    <div className="role-zone paper pin px-4 pb-4 pt-5">
+      <div className="mb-2 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
+        Dossier — ton rôle
       </div>
-    </div>
-  );
-}
-
-function RoleRevealFx() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const play = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.fromTo(
-        ".seal",
-        { scale: 0.65, rotation: -16, autoAlpha: 0 },
-        { scale: 1, rotation: -5, autoAlpha: 1, duration: 0.35 },
-      )
-        .fromTo(
-          ".role-card",
-          { y: 24, rotationX: 12, autoAlpha: 0 },
-          { y: 0, rotationX: 0, autoAlpha: 1, duration: 0.45 },
-          "-=0.05",
-        )
-        .fromTo(
-          ".role-chip",
-          { y: 12, autoAlpha: 0 },
-          { y: 0, autoAlpha: 1, stagger: 0.08, duration: 0.25 },
-          "-=0.15",
-        )
-        .to(".halo", { scale: 1.08, autoAlpha: 0.8, duration: 0.35, yoyo: true, repeat: 1 }, 0.25);
-    }, root);
-    return () => ctx.revert();
-  };
-  useEffect(() => {
-    play();
-  }, []);
-  return (
-    <div ref={rootRef} className="relative grid h-full place-items-center">
-      <button
-        onClick={play}
-        className="absolute right-0 top-0 rounded border border-white/10 px-2 py-1 text-xs"
-      >
-        Rejouer
-      </button>
-      <div className="role-card relative w-72 rounded border border-gold/40 bg-[#efe3c7] p-5 text-[#2b160d] shadow-2xl">
-        <div className="halo absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold/25 blur-2xl" />
-        <div className="relative">
-          <div className="seal absolute -right-3 -top-8 grid h-16 w-16 place-items-center rounded-full border-2 border-[#a8772a] bg-[#d9a846] text-[#4a260f]">
-            <Crown className="h-7 w-7" />
-          </div>
-          <div className="font-display text-[10px] uppercase tracking-[0.24em] text-[#8a6737]">
-            dossier confidentiel
-          </div>
-          <h3 className="mt-2 font-display text-3xl">Le Juge</h3>
-          <p className="mt-2 text-sm leading-relaxed text-[#5d3d22]">
-            Une fois par partie, annule la foule et rends ton propre verdict.
-          </p>
-          <div className="mt-5 flex gap-2">
-            <Badge icon={<Gavel />} text="Verdict" />
-            <Badge icon={<Shield />} text="Civil" />
-            <Badge icon={<Gem />} text="Rare" />
-          </div>
+      <div className="flex items-center gap-3.5">
+        <div
+          className="relative size-[52px] shrink-0 overflow-hidden rounded-full"
+          style={{
+            boxShadow: `0 0 0 1.5px color-mix(in oklab, ${fc} 55%, transparent), 0 0 18px -6px ${fc}`,
+          }}
+        >
+          <AvatarImg id={ex.avatar} fill rounded="none" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ItemToastFx() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const play = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        ".item-toast",
-        { x: 36, autoAlpha: 0, scale: 0.96 },
-        { x: 0, autoAlpha: 1, scale: 1, duration: 0.38, ease: "back.out(1.5)" },
-      );
-      gsap.fromTo(
-        ".item-ray",
-        { scaleY: 0, autoAlpha: 0 },
-        { scaleY: 1, autoAlpha: 1, stagger: 0.04, duration: 0.26, ease: "power2.out" },
-      );
-      gsap.to(".item-icon", {
-        rotation: "8_short",
-        yoyo: true,
-        repeat: 3,
-        duration: 0.12,
-        ease: "sine.inOut",
-      });
-    }, root);
-    return () => ctx.revert();
-  };
-  useEffect(() => {
-    play();
-  }, []);
-  return (
-    <div ref={rootRef} className="relative flex h-full items-center justify-center">
-      <button
-        onClick={play}
-        className="absolute right-0 top-0 rounded border border-white/10 px-2 py-1 text-xs"
-      >
-        Rejouer
-      </button>
-      <div className="item-toast relative w-80 overflow-hidden rounded-lg border border-cyan-300/30 bg-[#102329] p-4 shadow-2xl">
-        <span className="item-ray absolute left-6 top-0 h-full w-px origin-top bg-cyan-200/30" />
-        <span className="item-ray absolute left-10 top-0 h-full w-px origin-top bg-cyan-200/20" />
-        <div className="relative flex items-center gap-3">
-          <div className="item-icon grid h-14 w-14 place-items-center rounded bg-cyan-300/15 text-cyan-200">
-            <ScrollText className="h-7 w-7" />
-          </div>
-          <div>
-            <div className="font-display text-[10px] uppercase tracking-[0.24em] text-cyan-200/70">
-              nouvel objet
-            </div>
-            <div className="text-base font-semibold text-cyan-50">Lettre scellée</div>
-            <div className="text-xs text-cyan-100/65">Un indice privé vient d'arriver.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DangerTimerFx() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const play = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline();
-      tl.fromTo(
-        ".danger-ring",
-        { scale: 0.86, autoAlpha: 0.4 },
-        { scale: 1.05, autoAlpha: 1, duration: 0.28, ease: "power2.out", repeat: 5, yoyo: true },
-      )
-        .to(
-          ".danger-bar",
-          { scaleX: 0.18, transformOrigin: "left center", duration: 1.8, ease: "power3.inOut" },
-          0,
-        )
-        .fromTo(
-          ".danger-copy",
-          { y: 8, autoAlpha: 0 },
-          { y: 0, autoAlpha: 1, duration: 0.3 },
-          0.25,
-        );
-    }, root);
-    return () => ctx.revert();
-  };
-  useEffect(() => {
-    play();
-  }, []);
-  return (
-    <div ref={rootRef} className="relative grid h-full place-items-center">
-      <button
-        onClick={play}
-        className="absolute right-0 top-0 rounded border border-white/10 px-2 py-1 text-xs"
-      >
-        Rejouer
-      </button>
-      <div className="relative w-80 rounded-lg border border-red-400/30 bg-[#2a0d10] p-5">
-        <div className="danger-ring absolute right-4 top-4 h-16 w-16 rounded-full border border-red-300/40 bg-red-500/10 blur-[1px]" />
-        <div className="flex items-center gap-3 text-red-100">
-          <Timer className="h-7 w-7 text-red-300" />
-          <div>
-            <div className="font-display text-[10px] uppercase tracking-[0.24em] text-red-200/70">
-              vote presque clos
-            </div>
-            <div className="font-mono text-3xl tabular-nums">00:08</div>
-          </div>
-        </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/30">
-          <div className="danger-bar h-full w-full rounded-full bg-gradient-to-r from-red-300 to-red-600" />
-        </div>
-        <p className="danger-copy mt-4 text-sm text-red-100/75">
-          Dernière chance pour changer le destin.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function IconSystemFx() {
-  const items = [
-    {
-      icon: <BookOpen />,
-      label: "Enquête",
-      tone: "text-amber-200 border-amber-300/30 bg-amber-300/10",
-    },
-    { icon: <Bell />, label: "Annonce", tone: "text-sky-200 border-sky-300/30 bg-sky-300/10" },
-    {
-      icon: <Hand />,
-      label: "Débat",
-      tone: "text-violet-200 border-violet-300/30 bg-violet-300/10",
-    },
-    { icon: <Vote />, label: "Vote", tone: "text-red-200 border-red-300/30 bg-red-300/10" },
-    {
-      icon: <Lock />,
-      label: "Prison",
-      tone: "text-orange-200 border-orange-300/30 bg-orange-300/10",
-    },
-    {
-      icon: <WandSparkles />,
-      label: "Pouvoir",
-      tone: "text-cyan-200 border-cyan-300/30 bg-cyan-300/10",
-    },
-  ];
-  return (
-    <div className="grid h-full content-center gap-3">
-      <div className="grid grid-cols-2 gap-3">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className={`flex items-center gap-3 rounded border p-3 ${item.tone}`}
+        <div className="min-w-0 flex-1">
+          <h2
+            className="text-xl font-bold leading-tight"
+            style={{ fontFamily: DISPLAY, color: onPaper(fc, 72) }}
           >
-            <span className="grid h-10 w-10 place-items-center rounded bg-black/20 [&_svg]:h-5 [&_svg]:w-5">
-              {item.icon}
-            </span>
-            <span className="text-sm font-medium">{item.label}</span>
-          </div>
+            {ex.name}
+          </h2>
+          <div className="mt-1.5">{children}</div>
+        </div>
+      </div>
+      <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-[color:var(--paper-ink)]">
+        {ex.cap}
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────── Pistes de badges ───────────────────────────
+
+// A — puce + libellé + fréquence texte
+function badgesDot(ex: RoleEx) {
+  const m = roleTypeMeta(ex.type);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="size-2 rounded-full" style={{ background: m.color }} />
+        <span
+          className="font-display text-[11px] uppercase tracking-[0.14em]"
+          style={{ color: onPaper(m.color) }}
+        >
+          {m.label}
+        </span>
+      </span>
+      <span className="text-[11px] text-[color:var(--paper-ink-soft)]">· {ex.freq}</span>
+    </div>
+  );
+}
+
+// Tampon de type seul (réutilisé par la piste B et la version définitive).
+function typeStampChip(type: string) {
+  const m = roleTypeMeta(type);
+  return (
+    <span
+      className="inline-flex -rotate-2 items-center rounded-[3px] border px-2 py-0.5 font-display text-[11px] uppercase tracking-[0.14em]"
+      style={{
+        color: onPaper(m.color),
+        borderColor: `color-mix(in oklab, ${m.color} 55%, transparent)`,
+        background: `color-mix(in oklab, ${m.color} 10%, transparent)`,
+      }}
+    >
+      {m.label}
+    </span>
+  );
+}
+
+// B — tampon encreur incliné + fréquence à côté
+function badgesStamp(ex: RoleEx) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {typeStampChip(ex.type)}
+      <span className="text-[11px] text-[color:var(--paper-ink-soft)]">{ex.freq}</span>
+    </div>
+  );
+}
+
+// C — filet coloré sous le nom + libellé
+function badgesRule(ex: RoleEx) {
+  const m = roleTypeMeta(ex.type);
+  return (
+    <div className="space-y-1">
+      <span className="block h-[2px] w-9 rounded-full" style={{ background: m.color }} />
+      <div className="flex flex-wrap items-center gap-x-2">
+        <span
+          className="font-display text-[11px] uppercase tracking-[0.16em]"
+          style={{ color: onPaper(m.color) }}
+        >
+          {m.label}
+        </span>
+        <span className="text-[11px] text-[color:var(--paper-ink-soft)]">· {ex.freq}</span>
+      </div>
+    </div>
+  );
+}
+
+// D — onglet de dossier + fréquence monospace
+function badgesTab(ex: RoleEx) {
+  const m = roleTypeMeta(ex.type);
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <span
+        className="inline-flex items-center rounded-t-md border-x border-t px-2 pb-1 pt-0.5 font-display text-[10px] uppercase tracking-[0.12em]"
+        style={{
+          color: onPaper(m.color),
+          borderColor: `color-mix(in oklab, ${m.color} 40%, transparent)`,
+          background: `color-mix(in oklab, ${m.color} 16%, transparent)`,
+        }}
+      >
+        {m.label}
+      </span>
+      <span
+        className="rounded border px-1.5 py-0.5 font-mono text-[10px] tracking-tight"
+        style={{
+          color: "var(--paper-ink-soft)",
+          borderColor: "color-mix(in oklab, var(--paper-ink) 25%, transparent)",
+        }}
+      >
+        {ex.freq}
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────── Fréquences : cadres & effets ───────────────────────
+
+const GOLD = "var(--accent)";
+const INK = "var(--paper-ink)";
+const INKSOFT = "var(--paper-ink-soft)";
+const RED = "var(--primary)";
+const FREQ_SAMPLES = ["1×/Enquête", "2×/partie", "Passif"];
+
+// "1×/Enquête" → { count: 1, scope: "Enquête" } · "Passif" → { passive: true }.
+function parseFreq(label: string) {
+  const m = label.match(/^(\d+)\s*×\s*\/\s*(.+)$/);
+  if (m) return { count: Number(m[1]), scope: m[2], passive: false };
+  return { count: 0, scope: label, passive: true };
+}
+
+function FreqTile({ name, render }: { name: string; render: (label: string) => ReactNode }) {
+  return (
+    <div className="paper rounded-md px-3 py-3">
+      <div className="mb-3 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
+        {name}
+      </div>
+      <div className="flex flex-col items-start gap-3">
+        {FREQ_SAMPLES.map((s) => (
+          <div key={s}>{render(s)}</div>
         ))}
       </div>
-      <div className="rounded border border-white/10 bg-black/20 p-3 text-xs text-muted-foreground">
-        Direction : icône claire + couleur de phase + libellé court. Le joueur scanne l'état sans
-        lire un paragraphe.
-      </div>
     </div>
   );
 }
 
-function BoardFx() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const play = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
-      tl.fromTo(
-        ".board-card",
-        { y: 18, autoAlpha: 0, rotation: -3 },
-        { y: 0, autoAlpha: 1, rotation: 0, stagger: 0.08, duration: 0.28 },
-      )
-        .fromTo(
-          ".board-line",
-          { scaleX: 0 },
-          { scaleX: 1, transformOrigin: "left center", stagger: 0.08, duration: 0.32 },
-          "-=0.12",
-        )
-        .fromTo(
-          ".board-pin",
-          { scale: 0 },
-          { scale: 1, stagger: 0.04, duration: 0.18, ease: "back.out(2)" },
-          "-=0.35",
-        );
-    }, root);
-    return () => ctx.revert();
-  };
-  useEffect(() => {
-    play();
-  }, []);
+// Pastille de charges — un point par usage + portée.
+function freqPips(label: string) {
+  const f = parseFreq(label);
   return (
-    <div ref={rootRef} className="relative h-full rounded-lg bg-[#26150e] p-5">
-      <button
-        onClick={play}
-        className="absolute right-3 top-3 rounded border border-white/10 px-2 py-1 text-xs"
-      >
-        Rejouer
-      </button>
-      <svg className="absolute inset-0 h-full w-full" aria-hidden>
-        <line
-          className="board-line"
-          x1="85"
-          y1="76"
-          x2="255"
-          y2="170"
-          stroke="#d12b3d"
-          strokeWidth="2"
-        />
-        <line
-          className="board-line"
-          x1="255"
-          y1="170"
-          x2="120"
-          y2="240"
-          stroke="#d12b3d"
-          strokeWidth="2"
-        />
-        <line
-          className="board-line"
-          x1="120"
-          y1="240"
-          x2="85"
-          y2="76"
-          stroke="#d12b3d"
-          strokeWidth="2"
-        />
-      </svg>
-      <BoardNote className="left-7 top-8" title="Indice" body="Un alibi trop propre." />
-      <BoardNote className="right-7 top-28" title="Suspect" body="A parlé en dernier." />
-      <BoardNote className="bottom-7 left-20" title="Vote" body="2 voix contre Léo." />
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      {f.passive ? (
+        <span className="size-1.5 rounded-full border" style={{ borderColor: INKSOFT }} />
+      ) : (
+        <span className="flex gap-0.5">
+          {Array.from({ length: f.count }).map((_, i) => (
+            <span key={i} className="size-1.5 rounded-full" style={{ background: GOLD }} />
+          ))}
+        </span>
+      )}
+      <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: INKSOFT }}>
+        {f.passive ? f.scope : `/ ${f.scope}`}
+      </span>
+    </span>
   );
 }
 
-function BoardNote({ className, title, body }: { className: string; title: string; body: string }) {
+// Cachet de cire — pastille bombée rouge avec le compte.
+function freqWax(label: string) {
+  const f = parseFreq(label);
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="grid size-6 place-items-center rounded-full font-display text-[10px] leading-none"
+        style={{
+          background: `radial-gradient(circle at 34% 30%, color-mix(in oklab, ${RED} 78%, white), ${RED})`,
+          color: "var(--paper)",
+          boxShadow: "inset 0 -1px 2px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.25)",
+        }}
+      >
+        {f.passive ? "∙" : `×${f.count}`}
+      </span>
+      <span className="text-[11px]" style={{ color: INK }}>
+        {f.scope}
+      </span>
+    </span>
+  );
+}
+
+// Ticket perforé — bord gauche en pointillés (perforation).
+function freqTicket(label: string) {
+  return (
+    <span
+      className="inline-flex items-center rounded-r-sm py-0.5 pl-2 pr-2 font-mono text-[11px]"
+      style={{
+        color: INK,
+        border: `1px solid color-mix(in oklab, ${INK} 25%, transparent)`,
+        borderLeft: `2px dashed ${GOLD}`,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// Étiquette ficelée — forme de tag pointu + œillet.
+function freqTag(label: string) {
+  return (
+    <span
+      className="relative inline-flex items-center py-0.5 pl-4 pr-2.5 font-mono text-[11px]"
+      style={{
+        color: INK,
+        background: `color-mix(in oklab, ${GOLD} 16%, transparent)`,
+        clipPath: "polygon(14% 0, 100% 0, 100% 100%, 14% 100%, 0 50%)",
+      }}
+    >
+      <span
+        className="absolute left-1.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full"
+        style={{ border: `1px solid color-mix(in oklab, ${INK} 45%, transparent)` }}
+      />
+      {label}
+    </span>
+  );
+}
+
+// Tampon ×N — cadre encreur incliné, compte en gros.
+function freqStamp(label: string) {
+  const f = parseFreq(label);
+  return (
+    <span
+      className="inline-flex -rotate-3 items-baseline gap-1 rounded-[3px] border-2 px-1.5 py-0.5 font-display"
+      style={{ color: RED, borderColor: `color-mix(in oklab, ${RED} 60%, transparent)` }}
+    >
+      {f.passive ? (
+        <span className="text-[10px] uppercase tracking-wide">{f.scope}</span>
+      ) : (
+        <>
+          <span className="text-sm leading-none">×{f.count}</span>
+          <span className="text-[8px] uppercase tracking-wide">{f.scope}</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+// Cartouche à coins — équerres façon dossier.
+function freqBracket(label: string) {
+  const corners = [
+    "left-0 top-0 border-l border-t",
+    "right-0 top-0 border-r border-t",
+    "left-0 bottom-0 border-l border-b",
+    "right-0 bottom-0 border-r border-b",
+  ];
+  return (
+    <span className="relative inline-block px-2.5 py-1 font-mono text-[11px]" style={{ color: INK }}>
+      {label}
+      {corners.map((c, i) => (
+        <span key={i} className={`absolute size-1.5 ${c}`} style={{ borderColor: GOLD }} />
+      ))}
+    </span>
+  );
+}
+
+// Ruban — bannière à extrémités entaillées.
+function freqRibbon(label: string) {
+  return (
+    <span
+      className="inline-flex items-center px-3 py-0.5 font-display text-[10px] uppercase tracking-[0.1em]"
+      style={{
+        color: "var(--paper)",
+        background: RED,
+        clipPath: "polygon(0 0, 100% 0, 93% 50%, 100% 100%, 0 100%, 7% 50%)",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// Onglet fréquence — languette de dossier (coin haut arrondi).
+function freqTab(label: string) {
+  return (
+    <span
+      className="inline-flex items-center rounded-t-md border-x border-t px-2 pb-1 pt-0.5 font-mono text-[10px]"
+      style={{
+        color: INK,
+        borderColor: `color-mix(in oklab, ${GOLD} 45%, transparent)`,
+        background: `color-mix(in oklab, ${GOLD} 16%, transparent)`,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ──────────────────── Interactif : compteur de charges ────────────────────
+
+const SUCCESS = "var(--success)";
+// Beige du cadre (ton sable chaud, plus clair que l'encre brune) — à ajuster.
+const BEIGE = "oklch(0.79 0.045 78)";
+// Code couleur des charges : vert = utilisable, orange = dispo mais pas maintenant.
+const GREEN = "var(--success)";
+const ORANGE = "oklch(0.72 0.17 55)";
+
+// Accorde la mention de recharge selon la portée (tour = masc., Enquête = fém.,
+// partie = pas de recharge en cours de jeu).
+function rechargeClause(scope: string) {
+  const s = scope.toLowerCase();
+  if (s.includes("tour")) return "recharge au prochain tour";
+  if (s.includes("enqu")) return "recharge à la prochaine Enquête";
+  if (s.includes("parti")) return "pour cette partie";
+  return `recharge à la prochaine ${scope}`;
+}
+
+const CHARGE_EXAMPLES: RoleEx[] = [
+  {
+    name: "Le Tueur",
+    faction: "Méchant",
+    type: "TUEUR",
+    freq: "1×/Enquête",
+    avatar: "leo",
+    cap: "Une fois par Enquête, désigne 1 joueur vivant. Sa mort est annoncée à la prochaine Annonce.",
+  },
+  {
+    name: "La Voyante",
+    faction: "Civil",
+    type: "INVESTIGATION",
+    freq: "2×/partie",
+    avatar: "kya",
+    cap: "Sonde un joueur : découvre s'il t'apparaît innocent ou suspect.",
+  },
+  {
+    name: "Le Barman",
+    faction: "Civil",
+    type: "SUPPORT",
+    freq: "1×/tour",
+    avatar: "hana",
+    cap: "Sers un verre à un joueur : il est ivre au prochain tour et rate sa capacité.",
+  },
+];
+
+function ChargeCard({ ex, variant }: { ex: RoleEx; variant: "pips" | "wax" }) {
+  return (
+    <Dossier ex={ex}>
+      <div className="space-y-2.5">
+        {badgesStamp(ex)}
+        <CapacityFrame freq={ex.freq} variant={variant} />
+      </div>
+    </Dossier>
+  );
+}
+
+// Cadre « Capacité » : encadre le compteur interactif pour le poser comme un
+// bloc à part entière sous le badge de type.
+function CapacityFrame({ freq, variant }: { freq: string; variant: "pips" | "wax" }) {
   return (
     <div
-      className={`board-card absolute w-32 rounded bg-[#efe3c7] p-3 text-[#2b160d] shadow-xl ${className}`}
+      className="rounded-lg border px-3 py-2"
+      style={{
+        borderColor: `color-mix(in oklab, ${INK} 22%, transparent)`,
+        background: `color-mix(in oklab, ${INK} 4%, transparent)`,
+      }}
     >
-      <span className="board-pin absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-red-400 shadow" />
-      <div className="font-display text-[10px] uppercase tracking-[0.18em] text-[#9a7b52]">
-        {title}
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className="font-display text-[9px] uppercase tracking-[0.18em]"
+          style={{ color: INKSOFT }}
+        >
+          Capacité
+        </span>
+        <span
+          className="h-px flex-1"
+          style={{ background: `color-mix(in oklab, ${INK} 15%, transparent)` }}
+        />
       </div>
-      <div className="mt-1 text-sm font-semibold">{body}</div>
+      {variant === "pips" ? <ChargeTracker freq={freq} /> : <WaxCharge freq={freq} />}
+    </div>
+  );
+}
+
+// Jetons cliquables : plein = charge dispo, creux = déjà utilisée. Ligne d'état
+// dessous. Clic = consommer la charge suivante (ou tout recharger si épuisée).
+function ChargeTracker({ freq }: { freq: string }) {
+  const f = parseFreq(freq);
+  const [used, setUsed] = useState(0);
+  if (f.passive) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: INKSOFT }}>
+        <span className="size-1.5 rounded-full border" style={{ borderColor: INKSOFT }} />
+        Passif — toujours actif
+      </span>
+    );
+  }
+  const total = f.count;
+  const allUsed = used >= total;
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setUsed(allUsed ? 0 : used + 1)}
+        title={allUsed ? "Recharger (démo)" : "Utiliser une charge (démo)"}
+        className="-mx-1.5 inline-flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-black/5"
+      >
+        <span className="flex items-center gap-1">
+          {Array.from({ length: total }).map((_, i) => {
+            const spent = i < used;
+            return (
+              <span
+                key={i}
+                className="size-3.5 rounded-full transition-all duration-200"
+                style={
+                  spent
+                    ? {
+                        border: `1px solid color-mix(in oklab, ${INK} 30%, transparent)`,
+                        opacity: 0.5,
+                        transform: "scale(0.85)",
+                      }
+                    : {
+                        background: GOLD,
+                        boxShadow: `0 0 0 1.5px color-mix(in oklab, ${GOLD} 35%, transparent)`,
+                      }
+                }
+              />
+            );
+          })}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: INKSOFT }}>
+          / {f.scope}
+        </span>
+      </button>
+      <div className="flex items-center gap-1.5 text-[10px]">
+        <span
+          className="size-1.5 rounded-full"
+          style={{ background: allUsed ? RED : SUCCESS }}
+        />
+        <span style={{ color: allUsed ? onPaper(RED) : onPaper(SUCCESS) }}>
+          {allUsed
+            ? `Épuisée — ${rechargeClause(f.scope)}`
+            : `Prête — ${total - used}/${total} dispo`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Variante sceau de cire : rouge intact = dispo, gris estampé = utilisée.
+function WaxCharge({ freq }: { freq: string }) {
+  const f = parseFreq(freq);
+  const [used, setUsed] = useState(false);
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setUsed((v) => !v)}
+        title={used ? "Recharger (démo)" : "Utiliser (démo)"}
+        className="-mx-1 inline-flex items-center gap-2 rounded-md px-1 py-0.5 transition hover:bg-black/5"
+      >
+        <span
+          className="grid size-7 place-items-center rounded-full font-display text-[11px] leading-none transition-all duration-200"
+          style={
+            used
+              ? {
+                  background: `color-mix(in oklab, ${INK} 20%, var(--paper))`,
+                  color: INKSOFT,
+                  boxShadow: "inset 0 -1px 2px rgba(0,0,0,.2)",
+                }
+              : {
+                  background: `radial-gradient(circle at 34% 30%, color-mix(in oklab, ${RED} 78%, white), ${RED})`,
+                  color: "var(--paper)",
+                  boxShadow:
+                    "inset 0 -1px 2px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.25)",
+                }
+          }
+        >
+          {f.passive ? "∙" : `×${f.count}`}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: INKSOFT }}>
+          / {f.scope}
+        </span>
+      </button>
+      <div className="flex items-center gap-1.5 text-[10px]">
+        <span className="size-1.5 rounded-full" style={{ background: used ? RED : SUCCESS }} />
+        <span style={{ color: used ? onPaper(RED) : onPaper(SUCCESS) }}>
+          {used ? `Utilisée — ${rechargeClause(f.scope)}` : "Disponible"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Cadres minimalistes (beige) — compteur compact ───────────────
+
+// Compteur compact : jetons pleins (dispo) / creux (utilisés) + « N×/portée ».
+// Pas de phrase d'état — l'info « épuisée » passe par les jetons + l'infobulle.
+function ChargeTrackerMini({ freq }: { freq: string }) {
+  const f = parseFreq(freq);
+  const [used, setUsed] = useState(0);
+  if (f.passive) {
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: INKSOFT }}>
+        Passif
+      </span>
+    );
+  }
+  const total = f.count;
+  const allUsed = used >= total;
+  return (
+    <button
+      type="button"
+      onClick={() => setUsed(allUsed ? 0 : used + 1)}
+      title={allUsed ? "Recharger (démo)" : "Utiliser une charge (démo)"}
+      className="inline-flex items-center gap-1.5"
+    >
+      <span className="flex items-center gap-1">
+        {Array.from({ length: total }).map((_, i) => {
+          const spent = i < used;
+          return (
+            <span
+              key={i}
+              className="size-2.5 rounded-full transition-all duration-200"
+              style={
+                spent
+                  ? {
+                      border: `1px solid color-mix(in oklab, ${INK} 30%, transparent)`,
+                      opacity: 0.5,
+                      transform: "scale(0.85)",
+                    }
+                  : {
+                      background: GOLD,
+                      boxShadow: `0 0 0 1px color-mix(in oklab, ${GOLD} 35%, transparent)`,
+                    }
+              }
+            />
+          );
+        })}
+      </span>
+      <span className="font-mono text-[10px]" style={{ color: allUsed ? INKSOFT : INK }}>
+        {total}×/{f.scope}
+      </span>
+    </button>
+  );
+}
+
+function MiniFrame({ kind, children }: { kind: "box" | "outline" | "rule"; children: ReactNode }) {
+  if (kind === "box")
+    return (
+      <span
+        className="inline-flex rounded-md border px-2.5 py-1.5"
+        style={{ borderColor: BEIGE, background: `color-mix(in oklab, ${BEIGE} 14%, transparent)` }}
+      >
+        {children}
+      </span>
+    );
+  if (kind === "outline")
+    return (
+      <span className="inline-flex rounded-md border px-2 py-1" style={{ borderColor: BEIGE }}>
+        {children}
+      </span>
+    );
+  return (
+    <span className="inline-flex border-l-2 py-0.5 pl-2" style={{ borderColor: BEIGE }}>
+      {children}
+    </span>
+  );
+}
+
+function MiniCard({ ex, kind }: { ex: RoleEx; kind: "box" | "outline" | "rule" }) {
+  return (
+    <Dossier ex={ex}>
+      <div className="space-y-2.5">
+        {badgesStamp(ex)}
+        <MiniFrame kind={kind}>
+          <ChargeTrackerMini freq={ex.freq} />
+        </MiniFrame>
+      </div>
+    </Dossier>
+  );
+}
+
+// ─────────────────────── Version définitive (large) ───────────────────────
+
+// Compteur définitif : code couleur vert / orange / creux.
+// - creux  : charge déjà utilisée
+// - vert   : charge restante ET actionnable maintenant
+// - orange : charge restante mais pas actionnable là (phase, blocage…)
+function DefinitiveTracker({
+  freq,
+  canAct,
+  initialUsed = 0,
+  green = GREEN,
+  orange = ORANGE,
+}: {
+  freq: string;
+  canAct: boolean;
+  initialUsed?: number;
+  green?: string;
+  orange?: string;
+}) {
+  const f = parseFreq(freq);
+  const [used, setUsed] = useState(initialUsed);
+  if (f.passive) {
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-wide" style={{ color: INKSOFT }}>
+        Passif
+      </span>
+    );
+  }
+  const total = f.count;
+  const allUsed = used >= total;
+  const onClick = () => {
+    if (allUsed) setUsed(0);
+    else if (canAct) setUsed(used + 1);
+  };
+  const title = allUsed
+    ? "Recharger (démo)"
+    : canAct
+      ? "Utiliser une charge (démo)"
+      : "Dispo mais pas actionnable maintenant";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="inline-flex items-center gap-1.5"
+      style={{ cursor: !allUsed && !canAct ? "not-allowed" : "pointer" }}
+    >
+      <span className="flex items-center gap-1">
+        {Array.from({ length: total }).map((_, i) => {
+          const spent = i < used;
+          const color = canAct ? green : orange;
+          return (
+            <span
+              key={i}
+              className="size-2.5 rounded-full transition-all duration-200"
+              style={
+                spent
+                  ? {
+                      border: `1px solid color-mix(in oklab, ${INK} 30%, transparent)`,
+                      opacity: 0.5,
+                      transform: "scale(0.85)",
+                    }
+                  : {
+                      background: color,
+                      boxShadow: `0 0 0 1px color-mix(in oklab, ${color} 40%, transparent)`,
+                    }
+              }
+            />
+          );
+        })}
+      </span>
+      <span className="font-mono text-[10px]" style={{ color: allUsed ? INKSOFT : INK }}>
+        {total}×/{f.scope}
+      </span>
+    </button>
+  );
+}
+
+function DefinitiveCard({
+  ex,
+  canAct,
+  initialUsed = 0,
+  note,
+  green,
+  orange,
+}: {
+  ex: RoleEx;
+  canAct: boolean;
+  initialUsed?: number;
+  note: string;
+  green?: string;
+  orange?: string;
+}) {
+  return (
+    <div className="w-full max-w-xl">
+      <Dossier ex={ex}>
+        <div className="flex flex-wrap items-center gap-2">
+          {typeStampChip(ex.type)}
+          <MiniFrame kind="box">
+            <DefinitiveTracker
+              freq={ex.freq}
+              canAct={canAct}
+              initialUsed={initialUsed}
+              green={green}
+              orange={orange}
+            />
+          </MiniFrame>
+        </div>
+      </Dossier>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+function FreqColorLegend() {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-full" style={{ background: GREEN }} />
+        Utilisable maintenant
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-full" style={{ background: ORANGE }} />
+        Dispo, pas maintenant
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="size-2.5 rounded-full border"
+          style={{ borderColor: "currentColor", opacity: 0.6 }}
+        />
+        Utilisée
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────── Variantes de couleurs (code des charges) ───────────────────
+
+type ChargePalette = { name: string; green: string; orange: string };
+
+const CHARGE_PALETTES: ChargePalette[] = [
+  { name: "Vert · Orange (actuel)", green: "var(--success)", orange: "oklch(0.72 0.17 55)" },
+  { name: "Émeraude · Ambre", green: "oklch(0.72 0.16 158)", orange: "oklch(0.8 0.15 78)" },
+  { name: "Sauge · Terracotta", green: "oklch(0.66 0.09 150)", orange: "oklch(0.62 0.16 42)" },
+  { name: "Jade · Safran", green: "oklch(0.7 0.13 168)", orange: "oklch(0.78 0.16 68)" },
+  { name: "Olive · Rouille", green: "oklch(0.68 0.11 130)", orange: "oklch(0.58 0.15 38)" },
+  { name: "Menthe · Cuivre", green: "oklch(0.76 0.12 165)", orange: "oklch(0.66 0.14 50)" },
+];
+
+function StateDot({ color }: { color: string }) {
+  return (
+    <span
+      className="size-2.5 rounded-full"
+      style={{ background: color, boxShadow: `0 0 0 1px color-mix(in oklab, ${color} 40%, transparent)` }}
+    />
+  );
+}
+
+function ColorVariantRow({ p }: { p: ChargePalette }) {
+  return (
+    <div className="paper rounded-md px-3 py-2.5">
+      <div
+        className="mb-2 font-display text-[9px] uppercase tracking-[0.16em]"
+        style={{ color: INKSOFT }}
+      >
+        {p.name}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px]" style={{ color: INK }}>
+        <span className="inline-flex items-center gap-1.5">
+          <StateDot color={p.green} />
+          utilisable
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <StateDot color={p.orange} />
+          pas maintenant
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-full border"
+            style={{ borderColor: `color-mix(in oklab, ${INK} 30%, transparent)`, opacity: 0.5 }}
+          />
+          utilisée
+        </span>
+        <span
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1"
+          style={{ borderColor: BEIGE, background: `color-mix(in oklab, ${BEIGE} 14%, transparent)` }}
+        >
+          <span className="flex gap-1">
+            <StateDot color={p.green} />
+            <StateDot color={p.green} />
+          </span>
+          <span className="font-mono text-[10px]" style={{ color: INK }}>
+            2×/partie
+          </span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -636,32 +1082,5 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
       </h2>
       {children}
     </section>
-  );
-}
-
-function Principle({ icon, text }: { icon: ReactNode; text: string }) {
-  return (
-    <div className="flex items-start gap-2 [&_svg]:mt-0.5 [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-gold">
-      {icon}
-      <span>{text}</span>
-    </div>
-  );
-}
-
-function Swatch({ name, color }: { name: string; color: string }) {
-  return (
-    <div className="rounded border border-white/10 bg-black/20 p-2">
-      <span className="block h-8 rounded" style={{ background: color }} />
-      <span className="mt-1 block text-xs text-muted-foreground">{name}</span>
-    </div>
-  );
-}
-
-function Badge({ icon, text }: { icon: ReactNode; text: string }) {
-  return (
-    <span className="role-chip inline-flex items-center gap-1 rounded border border-[#a8772a]/35 bg-[#a8772a]/10 px-2 py-1 text-xs text-[#5d3d22] [&_svg]:h-3.5 [&_svg]:w-3.5">
-      {icon}
-      {text}
-    </span>
   );
 }

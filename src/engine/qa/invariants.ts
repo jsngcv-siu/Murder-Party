@@ -158,7 +158,6 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
     "prophecy_set",
     "cover_pending",
     "killer_targeted",
-    "guetteur_visit",
     "saint_block_log",
     "ward",
   ]);

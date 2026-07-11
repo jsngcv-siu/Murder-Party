@@ -380,10 +380,12 @@ function pickCapabilityTargets(
     case "usurpateur": {
       return [pickRandom(others)];
     }
+    case "guetteur": {
+      return [pickRandom(others)];
+    }
     // ── Setup / passifs / continus : pas de ciblage actif
     case "temoin":
     case "oracle":
-    case "guetteur":
     case "avocat":
     case "medecin_legiste":
     case "medium":

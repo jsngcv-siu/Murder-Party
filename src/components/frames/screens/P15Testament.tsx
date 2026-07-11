@@ -35,8 +35,9 @@ export function P15Testament({ me }: FrameContext) {
           </div>
         </div>
         <p className="relative mt-3.5 text-sm leading-relaxed text-muted-foreground">
-          Rédige dès maintenant le message qui sera révélé au cimetière en cas de mort. Modifiable à
-          tout moment tant que le cœur bat.
+          Ton <span className="font-semibold text-foreground">dernier message</span>, révélé au{" "}
+          <span className="font-semibold text-foreground">cimetière</span> à ta mort. Modifiable tant
+          que le cœur bat.
         </p>
       </header>
 

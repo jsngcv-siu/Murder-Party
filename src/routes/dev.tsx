@@ -7,7 +7,7 @@
 // Robustesse : chaque scène est montée avec un `key` unique (remount propre des
 // hooks à chaque changement) et enveloppée dans un ErrorBoundary, donc une frame
 // qui plante affiche une carte d'erreur isolée au lieu de tuer toute la page.
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow, RoleRow } from "@/engine/actions";
@@ -41,12 +41,11 @@ import { E1EndGame } from "@/components/frames/screens/E1EndGame";
 import { EventCard, type EventKind, type QueuedEvent } from "@/components/PlayerEventModal";
 import { DuelScene } from "@/components/DiceDuelModal";
 import { serverNow } from "@/lib/serverTime";
+import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
 
 export const Route = createFileRoute("/dev")({
-  // Galerie d'écrans en états synthétiques : outil de dev. En prod, redirection accueil.
-  beforeLoad: () => {
-    if (import.meta.env.PROD) throw redirect({ to: "/" });
-  },
+  // Galerie d'écrans en états synthétiques : accessible uniquement via `vite dev`.
+  beforeLoad: requireLocalDevelopment,
   component: DevGallery,
 });
 
@@ -96,7 +95,7 @@ type CastSpec = {
 
 // Distribution couvrant toutes les frames et toutes les victoires de faction/solo.
 const CAST: CastSpec[] = [
-  { pseudo: "Alice", slugs: ["medecin", "garde", "infirmiere"], faction: "Civil" },
+  { pseudo: "Alice", slugs: ["ange_gardien", "saint", "medecin_legiste"], faction: "Civil" },
   { pseudo: "Bob", slugs: ["tueur", "parrain", "acolyte"], faction: "Méchant" },
   { pseudo: "Cléo", slugs: ["vampire"], faction: "Méchant", meta: { converted: false } },
   { pseudo: "Dré", slugs: ["oracle"], faction: "Civil", meta: { prophecy: "Civil" } },
@@ -114,7 +113,7 @@ const CAST: CastSpec[] = [
     },
   },
   { pseudo: "Gus", slugs: ["parieur_tricheur"], faction: "Neutre" },
-  { pseudo: "Hana", slugs: ["conservateur"], faction: "Neutre" },
+  { pseudo: "Hana", slugs: ["heritier_dechu", "imitateur"], faction: "Neutre" },
   { pseudo: "Ivo", slugs: ["entremetteur"], faction: "Neutre" },
   {
     pseudo: "Jin",

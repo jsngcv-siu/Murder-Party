@@ -43,7 +43,7 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   medecin_legiste: "passive",
   medium: "passive",
   temoin: "passive",
-  guetteur: "passive",
+  guetteur: "investigate",
   avocat: "passive",
   paranoiaque: "passive",
   majordome: "protect",

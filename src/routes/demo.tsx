@@ -1,7 +1,7 @@
 // /demo — Sandbox MJ. Le rendu joueur est strictement le même que /g/$code
 // (composant PlayerShell partagé). Aucun écran spécifique à la démo : ce qui
 // est testé ici, c'est exactement ce que voient les vrais joueurs en live.
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,12 +58,11 @@ import {
   Radio,
 } from "lucide-react";
 import { RoleIcon } from "@/components/RoleIcon";
+import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
 
 export const Route = createFileRoute("/demo")({
-  // Bac à sable MJ god-mode + QA : réservé au dev. En prod, redirection vers l'accueil.
-  beforeLoad: () => {
-    if (import.meta.env.PROD) throw redirect({ to: "/" });
-  },
+  // Bac à sable MJ god-mode + QA : accessible uniquement via `vite dev`.
+  beforeLoad: requireLocalDevelopment,
   component: DemoMenu,
 });
 

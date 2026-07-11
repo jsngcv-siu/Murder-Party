@@ -10,19 +10,14 @@ import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import type { FrameContext } from "@/components/frames/registry";
 import { phasePalette } from "@/lib/avatars";
+import { Check, Clock, Lock, Pause, Settings, Skull } from "lucide-react";
 import {
-  Backpack,
-  Check,
-  Clock,
-  Feather,
-  Lock,
-  Megaphone,
-  Pause,
-  Settings,
-  Skull,
-  Target,
-  Zap,
-} from "lucide-react";
+  AnnoncesIcon,
+  CapaciteIcon,
+  InventaireIcon,
+  SuspicionsIcon,
+  TestamentIcon,
+} from "@/components/icons/tabIcons";
 import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
@@ -738,7 +733,7 @@ export function PlayerShell({
         <TabBtn
           active={tab === "journal"}
           onClick={() => setTab("journal")}
-          icon={<Backpack className="size-6" />}
+          icon={<InventaireIcon className="size-7" />}
           label="Inventaire"
           accent={tabAccent("journal")}
           badge={unread}
@@ -746,14 +741,14 @@ export function PlayerShell({
         <TabBtn
           active={tab === "suspicions"}
           onClick={() => setTab("suspicions")}
-          icon={<Target className="size-6" />}
+          icon={<SuspicionsIcon className="size-7" />}
           label="Suspicions"
           accent={tabAccent("suspicions")}
         />
         <TabBtn
           active={tab === "cemetery"}
           onClick={() => setTab("cemetery")}
-          icon={<Megaphone className="size-6" />}
+          icon={<AnnoncesIcon className="size-7" />}
           label="Annonces"
           accent={tabAccent("cemetery")}
           badge={announcesUnread}
@@ -762,7 +757,7 @@ export function PlayerShell({
           <TabBtn
             active={tab === "testament"}
             onClick={() => setTab("testament")}
-            icon={<Feather className="size-6" />}
+            icon={<TestamentIcon className="size-7" />}
             label="Testament"
             accent={tabAccent("testament")}
           />
@@ -770,7 +765,7 @@ export function PlayerShell({
           <TabBtn
             active={tab === "testament"}
             onClick={() => setTab("testament")}
-            icon={<Skull className="size-6" />}
+            icon={<Skull className="size-7" />}
             label="Conseil"
             accent={tabAccent("testament")}
           />
@@ -780,9 +775,9 @@ export function PlayerShell({
           onClick={() => setTab("capacity")}
           icon={
             me.is_alive && me.is_imprisoned ? (
-              <Lock className="size-6" />
+              <Lock className="size-7" />
             ) : (
-              <Zap className="size-6" />
+              <CapaciteIcon className="size-7" />
             )
           }
           accent={tabAccent("capacity")}
@@ -796,7 +791,9 @@ export function PlayerShell({
             (myRole.target_mode ?? "single") !== "none"
               ? capacityUsedThisTour
                 ? "done"
-                : "pending"
+                : isJour
+                  ? "usable"
+                  : "waiting"
               : null
           }
         />
@@ -1019,7 +1016,7 @@ function TabBtn({
   shimmer?: boolean;
   dim?: boolean;
   disabled?: boolean;
-  statusDot?: "done" | "pending" | null;
+  statusDot?: "done" | "usable" | "waiting" | null;
 }) {
   return (
     <button
@@ -1056,12 +1053,23 @@ function TabBtn({
       ) : null}
       {statusDot && !badge ? (
         <span
-          className={`absolute top-1 right-2 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ring-2 ring-card ${
-            statusDot === "done"
-              ? "bg-emerald-500 text-emerald-50"
-              : "bg-amber-500 text-amber-50 animate-pulse"
+          className={`absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ring-2 ring-card ${
+            statusDot === "usable" ? "animate-pulse" : ""
           }`}
-          title={statusDot === "done" ? "Capacité utilisée ce tour" : "Capacité non utilisée"}
+          style={
+            statusDot === "usable"
+              ? { background: "var(--success)", color: "var(--success-foreground)" }
+              : statusDot === "waiting"
+                ? { background: "oklch(0.72 0.17 55)", color: "oklch(0.20 0.03 40)" }
+                : { background: "var(--muted)", color: "var(--muted-foreground)" }
+          }
+          title={
+            statusDot === "usable"
+              ? "Capacité utilisable maintenant"
+              : statusDot === "waiting"
+                ? "Capacité dispo — pas ce tour"
+                : "Capacité utilisée ce tour"
+          }
         >
           {statusDot === "done" ? (
             <Check className="size-3" strokeWidth={3} />

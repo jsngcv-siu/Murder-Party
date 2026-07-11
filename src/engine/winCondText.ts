@@ -36,7 +36,7 @@ export function describeWinCondition(
       factionLabel: "Amoureux (Entremetteur)",
       lines: [
         `💞 L'Entremetteur a noué ton lien avec ${partner?.pseudo ?? "?"}.`,
-        "Vous formez la faction Entremetteur : vous gagnez ensemble si vous êtes les seuls survivants (l'Entremetteur peut être avec vous).",
+        "Vous gagnez ensemble en étant les derniers survivants (l'Entremetteur compris).",
         `Ton rôle d'origine (${role.icon} ${role.name_fr}) reste actif.`,
       ],
     };
@@ -46,10 +46,10 @@ export function describeWinCondition(
   const base: string[] = [];
   if (role.faction === "Civil") {
     base.push(
-      "🟦 Tu gagnes si tous les Méchants, Vampires, Amoureux et Neutres adverses sont éliminés ou emprisonnés.",
+      "🟦 Tu gagnes quand tous les camps adverses sont éliminés ou emprisonnés.",
     );
   } else if (role.faction === "Méchant") {
-    base.push("🟥 Tu gagnes si les Méchants dominent le manoir (autant ou plus que les autres).");
+    base.push("🟥 Tu gagnes quand les Méchants égalent ou dépassent les autres.");
   } else if (role.slug === "vampire") {
     base.push("🩸 Tu gagnes si tous les non-vampires sont éliminés.");
   }
@@ -59,25 +59,25 @@ export function describeWinCondition(
     case "veuve_noire": {
       base.length = 0;
       base.push(
-        "🕷️ Tu gagnes en SOLO si tu es la seule personne encore en vie et libre du manoir.",
+        "🕷️ Victoire SOLO : sois la seule personne en vie et libre.",
       );
       break;
     }
     case "parieur_tricheur": {
       base.length = 0;
       base.push(
-        "🎲 Tu gagnes en SOLO si tu es la seule personne encore en vie et libre, sans avoir perdu au dé.",
+        "🎲 Victoire SOLO : reste seul·e en vie et libre, sans perdre un pari.",
       );
       break;
     }
     case "chasseur_de_vampire": {
       base.length = 0;
       base.push(
-        "🧛 Apparu·e après la 1re morsure du Vampire, tu traques les Vampires : désigne un joueur pour savoir s'il en est un (et l'éliminer si oui).",
+        "🧛 Traque les Vampires : désigne un joueur pour savoir s'il en est un — et l'éliminer.",
       );
-      base.push("🛡️ Tu es immunisé·e contre la morsure et ne peux pas être converti·e.");
+      base.push("🛡️ Immunisé·e : tu ne peux pas être mordu·e.");
       base.push(
-        "🤝 Allié·e des Civils : tu gagnes avec eux quand tous les Méchants, Vampires et Neutres adverses sont écartés.",
+        "🤝 Allié·e des Civils : tu gagnes avec eux.",
       );
       break;
     }
@@ -98,7 +98,7 @@ export function describeWinCondition(
     case "heritier_dechu": {
       base.length = 0;
       base.push(
-        "👑 Tu gagnes en vie avec les Méchants à la fin de la partie (tant qu'un Méchant survit).",
+        "👑 Tu gagnes avec les Méchants (si tu es en vie et qu'au moins un survit).",
       );
       break;
     }
@@ -107,11 +107,11 @@ export function describeWinCondition(
       base.length = 0;
       if (proph) {
         base.push(
-          `🔮 Prophétie verrouillée : victoire des ${proph}. Tu gagnes si cette faction l'emporte et que tu es en vie à la fin.`,
+          `🔮 Prophétie : victoire des ${proph}. Tu gagnes avec eux si tu survis.`,
         );
       } else {
         base.push(
-          "🔮 À la 1ère Enquête, prédis quelle faction (Civils, Méchants ou Neutres) gagnera. Tu gagnes avec elle si tu es en vie à la fin.",
+          "🔮 À la 1re Enquête, prédis le camp gagnant. Tu gagnes avec lui si tu survis.",
         );
       }
       break;
@@ -123,7 +123,7 @@ export function describeWinCondition(
         base.push("🎭 Tu as copié un rôle : tu gagnes désormais selon sa condition de victoire.");
       } else {
         base.push(
-          "🎭 Une fois dans la partie, copie le rôle du dernier mort : tu hériteras alors de sa faction et de sa condition de victoire.",
+          "🎭 Copie une fois le rôle du dernier mort : tu prends sa faction et sa victoire.",
         );
       }
       break;
@@ -132,7 +132,7 @@ export function describeWinCondition(
       const cher = findName(m.beloved_id);
       if (cher)
         base.push(
-          `💔 Tant que ${cher} (ton être cher) vit, ta capacité de tuer reste verrouillée.`,
+          `💔 Tant que ${cher} vit, tu ne peux pas tuer.`,
         );
       break;
     }
@@ -143,20 +143,20 @@ export function describeWinCondition(
         .join(" & ");
       base.length = 0;
       base.push(
-        `💞 Victoire DURE : le couple lié (${names || "—"}) et toi êtes les seuls survivants.`,
+        `💞 Victoire : le couple (${names || "—"}) et toi, seuls survivants.`,
       );
       base.push(
-        "🩹 Repli : si le couple meurt, tu gagnes quand même en survivant en vie et libre jusqu'à la fin, quel que soit le camp vainqueur.",
+        "🩹 Repli : si le couple meurt, survis en vie et libre jusqu'au bout.",
       );
       break;
     }
     case "conservateur": {
       base.length = 0;
       base.push(
-        "🗝️ À chaque Enquête (2× par tour), tu confies une relique maudite au hasard à une cible.",
+        "🗝️ Chaque Enquête (2×), confie une relique maudite à une cible.",
       );
       base.push(
-        "🫀 Tu gagnes (victoire SOLO immédiate) dès qu'une personne reçoit la relique « Le Cœur du Manoir ».",
+        "🫀 Victoire SOLO immédiate dès que quelqu'un reçoit « Le Cœur du Manoir ».",
       );
       break;
     }

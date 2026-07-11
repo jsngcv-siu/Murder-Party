@@ -479,7 +479,6 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
       }
     return list;
   }, [groups]);
-  const factionLabel = groups[0]?.label ?? (theme.title || winner || "—");
 
   return (
     <div
@@ -511,31 +510,6 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
             background: `radial-gradient(ellipse at center, transparent 42%, ${theme.vignette ?? "oklch(0.06 0.02 30)"} 100%)`,
           }}
         />
-      )}
-
-      {/* Étiquette scotchée « ISSUE · FACTION » */}
-      {winner && result !== null && (
-        <div className="relative z-10 flex justify-center pt-5 pb-1">
-          <div className="tape-label relative px-4 py-1.5" style={{ transform: "rotate(-1.5deg)" }}>
-            <div
-              className="text-[8px] uppercase tracking-[0.18em] flex items-center justify-center gap-1.5"
-              style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
-            >
-              <span
-                className="size-1.5 rounded-full"
-                style={{ background: theme.accent }}
-                aria-hidden
-              />{" "}
-              Issue · Faction
-            </div>
-            <div
-              className="text-lg leading-tight text-center"
-              style={{ fontFamily: "var(--font-hand)", fontWeight: 700, color: "var(--paper-ink)" }}
-            >
-              {factionLabel}
-            </div>
-          </div>
-        </div>
       )}
 
       <header className="relative z-10 px-6 pt-4 pb-4 text-center">

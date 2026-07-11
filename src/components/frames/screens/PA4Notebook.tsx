@@ -7,8 +7,10 @@ import {
   consumeItem,
   itemFaction,
   type Item,
+  type ItemOrigin,
 } from "@/engine/items";
 import { factionToken, factionTag, factionLabel, itemBorderStyle } from "@/lib/factionText";
+import { ItemIcon } from "@/components/ItemIcon";
 import { supabase } from "@/integrations/supabase/client";
 import { CapabilityCard, type ActionRow } from "./PA2Capability";
 import type { RoleRow } from "@/engine/actions";
@@ -49,35 +51,51 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
   // (pour se déclencher depuis n'importe quel onglet). Ici on n'affiche que le
   // résultat d'utilisation d'un objet (toast plus bas).
 
+  // Regroupement « dossier » : ce qui appelle une action (À utiliser) en tête,
+  // puis les pièces à consulter, puis les objets déjà utilisés (Classés).
+  const usable = inventory.filter((it) => !it.consumed && itemIsUsable(it.slug, it.payload));
+  const consultable = inventory.filter((it) => !it.consumed && !itemIsUsable(it.slug, it.payload));
+  const classes = inventory.filter((it) => it.consumed);
+
   return (
     <div className="cork-surface h-full flex flex-col p-5 overflow-y-auto">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-        <Backpack className="size-3.5" aria-hidden /> Inventaire
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <Backpack className="size-3.5" aria-hidden /> Inventaire
+        </div>
+        <div
+          className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          Affaire · Tour {game.current_tour}
+        </div>
       </div>
-      <p className="mt-3 text-[10px] text-muted-foreground italic">
-        Objets reçus durant la partie. Touche un objet pour voir son détail et l'utiliser.
+      <p className="mt-2.5 text-[10px] text-muted-foreground italic">
+        Objets reçus durant la partie. Touche une pièce pour l'examiner et l'utiliser.
       </p>
       {inventory.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-muted-foreground">
-          <span className="uppercase tracking-wider">Contour =</span>
-          {(
-            [
-              ["Civil", "Civil"],
-              ["Méchant", "Méchant"],
-              ["Neutre", "Neutre"],
-              ["Système", "Le Manoir"],
-              [null, "Origine inconnue"],
-            ] as const
-          ).map(([key, label]) => (
-            <span key={label} className="inline-flex items-center gap-1">
-              <span
-                className="size-2.5 rounded-full"
-                style={{ background: factionToken(key) }}
-                aria-hidden
-              />{" "}
-              {label}
-            </span>
-          ))}
+        <div className="mt-2.5 rounded-xl border border-panel-border/70 bg-panel/40 px-3 py-2">
+          <div
+            className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground/70 mb-1.5"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Clé des sceaux
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-muted-foreground">
+            {(
+              [
+                ["Civil", "Civil"],
+                ["Méchant", "Méchant"],
+                ["Neutre", "Neutre"],
+                ["Système", "Le Manoir"],
+                [null, "Origine inconnue"],
+              ] as const
+            ).map(([key, label]) => (
+              <span key={label} className="inline-flex items-center gap-1.5">
+                <Seal faction={key} size={16} /> {label}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       {blockedReason && (
@@ -87,45 +105,44 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
         </div>
       )}
       {inventory.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground italic text-center">
-          Aucun objet pour le moment.
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-3 text-center">
+          <span className="sticky-note text-sm">Aucune pièce au dossier</span>
+          <p className="text-xs text-muted-foreground italic">
+            Les objets reçus durant la partie apparaîtront ici.
+          </p>
+        </div>
       ) : (
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          {inventory.map((it) => {
-            const fac = itemFaction(it);
-            return (
-              <button
-                key={it.id}
-                onClick={() => setOpenItem(it)}
-                className={`press relative aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 p-2 ${
-                  it.consumed
-                    ? "opacity-30 border-border bg-card/30 cursor-not-allowed"
-                    : "elevate hover:-translate-y-0.5"
-                }`}
-                style={itemBorderStyle(it, { consumed: it.consumed })}
-                disabled={it.consumed}
-              >
-                {!it.consumed && (
-                  <span
-                    className="absolute top-1 right-1 size-4 rounded-full grid place-items-center text-[8px] font-bold text-background"
-                    style={{ background: factionToken(fac) }}
-                    title={factionLabel(fac)}
-                    aria-label={`Provenance : ${factionLabel(fac)}`}
-                  >
-                    {factionTag(fac)}
-                  </span>
-                )}
-                <span className="text-4xl">{it.icon}</span>
-                <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
-                  {it.name}
-                </span>
-                {it.consumed && (
-                  <span className="text-[8px] uppercase text-muted-foreground">Utilisé</span>
-                )}
-              </button>
-            );
-          })}
+        <div className="mt-1">
+          {usable.length > 0 && (
+            <>
+              <SectionHead label="À utiliser" count={usable.length} />
+              <div className="mt-2 grid grid-cols-3 gap-2.5">
+                {usable.map((it) => (
+                  <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
+                ))}
+              </div>
+            </>
+          )}
+          {consultable.length > 0 && (
+            <>
+              <SectionHead label="Consultable" count={consultable.length} />
+              <div className="mt-2 grid grid-cols-3 gap-2.5">
+                {consultable.map((it) => (
+                  <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
+                ))}
+              </div>
+            </>
+          )}
+          {classes.length > 0 && (
+            <>
+              <SectionHead label="Classés" count={classes.length} />
+              <div className="mt-2 grid grid-cols-3 gap-2.5">
+                {classes.map((it) => (
+                  <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -148,13 +165,13 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           >
             <div className="flex flex-col items-center text-center">
               <span
-                className="mb-2 size-20 grid place-items-center rounded-full text-5xl"
+                className="mb-2 size-20 grid place-items-center overflow-hidden rounded-full text-5xl"
                 style={{
                   boxShadow: `0 0 0 2px color-mix(in oklab, ${factionToken(itemFaction(openItem))} 55%, transparent)`,
                   background: `color-mix(in oklab, ${factionToken(itemFaction(openItem))} 10%, transparent)`,
                 }}
               >
-                {openItem.icon}
+                <ItemIcon item={openItem} size={80} rounded="full" emojiFontSize={48} />
               </span>
               <h3 className="text-lg font-semibold">{openItem.name}</h3>
               <span
@@ -244,7 +261,7 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{useItemMode.icon}</span>
+              <ItemIcon item={useItemMode} size={40} rounded="lg" emojiFontSize={30} />
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Utiliser
@@ -398,6 +415,68 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
 // de papier déchiré (cadre difforme, bord arraché du côté de la coupure) avec
 // la moitié de texte dessus, et une note sous le cadre rappelant que l'autre
 // morceau est détenu par un autre invité.
+
+function Seal({ faction, size = 18 }: { faction: ItemOrigin | null; size?: number }) {
+  const color = factionToken(faction);
+  return (
+    <span
+      aria-label={"Provenance : " + factionLabel(faction)}
+      className="inline-grid shrink-0 place-items-center rounded-sm border text-[9px] font-bold leading-none"
+      style={{
+        width: size,
+        height: size,
+        color,
+        borderColor: color,
+        backgroundColor: "var(--panel)",
+      }}
+    >
+      {factionTag(faction)}
+    </span>
+  );
+}
+
+function SectionHead({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="mt-4 flex items-center gap-2">
+      <span
+        className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        {label}
+      </span>
+      <span className="inline-grid min-w-5 place-items-center rounded-full border border-panel-border/80 bg-panel px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+        {count}
+      </span>
+      <span className="h-px flex-1 bg-panel-border/60" aria-hidden />
+    </div>
+  );
+}
+
+function ItemCard({ it, onOpen }: { it: Item; onOpen: (item: Item) => void }) {
+  const faction = itemFaction(it);
+  const isConsumed = !!it.consumed;
+  const cardClass =
+    "press relative flex aspect-square min-h-24 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl border p-2 text-center transition focus-visible:outline-none disabled:cursor-not-allowed " +
+    (isConsumed ? "border-border bg-card/30 opacity-40" : "elevate hover:-translate-y-0.5");
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(it)}
+      disabled={isConsumed}
+      className={cardClass}
+      style={itemBorderStyle(it, { consumed: isConsumed })}
+    >
+      {!isConsumed && <Seal faction={faction} size={18} />}
+      <ItemIcon item={it} size={44} rounded="lg" emojiFontSize={30} className="leading-none" />
+      <span className="line-clamp-2 text-[10px] font-medium leading-tight text-foreground">
+        {it.name}
+      </span>
+      {isConsumed && (
+        <span className="text-[8px] uppercase tracking-[0.12em] text-muted-foreground">Classé</span>
+      )}
+    </button>
+  );
+}
 
 function isFragmentItem(it: Item): boolean {
   return it.slug === "indice" && !!(it.payload as Record<string, unknown> | undefined)?.fragment;

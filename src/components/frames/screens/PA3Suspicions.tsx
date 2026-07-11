@@ -1,9 +1,10 @@
 // PA3 — Suspicions « le mur » (DA The Board) : tableau de liège, photos polaroïd
-// épinglées (grille 3×N), post-its de suspicion à cheval sur la photo, ficelle
-// rouge, points d'interrogation orange (doute) et taches de sang (suspect).
+// épinglées (grille 3×N), ficelle rouge, et bandeau « coin corné » plié dans
+// l'angle haut-droit de chaque photo (verdict encré, visage dégagé).
 // Cycle au tap : Neutre → Safe(innocent) → Doute(un doute) → Suspect.
 // Persistance : role_meta.suspicion_board (server) + miroir localStorage (offline).
 import { useEffect, useState } from "react";
+import { Target } from "lucide-react";
 import type { FrameContext } from "../registry";
 import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
@@ -12,27 +13,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Level = 0 | 1 | 2 | 3;
 
-// Chaque niveau : libellé de post-it + couleur (token suspicion) + couleur d'encre.
+// Chaque niveau : libellé (a11y) + couleur (token suspicion) + libellé/encre du
+// bandeau « coin corné ».
 const LEVELS = [
-  { label: "", token: "var(--suspicion-0)", ink: "" },
-  { label: "innocent", token: "var(--suspicion-1)", ink: "oklch(0.22 0.05 150)" },
-  { label: "un doute", token: "var(--suspicion-2)", ink: "oklch(0.30 0.06 70)" },
-  { label: "suspect", token: "var(--suspicion-3)", ink: "oklch(0.98 0.02 20)" },
+  { label: "", token: "var(--suspicion-0)", ribbon: "", ink: "" },
+  { label: "innocent", token: "var(--suspicion-1)", ribbon: "Innocent", ink: "oklch(0.97 0.03 155)" },
+  { label: "un doute", token: "var(--suspicion-2)", ribbon: "Douteux", ink: "oklch(0.28 0.06 70)" },
+  { label: "suspect", token: "var(--suspicion-3)", ribbon: "Suspect", ink: "oklch(0.96 0.03 25)" },
 ] as const;
 
 // Petite dispersion « épinglé à la main » déterministe par position.
 const ROT = [-2, 1.4, -1.1, 1.8, -1.6, 1, -0.8, 1.6, -1.3];
-
-// Décor « doute » : ? orange agrandis, posés sur les coins/la bande blanche.
-const DOUTE_MARKS = [
-  { top: -8, right: -3, size: 30, rot: 12 },
-  { bottom: -5, left: 2, size: 23, rot: -12 },
-];
-// Décor « suspect » : taches de sang agrandies, sur les coins (partie blanche).
-const BLOOD = [
-  { top: -7, left: -5, w: 30, h: 25, rot: -14, o: 0.85 },
-  { bottom: -4, right: 1, w: 21, h: 17, rot: 16, o: 0.72 },
-];
 
 // Croix « décès » barrant la photo d'un joueur mort (deux traits rouge sang).
 function DeadCross() {
@@ -53,52 +44,28 @@ function DeadCross() {
   );
 }
 
-// Chaînes d'acier traversant en diagonale la photo d'un joueur emprisonné.
-function PrisonChains() {
+// Cellule : barreaux verticaux d'acier + cadre de fer sur la photo d'un
+// joueur emprisonné (la photo reste entièrement visible derrière).
+function PrisonBars() {
+  const bar = {
+    width: "5%",
+    background: "linear-gradient(90deg, #34383e 0%, #c8cdd3 32%, #8b9199 56%, #34383e 100%)",
+    boxShadow: "1.5px 0 2px oklch(0 0 0 / 0.4)",
+  };
   return (
     <span aria-hidden className="absolute inset-0 z-20 pointer-events-none">
-      <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-        <g strokeLinecap="round" style={{ filter: "drop-shadow(0 1px 2px oklch(0 0 0 / 0.7))" }}>
-          {/* Ombre sous les maillons pour le relief */}
-          <line
-            x1="-6"
-            y1="34"
-            x2="106"
-            y2="64"
-            stroke="oklch(0.20 0.01 250)"
-            strokeWidth="11"
-            strokeDasharray="1 10"
-          />
-          <line
-            x1="-6"
-            y1="70"
-            x2="106"
-            y2="40"
-            stroke="oklch(0.20 0.01 250)"
-            strokeWidth="11"
-            strokeDasharray="1 10"
-          />
-          {/* Maillons métalliques */}
-          <line
-            x1="-6"
-            y1="34"
-            x2="106"
-            y2="64"
-            stroke="oklch(0.74 0.015 250)"
-            strokeWidth="8"
-            strokeDasharray="1 10"
-          />
-          <line
-            x1="-6"
-            y1="70"
-            x2="106"
-            y2="40"
-            stroke="oklch(0.74 0.015 250)"
-            strokeWidth="8"
-            strokeDasharray="1 10"
-          />
-        </g>
-      </svg>
+      {/* Barreaux verticaux */}
+      {["16%", "37%", "58%", "79%"].map((left) => (
+        <span key={left} className="absolute top-0 bottom-0" style={{ left, ...bar }} />
+      ))}
+      {/* Cadre de fer — contour noir épais */}
+      <span
+        className="absolute inset-0"
+        style={{
+          border: "4px solid #1e2024",
+          boxShadow: "inset 0 0 0 1px oklch(0.72 0.02 250 / 0.3)",
+        }}
+      />
     </span>
   );
 }
@@ -146,6 +113,51 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
 
   return (
     <div className="cork-surface h-full flex flex-col">
+      {/* Bandeau héro : intention de l'onglet (mêmes codes que le Testament). */}
+      <header className="relative shrink-0 overflow-hidden px-5 pt-7 pb-4">
+        <div
+          className="pointer-events-none absolute inset-x-0 -top-16 h-40 opacity-60 blur-2xl"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 100%, oklch(0.58 0.20 22 / 0.28), transparent 70%)",
+          }}
+        />
+        <div className="relative flex items-center gap-3.5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground elevate">
+            <Target className="size-6" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <div
+              className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Suspicions
+            </div>
+            <h2
+              className="text-xl font-bold leading-tight"
+              style={{ fontFamily: "var(--font-display)", color: "oklch(0.72 0.19 22)" }}
+            >
+              Le mur des suspects
+            </h2>
+          </div>
+        </div>
+        <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground">
+          Classe chaque joueur :{" "}
+          <span className="font-semibold" style={{ color: "var(--suspicion-1)" }}>
+            innocent
+          </span>
+          ,{" "}
+          <span className="font-semibold" style={{ color: "var(--suspicion-2)" }}>
+            un doute
+          </span>{" "}
+          ou{" "}
+          <span className="font-semibold" style={{ color: "var(--suspicion-3)" }}>
+            suspect
+          </span>
+          . Visible <span className="font-semibold text-foreground">par toi seul</span>.
+        </p>
+      </header>
+
       {/* Fond liège plein — les photos sont épinglées directement sur le mur. */}
       <div className="flex-1 overflow-y-auto p-3">
         <div className="relative">
@@ -174,7 +186,8 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
               );
               const dim = !p.is_alive;
               const rot = ROT[i % ROT.length];
-              const pinColor = lvl > 0 ? L.token : "oklch(0.80 0.15 78)";
+              // Léger décalage d'angle du scotch, déterministe et « à la main ».
+              const tapeRot = i % 2 === 0 ? -4 : 3.5;
               return (
                 <button
                   key={p.id}
@@ -195,13 +208,17 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                           : "0 7px 14px -8px oklch(0 0 0 / 0.7)",
                     }}
                   >
-                    {/* Épingle */}
+                    {/* Bout de scotch (DA) — translucide, neutre, à cheval sur le bord
+                        haut ; passe devant tout le reste (photo, croix, ruban). */}
                     <span
                       aria-hidden
-                      className="absolute left-1/2 -translate-x-1/2 -top-1 size-2.5 rounded-full z-10"
+                      className="absolute left-1/2 -top-1.5 z-40"
                       style={{
-                        background: `radial-gradient(circle at 35% 30%, color-mix(in oklab, ${pinColor} 70%, white), ${pinColor})`,
-                        boxShadow: "0 2px 3px oklch(0 0 0 / 0.5)",
+                        width: 36,
+                        height: 15,
+                        transform: `translateX(-50%) rotate(${tapeRot}deg)`,
+                        background: "oklch(0.82 0.02 80 / 0.34)",
+                        boxShadow: "0 1px 2px oklch(0 0 0 / 0.3)",
                       }}
                     />
                     {/* Photo (carrée) + post-it à cheval sur son bord bas */}
@@ -218,25 +235,38 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                         {isAlly(p.id, p.role_slug) && <AllyStamp />}
                         {/* Mort : croix barrant la photo. Prison : chaînes en travers. */}
                         {!p.is_alive && <DeadCross />}
-                        {p.is_alive && p.is_imprisoned && <PrisonChains />}
+                        {p.is_alive && p.is_imprisoned && <PrisonBars />}
+                        {/* Verdict : bandeau « coin corné » plié dans l'angle haut-droit */}
+                        {lvl > 0 && (
+                          <span
+                            aria-hidden
+                            className="absolute top-0 right-0 z-20 overflow-hidden pointer-events-none"
+                            style={{ width: 56, height: 56 }}
+                          >
+                            <b
+                              className="absolute flex items-center justify-center"
+                              style={{
+                                width: 82,
+                                height: 16,
+                                top: 12,
+                                right: -20,
+                                transform: "rotate(45deg)",
+                                fontFamily: "var(--font-display)",
+                                fontWeight: 400,
+                                fontSize: 9,
+                                lineHeight: 1,
+                                letterSpacing: "0.05em",
+                                textTransform: "uppercase",
+                                background: L.token,
+                                color: L.ink,
+                                boxShadow: "0 1px 3px oklch(0 0 0 / 0.45)",
+                              }}
+                            >
+                              {L.ribbon}
+                            </b>
+                          </span>
+                        )}
                       </div>
-                      {/* Post-it de suspicion — à cheval entre la photo et la bande blanche, centré */}
-                      {lvl > 0 && (
-                        <span
-                          className="absolute left-1/2 bottom-0 z-30 px-2 py-0.5 leading-none whitespace-nowrap"
-                          style={{
-                            fontFamily: "var(--font-hand)",
-                            fontWeight: 700,
-                            fontSize: 11,
-                            background: L.token,
-                            color: L.ink,
-                            transform: "translate(-50%, 50%) rotate(-2deg)",
-                            boxShadow: "0 3px 6px -2px oklch(0 0 0 / 0.5)",
-                          }}
-                        >
-                          {L.label}
-                        </span>
-                      )}
                     </div>
 
                     {/* Nom manuscrit — abaissé, centré sous le post-it */}
@@ -251,52 +281,6 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                     >
                       {p.pseudo}
                     </div>
-
-                    {/* Doute : ? agrandis, posés sur les coins (partie blanche) */}
-                    {lvl === 2 &&
-                      DOUTE_MARKS.map((m, k) => {
-                        const { size, rot: r, ...pos } = m;
-                        return (
-                          <span
-                            key={k}
-                            aria-hidden
-                            className="absolute font-bold pointer-events-none z-20"
-                            style={{
-                              ...pos,
-                              fontFamily: "var(--font-display)",
-                              fontSize: size,
-                              color: "oklch(0.72 0.19 55)",
-                              textShadow: "0 1px 3px oklch(0 0 0 / 0.6)",
-                              transform: `rotate(${r}deg)`,
-                            }}
-                          >
-                            ?
-                          </span>
-                        );
-                      })}
-
-                    {/* Suspect : taches de sang agrandies, sur les coins (partie blanche) */}
-                    {lvl === 3 &&
-                      BLOOD.map((b, k) => {
-                        const { w, h, rot: r, o, ...pos } = b;
-                        return (
-                          <span
-                            key={k}
-                            aria-hidden
-                            className="absolute pointer-events-none z-20"
-                            style={{
-                              ...pos,
-                              width: w,
-                              height: h,
-                              background:
-                                "radial-gradient(circle at 40% 35%, oklch(0.46 0.22 25), oklch(0.34 0.20 22) 55%, transparent 74%)",
-                              borderRadius: "60% 40% 55% 45%",
-                              transform: `rotate(${r}deg)`,
-                              opacity: o,
-                            }}
-                          />
-                        );
-                      })}
                   </div>
                 </button>
               );

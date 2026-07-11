@@ -7,6 +7,11 @@
 //
 // ⚠️ Pas d'index signature volontairement : toute nouvelle clé DOIT être ajoutée
 // ici avant usage, sinon `tsc` échoue — c'est le garde-fou recherché.
+export type GuetteurWatch = {
+  target_id: string;
+  target_pseudo: string;
+};
+
 export interface RoleMeta {
   // ─── Protection / bénédiction ───
   protected_until_cycle?: number;
@@ -37,6 +42,8 @@ export interface RoleMeta {
   linked_pair?: string[];
   // ─── Oracle ───
   prophecy?: string;
+  // ─── Guetteur ───
+  guetteur_watch_history?: Record<string, GuetteurWatch>;
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

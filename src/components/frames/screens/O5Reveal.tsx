@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
 import { frequencyChips } from "@/lib/roleUsageChips";
+import { CapacityChargeChip } from "./PA2Capability";
 import { Sparkles } from "lucide-react";
 
 gsap.registerPlugin(SplitText);
@@ -290,16 +291,21 @@ export function O5Reveal({
                   </div>
                 </div>
                 <div className="flex flex-col items-start gap-1.5 min-w-0">
-                  <span
-                    className="text-[11px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded-md"
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      background: factionTone.bg,
-                      color: factionTone.fg,
-                    }}
-                  >
-                    {role.faction}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="text-[11px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded-md"
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        background: factionTone.bg,
+                        color: factionTone.fg,
+                      }}
+                    >
+                      {role.faction}
+                    </span>
+                    {freqs.map((f, i) => (
+                      <CapacityChargeChip key={i} label={f} state="green" />
+                    ))}
+                  </div>
                   <span
                     className="text-2xl uppercase leading-tight pr-2"
                     style={{
@@ -319,31 +325,12 @@ export function O5Reveal({
 
             {/* Capacité */}
             <div className="reveal-capacity">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className="text-[11px] font-bold uppercase tracking-[0.16em]"
-                  style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
-                >
-                  Capacité
-                </span>
-                {freqs.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-end gap-1.5 min-w-0">
-                    {freqs.map((f, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap"
-                        style={{
-                          fontFamily: "var(--font-display)",
-                          background: "var(--gradient-gold)",
-                          color: "oklch(0.26 0.05 60)",
-                        }}
-                      >
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <span
+                className="text-[11px] font-bold uppercase tracking-[0.16em]"
+                style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
+              >
+                Capacité
+              </span>
               <p
                 className="mt-2 text-[15px] leading-snug whitespace-pre-line"
                 style={{ color: "var(--paper-ink)" }}

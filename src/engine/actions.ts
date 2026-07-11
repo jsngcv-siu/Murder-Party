@@ -1607,42 +1607,6 @@ export async function ringGathering(
 
   // Mouchard : capacité désormais active (révélation 1×/partie). Aucun scan automatique à l'Annonce.
 
-  // Guetteur : résumé des visiteurs du tour (tour courant)
-  const { data: guetteurs } = await supabase
-    .from("players")
-    .select()
-    .eq("game_id", gameId)
-    .eq("role_slug", "guetteur")
-    .eq("is_alive", true);
-  for (const gu of (guetteurs ?? []) as PlayerRow[]) {
-    const guMeta = meta(gu);
-    const vbc = (guMeta.visited_by_cycle ?? {}) as Record<string, string[]>;
-    const visitors = vbc[String(tour)] ?? [];
-    if (visitors.length > 0) {
-      const { data: vps } = await supabase.from("players").select("id, pseudo").in("id", visitors);
-      const names = ((vps ?? []) as Array<{ pseudo: string }>).map((p) => p.pseudo).join(", ");
-      await notify({
-        gameId,
-        playerId: gu.id,
-        type: "guetteur_visit",
-        title: "👁️ Guetteur — Visites du tour",
-        body: `Tu as été visité par : ${names}.`,
-        mjTitle: "👁️ Guetteur",
-        mjBody: `${gu.pseudo} (Guetteur) a été visité par : ${names}.`,
-      });
-    } else {
-      await notify({
-        gameId,
-        playerId: gu.id,
-        type: "guetteur_visit",
-        title: "👁️ Guetteur — Visites du tour",
-        body: "Personne ne t'a visité aujourd'hui.",
-        mjTitle: "👁️ Guetteur",
-        mjBody: `${gu.pseudo} (Guetteur) n'a reçu aucune visite.`,
-      });
-    }
-  }
-
   emit("gather", `📯 Annonce — ${reason}`, { gameId, gatheringId: (gc as { id: string }).id });
   return (gc as { id: string }).id;
 }
@@ -2998,23 +2962,31 @@ export async function executeCapability(opts: {
     await log(extra);
   };
 
-  // ─── Visit tracking (Guetteur) — toute capacité ciblant des joueurs ───
-  for (const tgt of opts.targets) {
-    if (!tgt || tgt.id === actor.id) continue;
-    const { data: tFresh } = await supabase
-      .from("players")
-      .select("role_meta")
-      .eq("id", tgt.id)
-      .single();
-    const tMeta = ((tFresh as { role_meta: Meta } | null)?.role_meta ?? {}) as Meta;
-    const vbc = { ...((tMeta.visited_by_cycle ?? {}) as Record<string, string[]>) };
-    const key = String(opts.tour);
-    vbc[key] = Array.from(new Set([...(vbc[key] ?? []), actor.id]));
-    await patchMeta(tgt.id, { visited_by_cycle: vbc });
-  }
-
   const dispatchResult = await (async (): Promise<CapabilityResult> => {
     switch (slug) {
+      // ── Guetteur : choisit une cible et consulte son journal de visiteurs ──
+      case "guetteur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu dois surveiller un autre joueur." };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "guetteur_watch_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
+        const history = {
+          ...((m.guetteur_watch_history ?? {}) as Record<
+            string,
+            { target_id: string; target_pseudo: string }
+          >),
+          [String(opts.tour)]: { target_id: t1.id, target_pseudo: t1.pseudo },
+        };
+        await used({ effect: "guetteur_watch", target: t1.id });
+        // Le journal est mémorisé après son action canonique : l'interface peut
+        // prendre cet horodatage comme départ et ne jamais révéler le passé du tour.
+        await patchMeta(actor.id, { guetteur_watch_history: history });
+        return { ok: true, message: `Tu surveilles ${t1.pseudo} pour ce tour.` };
+      }
+
       // ── Kill direct ──
       case "tueur": {
         if (!t1) return { ok: false, message: "Cible requise" };
@@ -4226,21 +4198,6 @@ export async function executeCapability(opts: {
           mjBody: `${actor.pseudo} (Oracle) prophétise la victoire des ${faction}.`,
         });
         return { ok: true, message: `Prophétie : victoire des ${faction}.` };
-      }
-
-      // ── Passifs purs (Guetteur) ──
-      case "guetteur": {
-        await log({ effect: "passive_use" });
-        await notify({
-          gameId: opts.gameId,
-          playerId: actor.id,
-          type: "passive_ack",
-          title: "📌 Capacité passive",
-          body: "Ton rôle agit en arrière-plan — surveille ton carnet pour les révélations.",
-          mjTitle: `📌 Passif ${slug}`,
-          mjBody: `${actor.pseudo} (${slug}) — capacité passive activée.`,
-        });
-        return { ok: true, message: "Capacité passive — voir notifications" };
       }
 
       // ── Mouchard : 1×/partie, révèle le rôle exact d'une cible ──

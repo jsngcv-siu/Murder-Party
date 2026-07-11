@@ -1,12 +1,11 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { Backpack, Eye, Feather, Megaphone, Target, Zap, type LucideIcon } from "lucide-react";
 import { AvatarImg } from "@/components/AvatarImg";
+import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
 
 export const Route = createFileRoute("/annonce-lab")({
-  beforeLoad: () => {
-    if (import.meta.env.PROD) throw redirect({ to: "/" });
-  },
+  beforeLoad: requireLocalDevelopment,
   component: AnnonceLab,
 });
 
@@ -395,7 +394,7 @@ function MajorFact({ event }: { event: AnnonceEvent }) {
       <div className="flex gap-3">
         <div className="relative w-[62px] shrink-0 rotate-[-3deg] bg-[#fbfaf6] p-1 pb-3 shadow-[0_7px_14px_-8px_rgba(0,0,0,.75)]">
           <div className="relative h-[62px] overflow-hidden border border-[#d8c9a9]">
-            <AvatarImg avatar="dre" fill rounded="none" />
+            <AvatarImg id="dre" fill rounded="none" />
             <span className="absolute inset-x-1 top-1/2 h-1 -translate-y-1/2 rotate-[-18deg] bg-[#b02a35]/85" />
           </div>
           <span className="absolute -top-1 left-1/2 size-2 -translate-x-1/2 rounded-full bg-gold shadow-[0_2px_4px_rgba(0,0,0,.4)]" />
