@@ -10,7 +10,7 @@ export const Route = createFileRoute("/annonce-lab")({
   component: AnnonceLab,
 });
 
-type VariantId = "player" | "order" | "regie";
+type VariantId = "dispatch" | "timeline" | "folders";
 type EventTone = "death" | "safe" | "secret" | "prison";
 
 type AnnonceEvent = {
@@ -62,19 +62,19 @@ const events: AnnonceEvent[] = [
 
 const variants: Array<{ id: VariantId; label: string; description: string }> = [
   {
-    id: "player",
-    label: "Journal joueur",
-    description: "Ecran recommande: court, lisible, sans bouton invente.",
+    id: "dispatch",
+    label: "A · La depeche",
+    description: "Le fait majeur d'abord, puis les autres nouvelles. La plus directe sur mobile.",
   },
   {
-    id: "order",
-    label: "Ordre des effets",
-    description: "Montre la resolution moteur quand le tour est charge.",
+    id: "timeline",
+    label: "B · Le fil du tour",
+    description: "Une chronologie numerotee pour comprendre l'ordre des effets.",
   },
   {
-    id: "regie",
-    label: "Controle MJ",
-    description: "Version admin separee, avec validation et passage au debat.",
+    id: "folders",
+    label: "C · Les dossiers",
+    description: "Les faits ranges par public, prive et etat pour retrouver une information vite.",
   },
 ];
 
@@ -86,7 +86,7 @@ const phaseSteps = [
 ];
 
 function AnnonceLab() {
-  const [variant, setVariant] = useState<VariantId>("player");
+  const [variant, setVariant] = useState<VariantId>("dispatch");
   const [compact, setCompact] = useState(false);
   const active = variants.find((item) => item.id === variant) ?? variants[0];
 
@@ -154,9 +154,9 @@ function AnnonceLab() {
 
         <div className="order-1 lg:order-none">
           <PhoneShell compact={compact}>
-            {variant === "player" && <PlayerJournal compact={compact} />}
-            {variant === "order" && <OrderView compact={compact} />}
-            {variant === "regie" && <RegieView compact={compact} />}
+            {variant === "dispatch" && <DispatchView compact={compact} />}
+            {variant === "timeline" && <TimelineView compact={compact} />}
+            {variant === "folders" && <FoldersView compact={compact} />}
           </PhoneShell>
         </div>
 
@@ -278,16 +278,17 @@ function MockTabs() {
   );
 }
 
-function PlayerJournal({ compact }: { compact: boolean }) {
+function DispatchView({ compact }: { compact: boolean }) {
   const death = events.find((event) => event.tone === "death");
+  const remaining = events.filter((event) => event.id !== death?.id);
 
   return (
     <ScreenBody>
-      <JournalHeader />
+      <JournalHeader eyebrow="La depeche du tour" title="Les faits, sans detour" />
       {death && <MajorFact event={death} />}
-      <EventCounters />
+      <CompactSummary />
       <div className="space-y-2">
-        {events.map((event) => (
+        {remaining.map((event) => (
           <EventRow key={event.id} event={event} compact={compact} />
         ))}
       </div>
@@ -295,64 +296,58 @@ function PlayerJournal({ compact }: { compact: boolean }) {
   );
 }
 
-function OrderView({ compact }: { compact: boolean }) {
+function TimelineView({ compact }: { compact: boolean }) {
   return (
     <ScreenBody>
-      <JournalHeader eyebrow="Ordre de resolution" title="Ce qui vient d'arriver" />
+      <JournalHeader eyebrow="Fil du tour · 4 faits" title="Dans quel ordre ?" />
       <div className="relative space-y-2 pl-9">
-        <span className="absolute bottom-8 left-[13px] top-4 w-px bg-gradient-to-b from-gold/75 via-border to-transparent" />
+        <span className="absolute bottom-8 left-[13px] top-4 w-px bg-[#e8b44a]/60" />
         {events.map((event, index) => (
           <TimelineRow key={event.id} event={event} index={index + 1} compact={compact} />
         ))}
       </div>
+      <p className="font-hand text-center text-base text-[#d8c3a0]/80">
+        Du fait public au nouvel etat du manoir.
+      </p>
     </ScreenBody>
   );
 }
 
-function RegieView({ compact }: { compact: boolean }) {
-  const checks = [
-    { label: "Faits publics affiches", done: true },
-    { label: "Messages prives distribues", done: true },
-    { label: "Etats joueurs synchronises", done: true },
-    { label: "Debat ouvert", done: false },
+function FoldersView({ compact }: { compact: boolean }) {
+  const groups = [
+    { label: "Public", note: "A dire a toute la table", tone: "death" as const },
+    { label: "Prive", note: "Seulement dans ton journal", tone: "secret" as const },
+    { label: "Etat", note: "Ce qui reste vrai", tone: "prison" as const },
   ];
 
   return (
     <ScreenBody>
-      <JournalHeader eyebrow="Controle MJ" title="Verifier l'annonce" />
-      <div className="rounded-md border border-gold/30 bg-gold/10 p-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-gold">3 validations</span>
-          <span className="font-mono text-xs text-muted-foreground">sur 4</span>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/35">
-          <div className="h-full w-3/4 bg-gold" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className="flex items-center gap-3 rounded-md border border-border bg-card/55 px-3 py-3"
-          >
-            <span
-              className={`grid size-7 place-items-center rounded-sm border ${
-                check.done
-                  ? "border-[#7f9a5f] bg-[#7f9a5f]/18 text-[#a9c78a]"
-                  : "border-[#704129] bg-black/18 text-muted-foreground"
-              }`}
+      <JournalHeader eyebrow="Classeur du manoir" title="Retrouver un fait" />
+      <div className="space-y-3">
+        {groups.map((group) => {
+          const groupEvents = events.filter((event) => event.visibility === group.label);
+          const cfg = toneConfig(group.tone);
+          return (
+            <section
+              key={group.label}
+              className="relative rounded-md border border-[#d7c493]/65 bg-[#eee0bf] px-3 pb-3 pt-4 text-[#2c1a10] shadow-[0_12px_24px_-20px_rgba(0,0,0,.95)]"
             >
-              {check.done ? "OK" : ""}
-            </span>
-            <span className="text-sm font-medium">{check.label}</span>
-          </div>
-        ))}
+              <span
+                className="absolute -top-2 left-3 rotate-[-2deg] px-3 py-0.5 font-hand text-base font-bold"
+                style={{ color: cfg.ink, background: cfg.wash, border: `1px solid ${cfg.line}` }}
+              >
+                {group.label} · {groupEvents.length}
+              </span>
+              <p className="mb-2 mt-1 text-[11px] text-[#6f573b]">{group.note}</p>
+              <div className="space-y-1.5">
+                {groupEvents.map((event) => (
+                  <FolderRow key={event.id} event={event} compact={compact} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
-      {!compact && (
-        <button className="mt-auto h-11 rounded-md border border-gold/35 bg-gold/12 text-sm font-semibold text-gold">
-          Lancer le Debat
-        </button>
-      )}
     </ScreenBody>
   );
 }
@@ -420,32 +415,11 @@ function MajorFact({ event }: { event: AnnonceEvent }) {
   );
 }
 
-function EventCounters() {
-  const counters = [
-    { tone: "death" as const, value: 1, label: "mort" },
-    { tone: "safe" as const, value: 1, label: "sauve" },
-    { tone: "secret" as const, value: 1, label: "prive" },
-    { tone: "prison" as const, value: 1, label: "prison" },
-  ];
-
+function CompactSummary() {
   return (
-    <div className="grid grid-cols-4 gap-2">
-      {counters.map((item) => {
-        const cfg = toneConfig(item.tone);
-        return (
-          <div
-            key={item.label}
-            className="rounded-md border bg-card/78 p-2"
-            style={{ borderColor: cfg.line }}
-          >
-            <RubberStamp tone={item.tone} small />
-            <div className="mt-1 font-display text-lg leading-none" style={{ color: cfg.ink }}>
-              {item.value}
-            </div>
-            <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.label}</div>
-          </div>
-        );
-      })}
+    <div className="flex items-center justify-between rounded-md border border-[#6a3b27] bg-[#1d0c08] px-3 py-2 text-xs">
+      <span className="font-display uppercase tracking-[0.12em] text-[#e8b44a]">4 faits actés</span>
+      <span className="text-[#d8c3a0]/75">2 publics · 1 prive · 1 etat</span>
     </div>
   );
 }
@@ -454,7 +428,7 @@ function EventRow({ event, compact }: { event: AnnonceEvent; compact: boolean })
   const cfg = toneConfig(event.tone);
 
   return (
-    <button className="group w-full rounded-md border border-border bg-card/78 px-3 py-3 text-left transition hover:bg-card/95">
+    <article className="w-full rounded-md border border-border bg-card/78 px-3 py-3 text-left">
       <div className="flex gap-3">
         <RubberStamp tone={event.tone} />
         <div className="min-w-0 flex-1">
@@ -471,7 +445,25 @@ function EventRow({ event, compact }: { event: AnnonceEvent; compact: boolean })
           </div>
         </div>
       </div>
-    </button>
+    </article>
+  );
+}
+
+function FolderRow({ event, compact }: { event: AnnonceEvent; compact: boolean }) {
+  const cfg = toneConfig(event.tone);
+
+  return (
+    <article className="flex items-start gap-2 rounded-sm border border-[#c8b58b]/70 bg-[#f7ecd3]/78 px-2.5 py-2">
+      <RubberStamp tone={event.tone} small />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold leading-tight">
+          <span style={{ color: cfg.ink }}>{event.subject}</span> {event.verb}
+        </div>
+        {!compact && (
+          <p className="mt-0.5 text-[11px] leading-snug text-[#6f573b]">{event.detail}</p>
+        )}
+      </div>
+    </article>
   );
 }
 

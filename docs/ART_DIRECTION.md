@@ -2,6 +2,20 @@
 
 Source locale: `docs/brand/THE FULL DA.pdf`.
 
+## Statut de la source et workflow
+
+`THE FULL DA.pdf` est l'autorite visuelle du projet. `DESIGN.md` en est la traduction normative
+pour les agents et les outils; ce fichier est le pont operationnel avec le gameplay et les
+composants existants. Toute demande de modification visuelle doit commencer par ces trois
+lectures, puis par l'inspection du composant cible et de `src/styles.css`.
+
+Ordre de decision en cas de conflit:
+
+1. Le code et les regles moteur preservent la fonction, les donnees et les secrets.
+2. Le PDF fixe le style, les matieres, la composition et le ton.
+3. `DESIGN.md` fixe les tokens et les contrats reutilisables.
+4. Ce document precise l'application de ces contrats aux ecrans du jeu.
+
 ## Intention
 
 L'application doit ressembler a un dossier d'enquete manipulable sur mobile, pas a un dashboard
@@ -78,3 +92,21 @@ Priorites:
 La variante joueur recommandee est `Journal joueur`: un en-tete papier, un fait majeur si
 necessaire, des compteurs courts, puis les lignes d'evenements. La variante `Controle MJ` doit
 rester une vue de regie, pas l'ecran principal joueur.
+
+### Rebond avec l'UI actuelle
+
+L'implementation historique `PA6Announces` ouvre sur le nombre de survivants, trois compteurs et
+une grille de joueurs. Cette information est utile, mais elle repousse les annonces sous la ligne
+de flottaison sur mobile. Le correctif de hierarchie est donc impose:
+
+- Les faits du tour passent avant la grille de joueurs.
+- Le recap vivant / prison / mort devient une ligne compacte ou un acces secondaire.
+- Un fait majeur n'est jamais repete une seconde fois dans la meme liste.
+- Une ligne informative n'est pas rendue comme un bouton si elle n'ouvre aucune action.
+- Public, Prive et Etat sont lisibles par texte et structure, pas uniquement par couleur.
+
+Le laboratoire `/annonce-lab` contient trois pistes de joueur comparables:
+
+1. `La depeche`: fait majeur puis nouvelles secondaires; recommandee pour la lecture immediate.
+2. `Le fil du tour`: chronologie numerotee; adaptee aux tours avec plusieurs resolutions.
+3. `Les dossiers`: regroupement Public / Prive / Etat; adaptee a la consultation et au rappel.

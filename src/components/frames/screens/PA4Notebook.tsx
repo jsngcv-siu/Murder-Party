@@ -50,7 +50,7 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
   // résultat d'utilisation d'un objet (toast plus bas).
 
   return (
-    <div className="h-full flex flex-col bg-background p-5 overflow-y-auto">
+    <div className="cork-surface h-full flex flex-col p-5 overflow-y-auto">
       <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
         <Backpack className="size-3.5" aria-hidden /> Inventaire
       </div>
@@ -81,9 +81,9 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
         </div>
       )}
       {blockedReason && (
-        <div className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 flex items-center gap-1.5">
-          <Ban className="size-4 shrink-0" aria-hidden /> {blockedReason} — tes objets sont aussi
-          verrouillés ce tour.
+        <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm text-rose-200/90">
+          <Ban className="size-4 shrink-0 text-rose-300/80" aria-hidden /> {blockedReason} — tes
+          objets sont aussi verrouillés ce tour.
         </div>
       )}
       {inventory.length === 0 ? (

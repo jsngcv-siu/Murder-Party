@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-10T12:00:00+02:00",
+  "title": "Design System: Murder Party - The Board",
+  "extensions": {
+    "colorMeta": {
+      "night": {
+        "role": "neutral",
+        "displayName": "Night of the Manor",
+        "canonical": "oklch(0.16 0.03 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.03 30)",
+          "oklch(0.25 0.03 30)",
+          "oklch(0.35 0.03 30)",
+          "oklch(0.45 0.03 30)",
+          "oklch(0.55 0.03 30)",
+          "oklch(0.68 0.03 30)",
+          "oklch(0.82 0.03 30)",
+          "oklch(0.95 0.03 30)"
+        ]
+      },
+      "dossier-ink": {
+        "role": "neutral",
+        "displayName": "Dossier Light",
+        "canonical": "oklch(0.93 0.02 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 85)",
+          "oklch(0.25 0.02 85)",
+          "oklch(0.35 0.02 85)",
+          "oklch(0.45 0.02 85)",
+          "oklch(0.55 0.02 85)",
+          "oklch(0.68 0.02 85)",
+          "oklch(0.82 0.02 85)",
+          "oklch(0.95 0.02 85)"
+        ]
+      },
+      "dark-wood": {
+        "role": "neutral",
+        "displayName": "Dark Wood",
+        "canonical": "oklch(0.22 0.035 35)",
+        "tonalRamp": [
+          "oklch(0.15 0.035 35)",
+          "oklch(0.25 0.035 35)",
+          "oklch(0.35 0.035 35)",
+          "oklch(0.45 0.035 35)",
+          "oklch(0.55 0.035 35)",
+          "oklch(0.68 0.035 35)",
+          "oklch(0.82 0.035 35)",
+          "oklch(0.95 0.035 35)"
+        ]
+      },
+      "cork": {
+        "role": "neutral",
+        "displayName": "Investigation Cork",
+        "canonical": "oklch(0.38 0.07 38)",
+        "tonalRamp": [
+          "oklch(0.15 0.07 38)",
+          "oklch(0.25 0.07 38)",
+          "oklch(0.35 0.07 38)",
+          "oklch(0.45 0.07 38)",
+          "oklch(0.55 0.07 38)",
+          "oklch(0.68 0.07 38)",
+          "oklch(0.82 0.07 38)",
+          "oklch(0.95 0.07 38)"
+        ]
+      },
+      "wood-frame": {
+        "role": "neutral",
+        "displayName": "Wood Frame",
+        "canonical": "oklch(0.45 0.08 50)",
+        "tonalRamp": [
+          "oklch(0.15 0.08 50)",
+          "oklch(0.25 0.08 50)",
+          "oklch(0.35 0.08 50)",
+          "oklch(0.45 0.08 50)",
+          "oklch(0.55 0.08 50)",
+          "oklch(0.68 0.08 50)",
+          "oklch(0.82 0.08 50)",
+          "oklch(0.95 0.08 50)"
+        ]
+      },
+      "dossier-paper": {
+        "role": "neutral",
+        "displayName": "Dossier Paper",
+        "canonical": "oklch(0.93 0.02 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 85)",
+          "oklch(0.25 0.02 85)",
+          "oklch(0.35 0.02 85)",
+          "oklch(0.45 0.02 85)",
+          "oklch(0.55 0.02 85)",
+          "oklch(0.68 0.02 85)",
+          "oklch(0.82 0.02 85)",
+          "oklch(0.95 0.02 85)"
+        ]
+      },
+      "paper-ink": {
+        "role": "neutral",
+        "displayName": "Paper Ink",
+        "canonical": "oklch(0.28 0.02 45)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 45)",
+          "oklch(0.25 0.02 45)",
+          "oklch(0.35 0.02 45)",
+          "oklch(0.45 0.02 45)",
+          "oklch(0.55 0.02 45)",
+          "oklch(0.68 0.02 45)",
+          "oklch(0.82 0.02 45)",
+          "oklch(0.95 0.02 45)"
+        ]
+      },
+      "red-string": {
+        "role": "primary",
+        "displayName": "Red String",
+        "canonical": "oklch(0.55 0.22 18)",
+        "tonalRamp": [
+          "oklch(0.15 0.22 18)",
+          "oklch(0.25 0.22 18)",
+          "oklch(0.35 0.22 18)",
+          "oklch(0.45 0.22 18)",
+          "oklch(0.55 0.22 18)",
+          "oklch(0.68 0.22 18)",
+          "oklch(0.82 0.22 18)",
+          "oklch(0.95 0.22 18)"
+        ]
+      },
+      "detective-gold": {
+        "role": "secondary",
+        "displayName": "Detective Gold",
+        "canonical": "oklch(0.80 0.15 78)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 78)",
+          "oklch(0.25 0.15 78)",
+          "oklch(0.35 0.15 78)",
+          "oklch(0.45 0.15 78)",
+          "oklch(0.55 0.15 78)",
+          "oklch(0.68 0.15 78)",
+          "oklch(0.82 0.15 78)",
+          "oklch(0.95 0.15 78)"
+        ]
+      },
+      "announcement-cyan": {
+        "role": "tertiary",
+        "displayName": "Chronicle Cyan",
+        "canonical": "oklch(0.82 0.08 200)",
+        "tonalRamp": [
+          "oklch(0.15 0.08 200)",
+          "oklch(0.25 0.08 200)",
+          "oklch(0.35 0.08 200)",
+          "oklch(0.45 0.08 200)",
+          "oklch(0.55 0.08 200)",
+          "oklch(0.68 0.08 200)",
+          "oklch(0.82 0.08 200)",
+          "oklch(0.95 0.08 200)"
+        ]
+      },
+      "civilian-blue": {
+        "role": "data",
+        "displayName": "Civilian Blue",
+        "canonical": "oklch(0.72 0.16 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.16 230)",
+          "oklch(0.25 0.16 230)",
+          "oklch(0.35 0.16 230)",
+          "oklch(0.45 0.16 230)",
+          "oklch(0.55 0.16 230)",
+          "oklch(0.68 0.16 230)",
+          "oklch(0.82 0.16 230)",
+          "oklch(0.95 0.16 230)"
+        ]
+      },
+      "neutral-violet": {
+        "role": "data",
+        "displayName": "Neutral Violet",
+        "canonical": "oklch(0.80 0.12 300)",
+        "tonalRamp": [
+          "oklch(0.15 0.12 300)",
+          "oklch(0.25 0.12 300)",
+          "oklch(0.35 0.12 300)",
+          "oklch(0.45 0.12 300)",
+          "oklch(0.55 0.12 300)",
+          "oklch(0.68 0.12 300)",
+          "oklch(0.82 0.12 300)",
+          "oklch(0.95 0.12 300)"
+        ]
+      },
+      "vampire-magenta": {
+        "role": "data",
+        "displayName": "Vampire Magenta",
+        "canonical": "oklch(0.66 0.20 340)",
+        "tonalRamp": [
+          "oklch(0.15 0.2 340)",
+          "oklch(0.25 0.2 340)",
+          "oklch(0.35 0.2 340)",
+          "oklch(0.45 0.2 340)",
+          "oklch(0.55 0.2 340)",
+          "oklch(0.68 0.2 340)",
+          "oklch(0.82 0.2 340)",
+          "oklch(0.95 0.2 340)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Dossier Display",
+        "purpose": "Titres de dossier, verdicts, tours et tampons."
+      },
+      "body": {
+        "displayName": "Interface Body",
+        "purpose": "Contrôles, descriptions et toute information nécessaire à l'action."
+      },
+      "label": {
+        "displayName": "Evidence Label",
+        "purpose": "Métadonnées courtes et repères de phase."
+      },
+      "annotation": {
+        "displayName": "Handwritten Note",
+        "purpose": "Annotations humaines non critiques seulement."
+      }
+    },
+    "shadows": [
+      {
+        "name": "paper",
+        "value": "0 12px 26px -10px oklch(0 0 0 / 0.7)",
+        "purpose": "Dossiers, révélations et testaments."
+      },
+      {
+        "name": "card",
+        "value": "0 16px 40px -18px oklch(0 0 0 / 0.7)",
+        "purpose": "Panneaux sombres élevés."
+      },
+      {
+        "name": "pin",
+        "value": "0 4px 6px oklch(0 0 0 / 0.5)",
+        "purpose": "Punaises et polaroïds."
+      },
+      {
+        "name": "action-glow",
+        "value": "0 0 24px -4px oklch(0.55 0.22 18 / 0.55)",
+        "purpose": "Focus ou urgence temporaire."
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast",
+        "value": "140ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Press et feedback immédiat."
+      },
+      {
+        "name": "base",
+        "value": "220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Changement d'état et d'onglet."
+      },
+      {
+        "name": "slow",
+        "value": "320ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Révélation d'une conséquence de jeu."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "430px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA ficelle rouge unique, tactile et direct.",
+      "html": "<button class=\"ds-btn-primary\">CONTINUER</button>",
+      "css": ".ds-btn-primary{min-height:44px;padding:12px 16px;border:1px solid oklch(0.62 0.23 20);border-radius:8px;background:var(--primary);color:var(--primary-foreground);font:600 14px/1 var(--font-body);transition:filter 140ms ease,transform 140ms ease}.ds-btn-primary:hover{filter:brightness(1.08)}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Paper Evidence",
+      "kind": "card",
+      "refersTo": "paper-card",
+      "description": "Document clair réservé à un fait, une révélation ou un testament.",
+      "html": "<article class=\"ds-paper\"><span class=\"ds-pin\"></span><h3>FAIT ÉTABLI</h3><p>Le manoir conserve cette information.</p></article>",
+      "css": ".ds-paper{position:relative;padding:16px;border:1px solid oklch(0.82 0.06 70);border-radius:3px;background:var(--paper);color:var(--paper-ink);box-shadow:var(--shadow-paper);font:400 14px/1.5 var(--font-body)}.ds-paper h3{margin:0 0 8px;font:700 16px/1.2 var(--font-display)}.ds-paper p{margin:0}.ds-pin{position:absolute;top:-6px;left:50%;width:12px;height:12px;transform:translateX(-50%);border-radius:50%;background:var(--primary);box-shadow:var(--shadow-pin)}"
+    },
+    {
+      "name": "Rubber Stamp",
+      "kind": "chip",
+      "description": "État ou verdict explicite, doublé par un libellé.",
+      "html": "<span class=\"ds-stamp\">CONFIDENTIEL</span>",
+      "css": ".ds-stamp{display:inline-flex;padding:4px 10px;border:2px solid var(--primary);border-radius:3px;color:var(--primary);font:700 11px/1 var(--font-display);letter-spacing:.1em;transform:rotate(-3deg)}"
+    },
+    {
+      "name": "Dossier Field",
+      "kind": "input",
+      "description": "Champ mobile sombre, lisible et sans effet décoratif.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-code\">CODE DE PARTIE</label><input class=\"ds-field\" id=\"ds-code\" placeholder=\"ABC123\">",
+      "css": ".ds-field-label{display:block;margin-bottom:6px;color:var(--muted-foreground);font:600 10px/1.2 var(--font-display);letter-spacing:.12em}.ds-field{box-sizing:border-box;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--input);border-radius:8px;background:var(--card);color:var(--foreground);font:500 16px/1.4 var(--font-body)}.ds-field::placeholder{color:var(--muted-foreground)}.ds-field:focus-visible{outline:2px solid var(--ring);outline-offset:2px}"
+    },
+    {
+      "name": "Player Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "active-tab",
+      "description": "Navigation familière avec onglet actif marqué par l'or et la couleur de phase.",
+      "html": "<nav class=\"ds-nav\"><button>INVENT.</button><button class=\"ds-active\">ANNONCES</button><button>TEST.</button></nav>",
+      "css": ".ds-nav{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--border);background:var(--card)}.ds-nav button{position:relative;min-height:58px;border:0;background:transparent;color:var(--muted-foreground);font:500 10px/1.2 var(--font-body)}.ds-nav button:hover{color:var(--foreground)}.ds-nav button:focus-visible{outline:2px solid var(--ring);outline-offset:-3px}.ds-nav .ds-active{color:var(--foreground)}.ds-nav .ds-active::before{content:'';position:absolute;top:0;left:50%;width:32px;height:2px;transform:translateX(-50%);border-radius:2px;background:var(--accent)}"
+    },
+    {
+      "name": "Pinned Player",
+      "kind": "custom",
+      "description": "Une personne importante représentée comme une photo physique.",
+      "html": "<figure class=\"ds-polaroid\"><span class=\"ds-polaroid-pin\"></span><div class=\"ds-photo\">PORTRAIT</div><figcaption>CLÉO</figcaption></figure>",
+      "css": ".ds-polaroid{position:relative;width:104px;margin:0;padding:6px 6px 14px;transform:rotate(-2deg);background:#fbfaf6;color:var(--paper-ink);box-shadow:var(--shadow-paper)}.ds-photo{display:grid;height:92px;place-items:center;border:1px solid oklch(0.82 0.04 70);background:oklch(0.88 0.02 75);font:600 10px/1 var(--font-body)}.ds-polaroid figcaption{margin-top:8px;text-align:center;font:700 16px/1 var(--font-hand)}.ds-polaroid-pin{position:absolute;top:-5px;left:50%;width:11px;height:11px;transform:translateX(-50%);border-radius:50%;background:var(--accent);box-shadow:var(--shadow-pin)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le dossier vivant",
+    "overview": "L'interface évoque des pièces d'enquête réelles dans un manoir. La matérialité reste fonctionnelle : le joueur comprend d'abord ce qui change, puis les détails, puis l'ambiance.",
+    "keyCharacteristics": [
+      "Dark-only chaud avec papier clair réservé aux faits importants.",
+      "Une conséquence principale par premier regard.",
+      "Matières fonctionnelles et accents rares.",
+      "Navigation familière et secrets strictement préservés."
+    ],
+    "rules": [
+      {
+        "name": "The Above-the-Fold Rule",
+        "body": "Le contenu attendu apparaît avant les résumés secondaires.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two-Accent Rule",
+        "body": "Un écran emploie au maximum un accent de phase et un accent d'action.",
+        "section": "colors"
+      },
+      {
+        "name": "The Material Contract",
+        "body": "Papier = fait, liège = relation, tampon = état, post-it = annotation, polaroïd = personne, ficelle = action.",
+        "section": "colors"
+      },
+      {
+        "name": "The Legibility Rule",
+        "body": "Archivo porte toute information nécessaire pour décider ou agir.",
+        "section": "typography"
+      },
+      {
+        "name": "The Physical Stack Rule",
+        "body": "Une ombre indique qu'un objet est posé au-dessus d'un autre.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do lire le PDF de DA, DESIGN.md et ART_DIRECTION.md avant toute modification visuelle.",
+      "Do garder l'information principale visible sans défilement sur un petit téléphone.",
+      "Do vérifier contraste AA, cibles 44 px, focus visible et reduced-motion."
+    ],
+    "donts": [
+      "Don't produire un dashboard SaaS générique fait de cartes interchangeables.",
+      "Don't utiliser glassmorphism décoratif, gradient de texte ou néons futuristes.",
+      "Don't ajouter une matière vintage sans fonction ni une action sur un écran informatif."
+    ]
+  }
+}

@@ -85,35 +85,6 @@ function RedString() {
   );
 }
 
-/** Les quatre punaises d'angle qui ancrent la ficelle. */
-function CornerPins() {
-  const spots = [
-    { left: "14.2%", top: "12.5%" },
-    { left: "86.5%", top: "16.1%" },
-    { left: "19.1%", top: "89.4%" },
-    { left: "82.3%", top: "88.1%" },
-  ];
-  return (
-    <>
-      {spots.map((s, i) => (
-        <span
-          key={i}
-          className="bd-pin"
-          style={{
-            position: "absolute",
-            left: s.left,
-            top: s.top,
-            transform: "translate(-50%,-50%)",
-            zIndex: 6,
-          }}
-        >
-          <Pin />
-        </span>
-      ))}
-    </>
-  );
-}
-
 const SCATTER_BASE: CSSProperties = {
   position: "absolute",
   zIndex: 4,
@@ -411,7 +382,7 @@ function GatheringScatter() {
         className="bd-scatter"
         style={{
           ...SCATTER_BASE,
-          top: "8.4%",
+          top: "11.5%",
           right: "5%",
           width: 70,
           height: 64,
@@ -487,6 +458,62 @@ function GatheringScatter() {
       >
         menteur ?
       </span>
+
+      {/* Polaroïd "le témoin ?" — bas-droite, équilibre le polaroïd du valet */}
+      <div
+        className="bd-scatter"
+        style={{
+          ...SCATTER_BASE,
+          bottom: "8%",
+          right: "6%",
+          width: 68,
+          background: "#f3ead7",
+          padding: "5px 5px 4px",
+          transform: "rotate(-6deg)",
+        }}
+      >
+        <div
+          style={{
+            height: 42,
+            background:
+              "repeating-linear-gradient(45deg,#a9bfa6,#a9bfa6 5px,#bccdb8 5px,#bccdb8 10px)",
+          }}
+        />
+        <div
+          style={{
+            textAlign: "center",
+            fontFamily: "Caveat,cursive",
+            fontWeight: 700,
+            fontSize: 12,
+            color: "#2b1d14",
+            lineHeight: 1.1,
+            marginTop: 2,
+          }}
+        >
+          le témoin ?
+        </div>
+      </div>
+
+      {/* Sticker "alibi ?" — bas-droite, miroir du sticker "menteur ?" */}
+      <span
+        className="bd-scatter"
+        style={{
+          position: "absolute",
+          bottom: "18%",
+          right: "18%",
+          background: "#8fb98f",
+          color: "#183a1c",
+          fontFamily: "Caveat,cursive",
+          fontWeight: 700,
+          fontSize: 13,
+          padding: "2px 9px",
+          transform: "rotate(4deg)",
+          boxShadow: "0 4px 9px rgba(0,0,0,.4)",
+          zIndex: 5,
+        }}
+      >
+        alibi ?
+      </span>
     </>
   );
 }
@@ -499,8 +526,8 @@ function VoteScatter() {
         className="bd-scatter"
         style={{
           ...SCATTER_BASE,
-          top: "6.4%",
-          left: "4.5%",
+          top: "7%",
+          left: "6%",
           width: 70,
           background: "#f6efe0",
           padding: "7px 6px 5px",
@@ -552,8 +579,8 @@ function VoteScatter() {
         className="bd-scatter"
         style={{
           ...SCATTER_BASE,
-          top: "8.4%",
-          right: "5%",
+          top: "7%",
+          right: "6%",
           width: 70,
           height: 64,
           background: "#f2d35e",
@@ -578,8 +605,8 @@ function VoteScatter() {
         className="bd-scatter"
         style={{
           ...SCATTER_BASE,
-          bottom: "8.4%",
-          left: "7%",
+          bottom: "8%",
+          left: "6%",
           width: 80,
           background: "#f6efe0",
           padding: "6px 8px",
@@ -647,6 +674,57 @@ function VoteScatter() {
           >
             ||
           </span>
+        </div>
+      </div>
+
+      {/* Bulletin scellé "urne" — 4e angle (bas-droite) pour équilibrer */}
+      <div
+        className="bd-scatter"
+        style={{
+          ...SCATTER_BASE,
+          bottom: "8%",
+          right: "6%",
+          width: 66,
+          background: "#f6efe0",
+          padding: "7px 6px 5px",
+          transform: "rotate(6deg)",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 6.5,
+            letterSpacing: ".1em",
+            color: "#9a7b52",
+            textAlign: "center",
+            borderBottom: "1px solid #d8c8a8",
+            paddingBottom: 3,
+          }}
+        >
+          — URNE —
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: 24,
+            fontSize: 19,
+          }}
+        >
+          🗳️
+        </div>
+        <div
+          style={{
+            textAlign: "center",
+            fontFamily: "Caveat,cursive",
+            fontWeight: 700,
+            fontSize: 12,
+            color: "#c2202f",
+            lineHeight: 1,
+          }}
+        >
+          scellée
         </div>
       </div>
     </>
@@ -1000,7 +1078,6 @@ function PhaseIntro({
       {def.topDecor}
       <RedString />
       {def.scatter}
-      <CornerPins />
       <DossierCard def={def} tour={game.current_tour} />
     </div>
   );
@@ -1181,13 +1258,8 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
       const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
       gsap.set(nodes, { scale: 1, y: 0, rotation: 0 });
       gsap.set(".vr-card", { y: 10, rotation: -1.5, scale: 0.98 });
-      gsap.set(".vr-ray", { scaleX: 0, autoAlpha: 0 });
       gsap.set(".vr-stamp", { autoAlpha: 0, scale: 0.82, rotation: -7 });
-      tl.to(".vr-card", { y: 0, rotation: -0.4, scale: 1, duration: 0.32 }).to(
-        ".vr-ray",
-        { scaleX: 1, autoAlpha: 1, stagger: 0.045, duration: 0.28 },
-        0.12,
-      );
+      tl.to(".vr-card", { y: 0, rotation: -0.4, scale: 1, duration: 0.32 });
       for (let i = 0; i < steps; i++) {
         const node = nodes[i % nodes.length];
         const id = node.dataset.playerId ?? null;
@@ -1243,7 +1315,9 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
         aria-hidden
       />
       <RedString />
-      <CornerPins />
+      {/* Décor de fond — mêmes scraps que la bascule Vote (bulletin, note « ta
+          voix », décompte, urne scellée) pour que le fond ne soit plus vide. */}
+      <VoteScatter />
 
       <div
         style={{
@@ -1381,32 +1455,6 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
                     boxShadow: "0 24px 60px -34px rgba(0,0,0,.9)",
                   }}
                 >
-                  <span
-                    className="vr-ray"
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: 28,
-                      width: "100%",
-                      height: 1,
-                      transformOrigin: "left center",
-                      background: "rgba(194,32,47,.45)",
-                    }}
-                  />
-                  <span
-                    className="vr-ray"
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      bottom: 38,
-                      width: "100%",
-                      height: 1,
-                      transformOrigin: "left center",
-                      background: "rgba(154,123,82,.35)",
-                    }}
-                  />
                   <div
                     className="vr-final-avatar"
                     style={{
@@ -1436,29 +1484,6 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
                         }}
                       />
                     )}
-                    <div
-                      className="vr-stamp"
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        bottom: 10,
-                        zIndex: 4,
-                        width: "max-content",
-                        fontFamily: "var(--font-display)",
-                        fontSize: 19,
-                        letterSpacing: ".06em",
-                        color: "#c2202f",
-                        border: "2.5px solid #c2202f",
-                        borderRadius: 5,
-                        padding: "6px 16px",
-                        textAlign: "center",
-                        transform: "translateX(-50%) rotate(-3.5deg)",
-                        background: "transparent",
-                        boxShadow: "none",
-                      }}
-                    >
-                      EMPRISONNÉ
-                    </div>
                   </div>
                   <div
                     style={{
@@ -1486,6 +1511,27 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
                     }}
                   >
                     {displayedCandidate?.pseudo ?? "..."}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+                    <div
+                      className="vr-stamp"
+                      style={{
+                        width: "max-content",
+                        fontFamily: "var(--font-display)",
+                        fontSize: 19,
+                        letterSpacing: ".06em",
+                        color: "#c2202f",
+                        border: "2.5px solid #c2202f",
+                        borderRadius: 5,
+                        padding: "6px 16px",
+                        textAlign: "center",
+                        transform: "rotate(-3.5deg)",
+                        background: "transparent",
+                        boxShadow: "none",
+                      }}
+                    >
+                      EMPRISONNÉ
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1534,27 +1580,6 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
             </span>
             <span style={{ height: 1, width: 30, background: "#5b3226" }} />
           </div>
-
-          <span
-            className="bd-emoji"
-            style={{
-              position: "absolute",
-              top: -16,
-              right: -12,
-              width: 42,
-              height: 42,
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 36% 30%,#e0563f,#9e1f2e 72%)",
-              boxShadow: "0 6px 12px -3px rgba(0,0,0,.6),inset 0 0 0 2.5px rgba(255,255,255,.16)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              transform: "rotate(-8deg)",
-            }}
-          >
-            ⚖️
-          </span>
         </div>
       </div>
     </div>
@@ -1766,7 +1791,9 @@ export function AnnonceScreen({ game, players, roles }: FrameContext) {
 
 // Dépêche de presse épinglée — rend un événement réel du tour dans le style
 // "gazette" du mock (morts / prison / événement rare du MJ).
-function GazetteCard({
+// Exportée pour être réutilisée par l'onglet Annonces (PA6Announces) : mêmes
+// cadres visuels que la phase de transition, sur le fond liège.
+export function GazetteCard({
   event,
   roles,
   onOpenTestament,

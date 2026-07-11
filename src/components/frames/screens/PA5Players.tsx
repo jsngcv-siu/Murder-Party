@@ -27,7 +27,7 @@ export function PA5Players({ players, me, roles }: FrameContext) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background p-5 overflow-y-auto">
+    <div className="cork-surface h-full flex flex-col p-5 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div className="font-display text-base tracking-wide flex items-center gap-2 text-foreground">
           <Users className="size-4 text-primary" aria-hidden /> Joueurs

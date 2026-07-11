@@ -64,6 +64,8 @@
   --color-paper: var(--paper);
   --color-paper-ink: var(--paper-ink);
   --color-paper-ink-soft: var(--paper-ink-soft);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
 }
 
 /* Familles typographiques (DA The Board) — émises en :root ET en utilitaires
@@ -82,6 +84,10 @@
   --foreground: oklch(0.93 0.02 85); /* crème lisible */
   --card: oklch(0.22 0.035 35); /* panneau bois sombre */
   --card-foreground: oklch(0.93 0.02 85);
+  /* Carte « surélevée » : volontairement plus claire que le fond liège (0.21)
+   * pour que les cadres/boutons se détachent nettement du mur. */
+  --panel: oklch(0.235 0.024 46);
+  --panel-border: oklch(0.46 0.045 52 / 0.65);
   --popover: oklch(0.19 0.03 32);
   --popover-foreground: oklch(0.93 0.02 85);
 
@@ -192,6 +198,10 @@
   --foreground: oklch(0.93 0.02 85);
   --card: oklch(0.22 0.035 35);
   --card-foreground: oklch(0.93 0.02 85);
+  /* Carte « surélevée » : volontairement plus claire que le fond liège (0.21)
+   * pour que les cadres/boutons se détachent nettement du mur. */
+  --panel: oklch(0.235 0.024 46);
+  --panel-border: oklch(0.46 0.045 52 / 0.65);
   --popover: oklch(0.19 0.03 32);
   --popover-foreground: oklch(0.93 0.02 85);
   --cork: oklch(0.38 0.07 38);
@@ -592,6 +602,45 @@
       inset 0 0 0 7px var(--wood),
       inset 0 0 40px oklch(0 0 0 / 0.55);
     border-radius: var(--radius);
+  }
+
+  /* Fond liège PLEIN — texture d'écran sur tout l'onglet, sans cadre bois.
+   * Ton volontairement plus foncé que la carte liège encadrée : c'est une
+   * surface de fond derrière les dossiers/photos épinglés, pas un panneau.
+   * La texture reste fixe pendant le défilement (background-attachment par
+   * défaut sur le conteneur scrollable). */
+  .cork-surface {
+    /* « Espresso » — brun chaud, halo haut discret + dégradé vertical. */
+    background-color: oklch(0.16 0.03 42);
+    background-image:
+      /* grain de liège (au-dessus) */
+      radial-gradient(oklch(0 0 0 / 0.26) 1px, transparent 1.7px),
+      radial-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1.7px),
+      /* halo chaud discret en haut */
+      radial-gradient(120% 55% at 50% -5%, oklch(0.3 0.055 50 / 0.32), transparent 60%),
+      /* dégradé vertical : assombrit vers le bas */
+      linear-gradient(180deg, oklch(0.185 0.038 46), oklch(0.115 0.02 38));
+    background-size:
+      7px 7px,
+      11px 11px,
+      100% 100%,
+      100% 100%;
+    background-position:
+      0 0,
+      3px 4px,
+      0 0,
+      0 0;
+  }
+
+  /* Panneau « V3 » — matière commune de tous les cadres de contenu : dégradé
+   * vertical sombre, SANS contour, ombre portée + fin biseau clair en haut pour
+   * détacher du fond Espresso. L'accent (faction) est porté à part par une
+   * tranche/liseré. Source unique : PanelCard, résultat, historique, victoire. */
+  .panel-v3 {
+    background: linear-gradient(180deg, oklch(0.245 0.022 46), oklch(0.175 0.016 42));
+    box-shadow:
+      0 9px 22px -13px oklch(0 0 0 / 0.85),
+      inset 0 1px 0 oklch(1 0 0 / 0.05);
   }
 
   /* Tampon (TOP SECRET, AFFAIRE CLASSÉE, CELLULE…). */

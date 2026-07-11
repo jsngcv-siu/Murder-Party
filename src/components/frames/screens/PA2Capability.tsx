@@ -328,51 +328,61 @@ export function ResultBlock({
 // ───────── État de l'action (carte claire sous le rôle)
 // Traduit le motif de whyCannotUse() en statut lisible + un indice de TIMING dans
 // la boucle (Enquête → Annonce). Copie non-genrée.
+// État de la capacité pour la pastille « TON ACTION ». Un mot court + une
+// couleur d'accent (sourde) + une phrase d'explication. `color` sert le point
+// et le mot d'état ; le reste du texte reste discret.
 function capabilityState(
   blockedReason: string | null,
   mode: string,
-): { label: string; Icon: LucideIcon; cls: string; hint: string } | null {
+): { label: string; Icon: LucideIcon; color: string; hint: string } | null {
   if (mode === "none")
     return {
-      label: "Capacité passive",
+      label: "Passive",
       Icon: Moon,
-      cls: "text-muted-foreground bg-muted/40 border-border",
+      color: "var(--muted-foreground)",
       hint: "Automatique — rien à faire de ta part.",
     };
   if (!blockedReason)
     return {
-      label: "À utiliser ce tour",
+      label: "Disponible",
       Icon: Zap,
-      cls: "text-gold bg-gold/12 border-gold/40",
-      hint: "C'est le moment d'agir · le dénouement est révélé à l'Annonce.",
+      color: "oklch(0.78 0.13 80)",
+      hint: "C'est le moment d'agir — le dénouement est révélé à l'Annonce.",
     };
   if (/^Déjà utilisé/i.test(blockedReason))
     return {
-      label: "Action faite",
+      label: "Faite",
       Icon: Check,
-      cls: "text-emerald-300 bg-emerald-500/15 border-emerald-500/40",
-      hint: "C'est joué · rendez-vous à l'Annonce.",
+      color: "oklch(0.7 0.13 158)",
+      hint: "C'est joué — rendez-vous à l'Annonce.",
+    };
+  if (/setup|verrouill/i.test(blockedReason))
+    return {
+      label: "Verrouillé",
+      Icon: Lock,
+      color: "oklch(0.66 0.1 305)",
+      hint: "Scellé au setup — rien à activer ce tour.",
     };
   if (/épuisée/i.test(blockedReason))
     return {
-      label: "Capacité épuisée",
+      label: "Épuisée",
       Icon: Ban,
-      cls: "text-muted-foreground bg-muted/40 border-border",
+      color: "var(--muted-foreground)",
       hint: "Plus aucune utilisation disponible.",
     };
   if (/cooldown/i.test(blockedReason))
     return {
-      label: "En récupération",
+      label: "En attente",
       Icon: Hourglass,
-      cls: "text-amber-300 bg-amber-500/12 border-amber-500/40",
-      hint: "Bientôt de nouveau disponible.",
+      color: "oklch(0.74 0.11 72)",
+      hint: "Pas encore utilisable — bientôt de nouveau prête.",
     };
-  // Autres motifs (mauvaise phase, Stratège…) : on affiche le motif tel quel.
+  // Autres motifs (mauvaise phase, condition non remplie…).
   return {
-    label: blockedReason,
+    label: "Indisponible",
     Icon: Hourglass,
-    cls: "text-amber-300 bg-amber-500/12 border-amber-500/40",
-    hint: "Indisponible pour l'instant.",
+    color: "oklch(0.74 0.11 72)",
+    hint: blockedReason,
   };
 }
 
@@ -431,23 +441,28 @@ function PanelCard({
   className?: string;
 }) {
   const accent = PANEL_TOKEN[tone];
+  // Accent « sourd » : mélangé à un gris neutre pour rester lisible sans agresser
+  // l'œil sur le fond sombre. Le panneau reste sombre (--panel) et discret ;
+  // l'accent n'apparaît que sur une fine tranche à gauche + le libellé + le sigil.
+  const muted = `color-mix(in oklab, ${accent} 55%, oklch(0.6 0.02 60))`;
   return (
     <div
-      className={`mt-3 rounded-xl border p-3.5 text-xs ${className}`}
-      style={{
-        borderColor: `color-mix(in oklab, ${accent} 35%, transparent)`,
-        background: `color-mix(in oklab, ${accent} 6%, transparent)`,
-      }}
+      className={`panel-v3 relative mt-3 overflow-hidden rounded-xl p-3 pl-3.5 text-xs ${className}`}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-2.5 left-0 top-2.5 w-[2px] rounded-r"
+        style={{ background: muted }}
+      />
       {(label || Icon || action) && (
         <div className="flex items-center justify-between gap-2 mb-2">
           <span
-            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-semibold"
-            style={{ color: accent }}
+            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] font-semibold"
+            style={{ color: muted }}
           >
             {Icon && (
-              <Sigil active size={18} accent={accent}>
-                <Icon className="size-3.5" aria-hidden />
+              <Sigil active size={16} accent={muted}>
+                <Icon className="size-3" aria-hidden />
               </Sigil>
             )}
             {label}
@@ -469,8 +484,11 @@ export function PA2Capability(ctx: FrameContext) {
   const [tab, setTab] = useState<SubTab>("role");
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      <nav className="grid grid-cols-4 gap-1.5 p-2 border-b border-border bg-gradient-to-b from-card/60 to-card/20">
+    <div className="cork-surface h-full flex flex-col">
+      <nav
+        className="grid grid-cols-4 gap-1.5 border-b border-[var(--panel-border)] p-2"
+        style={{ background: "oklch(0.1 0.014 40 / 0.35)" }}
+      >
         <TabBtn
           active={tab === "role"}
           onClick={() => setTab("role")}
@@ -541,23 +559,30 @@ function TabBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative flex flex-col items-center justify-center gap-1.5 py-2 rounded-lg transition-all ${
+      className={`relative flex flex-col items-center justify-center gap-1.5 rounded-lg py-2 transition-colors ${
         disabled
-          ? "opacity-30 cursor-not-allowed"
+          ? "cursor-not-allowed opacity-30"
           : active
-            ? "bg-card/70 ring-1 ring-border"
-            : "text-muted-foreground hover:text-foreground hover:bg-card/40"
+            ? "bg-panel ring-1 ring-panel-border"
+            : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      <Sigil active={active} size={30} accent={accent}>
+      <Sigil active={active} size={28} accent={accent}>
         {icon}
       </Sigil>
       <span
-        className="text-[10px] uppercase tracking-wider font-semibold leading-none"
+        className="font-display text-[9.5px] uppercase leading-none tracking-[0.1em]"
         style={active && accent ? { color: accent } : undefined}
       >
         {label}
       </span>
+      {active && accent && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-3 bottom-0 h-0.5 rounded-full"
+          style={{ background: accent, opacity: 0.85 }}
+        />
+      )}
     </button>
   );
 }
@@ -812,20 +837,28 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         const origRole = orig ? roles.get(orig) : null;
         const freqs = frequencyChips(myRole);
         return (
-          <div className="role-zone">
+          // Feuille épinglée : la punaise (.pin) suffit — pas de scotch en plus.
+          <div className="role-zone paper pin mt-1 px-4 pb-4 pt-5">
+            <div className="mb-2 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
+              Dossier — ton rôle
+            </div>
             <div className="flex items-center gap-3.5">
               <div
                 className="relative shrink-0 rounded-full"
                 style={{
-                  boxShadow: `0 0 0 1.5px color-mix(in oklab, ${factionColor} 55%, transparent), 0 0 18px -5px ${factionColor}`,
+                  boxShadow: `0 0 0 1.5px color-mix(in oklab, ${factionColor} 55%, transparent), 0 0 18px -6px ${factionColor}`,
                 }}
               >
                 <RoleIcon role={myRole} size={52} />
               </div>
               <div className="flex-1 min-w-0">
                 <h2
-                  className="text-xl font-bold leading-tight text-glow-gold"
-                  style={{ fontFamily: "var(--font-display)" }}
+                  className="text-xl font-bold leading-tight"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    // Couleur de faction, assombrie pour rester lisible sur le papier.
+                    color: `color-mix(in oklab, ${factionColor} 72%, black)`,
+                  }}
                 >
                   {myRole?.name_fr ?? "—"}
                 </h2>
@@ -835,8 +868,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                       className="text-[9px] uppercase tracking-[0.12em] font-semibold px-2 py-0.5 rounded-md border"
                       style={{
                         color: factionColor,
-                        borderColor: `color-mix(in oklab, ${factionColor} 35%, transparent)`,
-                        background: `color-mix(in oklab, ${factionColor} 12%, transparent)`,
+                        borderColor: `color-mix(in oklab, ${factionColor} 45%, transparent)`,
+                        background: `color-mix(in oklab, ${factionColor} 16%, transparent)`,
                       }}
                     >
                       {f}
@@ -845,13 +878,18 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                   {freqs.map((f, i) => (
                     <span
                       key={i}
-                      className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-gold/40 bg-gold/10 text-gold"
+                      className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border"
+                      style={{
+                        color: "var(--paper-ink)",
+                        background: "oklch(0.82 0.13 84 / 0.35)",
+                        borderColor: "oklch(0.62 0.1 70 / 0.5)",
+                      }}
                     >
                       {f}
                     </span>
                   ))}
                   {origRole && (
-                    <span className="text-[10px] font-normal text-muted-foreground">
+                    <span className="text-[10px] font-normal text-[color:var(--paper-ink-soft)]">
                       ex {origRole.name_fr}
                     </span>
                   )}
@@ -862,9 +900,9 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               <p
                 onClick={() => setCapOpen((v) => !v)}
                 title={capOpen ? "Réduire" : "Voir toute la capacité"}
-                className={`mt-3 text-xs text-muted-foreground leading-relaxed cursor-pointer ${capOpen ? "" : "line-clamp-3"}`}
+                className={`mt-3 text-xs leading-relaxed cursor-pointer text-[color:var(--paper-ink)] ${capOpen ? "" : "line-clamp-3"}`}
               >
-                {highlightCapacity(myRole.capacite_full_text, "dark")}
+                {highlightCapacity(myRole.capacite_full_text, "paper")}
               </p>
             )}
           </div>
@@ -877,20 +915,31 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         const st = capabilityState(blockedReason, mode);
         if (!st) return null;
         return (
-          <div className={`mt-4 rounded-xl border p-3 flex items-start gap-3 ${st.cls}`}>
-            <st.Icon className="size-5 shrink-0 mt-0.5" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-bold uppercase tracking-[0.14em]">{st.label}</div>
-              {st.hint && (
-                <div className="text-[11px] opacity-80 mt-0.5 leading-snug">{st.hint}</div>
-              )}
-            </div>
+          <div className="mt-4 flex flex-col gap-1.5">
+            <span
+              className="inline-flex w-fit items-center gap-2 rounded-lg border px-2.5 py-1.5"
+              style={{ background: "var(--panel)", borderColor: "var(--panel-border)" }}
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: st.color, boxShadow: `0 0 6px 0 ${st.color}` }}
+              />
+              <span className="font-display text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                Ton action ·{" "}
+                <span className="font-bold" style={{ color: st.color }}>
+                  {st.label}
+                </span>
+              </span>
+            </span>
+            {st.hint && (
+              <p className="px-0.5 text-[11px] leading-snug text-muted-foreground/80">{st.hint}</p>
+            )}
           </div>
         );
       })()}
 
       {isMechantTeam && (
-        <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs space-y-1">
+        <div className="mt-2 rounded-lg border border-destructive/45 bg-panel p-2 text-xs space-y-1">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
             Liste de tes alliés
           </div>
@@ -1452,7 +1501,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                     }}
                     className={`relative overflow-hidden min-h-[58px] rounded-xl px-3 py-2 flex items-center gap-2.5 touch-manipulation active:scale-[0.97] transition ${
                       isLeft ? "flex-row text-left" : "flex-row-reverse text-right"
-                    } ${sel ? "ring-1 ring-primary/55" : "bg-card/60 ring-1 ring-border hover:bg-card"}`}
+                    } ${sel ? "ring-1 ring-primary/55" : "bg-panel ring-1 ring-panel-border hover:brightness-110"}`}
                   >
                     {/* Trait rouge extérieur (gauche pour col. gauche, droite pour col. droite) */}
                     {sel && (
@@ -1972,15 +2021,17 @@ function LastResultBanner({
     | undefined;
   const tone: ResultTone =
     storedOutcome ?? (hasOutcome ? parseResultMessage(resultMsg).tone : "info");
-  const cardTint = !hasOutcome
-    ? "border-gold/30 bg-gold/[0.05]"
+  // Même grammaire que PanelCard : base opaque `--panel` teintée par l'accent du
+  // ton, pour un contraste net sur le fond liège (au lieu d'un voile translucide).
+  const resultAccent = !hasOutcome
+    ? "var(--accent)"
     : tone === "success"
-      ? "border-emerald-500/40 bg-emerald-500/[0.07]"
+      ? "oklch(0.74 0.16 155)"
       : tone === "fail"
-        ? "border-rose-500/40 bg-rose-500/[0.07]"
+        ? "var(--mechants)"
         : tone === "pending"
-          ? "border-amber-500/40 bg-amber-500/[0.06]"
-          : "border-sky-500/40 bg-sky-500/[0.06]";
+          ? "oklch(0.77 0.15 70)"
+          : "var(--citoyens)";
 
   return (
     <div className="mt-3">
@@ -1995,8 +2046,13 @@ function LastResultBanner({
 
       <div
         key={last.id}
-        className={`result-reveal relative rounded-xl border ${cardTint} p-3.5 pr-9`}
+        className="panel-v3 result-reveal relative overflow-hidden rounded-xl p-3.5 pl-4 pr-9"
       >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-3 left-0 top-3 w-[2px] rounded-r"
+          style={{ background: `color-mix(in oklab, ${resultAccent} 55%, oklch(0.6 0.02 60))` }}
+        />
         <button
           onClick={() => setDismissedId(last.id)}
           aria-label="Masquer"
@@ -2109,7 +2165,7 @@ export function CapabilityCard({
   const natureTag = isItem ? (isObjectCapacity ? "Objet · Capacité" : "Objet") : null;
 
   return (
-    <div className="relative rounded-lg border border-border/60 bg-card/40 pl-3 pr-3 py-2.5">
+    <div className="panel-v3 relative overflow-hidden rounded-lg pl-3 pr-3 py-2.5">
       <div
         aria-hidden
         className={`absolute inset-y-1.5 left-0 w-[2px] rounded-r opacity-70 ${itemFacColor ? "" : accentBar}`}
@@ -2241,7 +2297,7 @@ function HistoryTab({
   return (
     <div className="p-5 space-y-4">
       {/* Intro */}
-      <div className="rounded-xl border border-border bg-card/40 p-3 text-xs text-muted-foreground text-center">
+      <div className="panel-v3 rounded-xl p-3 text-xs text-muted-foreground text-center">
         Retrouve ici <span className="text-foreground font-medium">tes capacités utilisées</span> et
         ce que tu as appris, tour par tour.{" "}
         <span className="text-muted-foreground/70">
@@ -2251,7 +2307,7 @@ function HistoryTab({
 
       {/* Timeline par tour */}
       {tours.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card/20 p-8 text-center">
+        <div className="panel-v3 rounded-xl p-8 text-center">
           <History className="size-7 mx-auto mb-2 opacity-60" aria-hidden />
           <div className="text-sm text-muted-foreground">Rien encore.</div>
           <div className="text-xs text-muted-foreground mt-1">
@@ -2332,7 +2388,7 @@ function WinTab({
           <RoleIcon role={myRole} size={16} /> {myRole?.name_fr}
         </div>
       </div>
-      <div className="rounded-xl border border-border bg-card/40 p-4 space-y-2">
+      <div className="panel-v3 rounded-xl p-4 space-y-2">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
           Ta condition de victoire
         </div>

@@ -145,27 +145,10 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
   const others = players.filter((p) => p.id !== me.id && !p.is_mj);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Tableau de liège encadré bois */}
+    <div className="cork-surface h-full flex flex-col">
+      {/* Fond liège plein — les photos sont épinglées directement sur le mur. */}
       <div className="flex-1 overflow-y-auto p-3">
-        <div
-          className="relative rounded-xl p-3"
-          style={{
-            backgroundColor: "var(--cork)",
-            backgroundImage: [
-              // grain de liège (speckles sombres + clairs)
-              "radial-gradient(oklch(0 0 0 / 0.13) 1px, transparent 1.7px)",
-              "radial-gradient(oklch(1 0 0 / 0.05) 1px, transparent 1.7px)",
-              // halo chaud en haut + vignette sombre en bas
-              "radial-gradient(135% 80% at 50% -12%, oklch(0.48 0.09 46 / 0.55), transparent 55%)",
-              "radial-gradient(125% 120% at 50% 118%, oklch(0.19 0.04 34 / 0.6), transparent 58%)",
-            ].join(","),
-            backgroundSize: "7px 7px, 11px 11px, 100% 100%, 100% 100%",
-            backgroundPosition: "0 0, 3px 4px, 0 0, 0 0",
-            boxShadow:
-              "inset 0 0 0 6px var(--wood), inset 0 0 0 7px oklch(0 0 0 / 0.45), inset 0 0 0 9px var(--wood-dark), inset 0 0 60px oklch(0 0 0 / 0.55)",
-          }}
-        >
+        <div className="relative">
           {/* Ficelle rouge décorative reliant le mur */}
           <svg
             aria-hidden

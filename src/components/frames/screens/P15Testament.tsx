@@ -5,7 +5,7 @@ import { Feather } from "lucide-react";
 
 export function P15Testament({ me }: FrameContext) {
   return (
-    <div className="h-full flex flex-col bg-background overflow-y-auto">
+    <div className="cork-surface h-full flex flex-col overflow-y-auto">
       {/* Bandeau héro : icône cachetée + intention */}
       <header className="relative px-5 pt-7 pb-5 overflow-hidden">
         <div

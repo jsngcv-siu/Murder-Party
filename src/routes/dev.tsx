@@ -40,6 +40,7 @@ import { P11HelpMenu } from "@/components/frames/screens/P11HelpMenu";
 import { E1EndGame } from "@/components/frames/screens/E1EndGame";
 import { EventCard, type EventKind, type QueuedEvent } from "@/components/PlayerEventModal";
 import { DuelScene } from "@/components/DiceDuelModal";
+import { serverNow } from "@/lib/serverTime";
 
 export const Route = createFileRoute("/dev")({
   // Galerie d'écrans en états synthétiques : outil de dev. En prod, redirection accueil.
@@ -214,7 +215,11 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
   const tueur = (r: Roster) => r.byPseudo("Bob");
   const phasePreview = (phase: GameRow["current_phase"], over: Partial<GameRow> = {}) => ({
     current_phase: phase,
-    phase_started_at: new Date(Date.now() - 150).toISOString(),
+    // Horloge SERVEUR : les bascules d'intro (PhaseIntro) lisent leur fenêtre
+    // de visibilité avec `serverNow()`. Écrire ce timestamp en heure locale
+    // désaligne la fenêtre dès que l'offset serveur n'est pas nul (base live) →
+    // la frame se croit expirée et n'affiche rien.
+    phase_started_at: new Date(serverNow() - 150).toISOString(),
     phase_duration_s: 3,
     phase_duration_free_s: 3,
     phase_duration_gathering_s: 3,
@@ -337,7 +342,12 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     id: "T3",
     group: "Phases",
     label: "Intro — Enquête",
-    render: () => <Frame node={<T3FreeIntro {...ctxFor(civil, phasePreview("free"))} />} />,
+    render: () => (
+      <ReplayPreview
+        replayMs={INTRO_MS + 400}
+        makeNode={() => <T3FreeIntro {...ctxFor(civil, phasePreview("free"))} />}
+      />
+    ),
   });
   add({
     id: "T0",
@@ -349,13 +359,23 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     id: "T1",
     group: "Phases",
     label: "Débat",
-    render: () => <Frame node={<T1Transition {...ctxFor(civil, phasePreview("gathering"))} />} />,
+    render: () => (
+      <ReplayPreview
+        replayMs={INTRO_MS + 400}
+        makeNode={() => <T1Transition {...ctxFor(civil, phasePreview("gathering"))} />}
+      />
+    ),
   });
   add({
     id: "T2",
     group: "Phases",
     label: "Intro — Vote",
-    render: () => <Frame node={<T2VoteIntro {...ctxFor(civil, phasePreview("vote"))} />} />,
+    render: () => (
+      <ReplayPreview
+        replayMs={INTRO_MS + 400}
+        makeNode={() => <T2VoteIntro {...ctxFor(civil, phasePreview("vote"))} />}
+      />
+    ),
   });
   add({
     id: "VROutro",
@@ -576,6 +596,19 @@ function VoteResultDevPreview({ makeCtx }: { makeCtx: () => FrameContext }) {
   }, []);
 
   return <Frame node={<VoteOutro key={cycle} {...makeCtx()} />} />;
+}
+
+// Les bascules d'intro de phase (PhaseIntro) ne s'affichent que pendant leur
+// fenêtre `INTRO_MS` après `phase_started_at`, puis se masquent d'elles-mêmes.
+// Dans la galerie, on les rejoue en boucle : chaque cycle remonte le nœud avec
+// un `phase_started_at` frais (via `makeNode`) pour relancer l'animation.
+function ReplayPreview({ makeNode, replayMs }: { makeNode: () => ReactNode; replayMs: number }) {
+  const [cycle, setCycle] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setCycle((n) => n + 1), replayMs);
+    return () => window.clearInterval(id);
+  }, [replayMs]);
+  return <Frame key={cycle} node={makeNode()} />;
 }
 
 class SceneBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {

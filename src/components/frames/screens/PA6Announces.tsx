@@ -3,6 +3,7 @@
 // et expose un hook pour afficher un badge / des toasts ailleurs dans l'app.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  ChevronDown,
   Crosshair,
   Droplet,
   Flame,
@@ -30,7 +31,7 @@ type AnyPlayer = {
   role_slug: string | null;
   role_meta: unknown;
 };
-import { PA5Players } from "./PA5Players";
+import { GazetteCard } from "./T1Transition";
 
 export type Event =
   | { kind: "death"; tour: number; phase: string; player: AnyPlayer; reason?: string }
@@ -42,19 +43,6 @@ function eventId(e: Event): string {
   if (e.kind === "special") return `s-${e.tour}-${e.text}`;
   if (e.kind === "death") return `d-${e.tour}-${e.player.id}`;
   return `p-${e.tour}-${e.player.id}`;
-}
-
-// Accent unique de la DA pour TOUS les tours — l'or « détective » de la
-// chronique (plus de dégradé multicolore, qui n'avait pas de sens sémantique).
-// La hiérarchie temporelle est portée par la timeline (position + opacité), pas
-// par la teinte : chaque tour partage la même grammaire visuelle.
-export function tourAccent(_tour: number) {
-  return {
-    text: "oklch(0.82 0.13 82)", // or parchemin
-    border: "oklch(0.62 0.12 80 / 0.45)",
-    bg: "oklch(0.30 0.06 70 / 0.18)",
-    dot: "oklch(0.78 0.15 78)",
-  };
 }
 
 export function collectAnnouncements(players: AnyPlayer[]): Event[] {
@@ -159,7 +147,9 @@ function readSeen(gameId: string, meId: string): Set<string> {
 function writeSeen(gameId: string, meId: string, seen: Set<string>) {
   try {
     localStorage.setItem(storageKey(gameId, meId), JSON.stringify(Array.from(seen)));
-  } catch {}
+  } catch {
+    // Le suivi de lecture reste optionnel si le stockage local est indisponible.
+  }
 }
 
 /** Hook utilisé par PlayerShell pour afficher un badge sur l'onglet Annonces. */
@@ -203,13 +193,12 @@ export function PA6Announces(ctx: FrameContext) {
   const tours = Array.from(byTour.keys()).sort((a, b) => b - a);
 
   const [openPlayerId, setOpenPlayerId] = useState<string | null>(null);
-  const [showPlayers, setShowPlayers] = useState(false);
+  // Le suivi des joueurs est replié par défaut : les faits du tour passent avant
+  // la grille (cf. ART_DIRECTION). Le bouton « Joueurs » de l'en-tête le déplie.
+  const [showLedger, setShowLedger] = useState(false);
   const [filter, setFilter] = useState<"alive" | "prison" | "dead">("alive");
 
   // Marquer "vu" tout ce qui est affiché à l'ouverture (et à l'arrivée de nouveaux events).
-  const [seenAtMount, setSeenAtMount] = useState<Set<string>>(() =>
-    readSeen(ctx.game.id, ctx.me.id),
-  );
   useEffect(() => {
     const seen = readSeen(ctx.game.id, ctx.me.id);
     let changed = false;
@@ -239,9 +228,8 @@ export function PA6Announces(ctx: FrameContext) {
   const alivePct = totalPlayers ? Math.round((alive.length / totalPlayers) * 100) : 0;
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-y-auto">
-      {/* Hero */}
-      <div className="relative px-5 pt-5 pb-4 border-b border-border bg-gradient-to-b from-card/60 to-transparent">
+    <div className="cork-surface h-full overflow-y-auto">
+      <div className="px-4 pb-7 pt-5 sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
@@ -252,8 +240,14 @@ export function PA6Announces(ctx: FrameContext) {
             </h2>
           </div>
           <button
-            onClick={() => setShowPlayers(true)}
-            className="shrink-0 h-10 pl-3 pr-3.5 rounded-xl border border-border bg-gradient-to-b from-card/80 to-card/50 hover:from-card hover:to-card/80 text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 shadow-sm hover:shadow"
+            onClick={() => setShowLedger((v) => !v)}
+            aria-expanded={showLedger}
+            aria-controls="presence-ledger"
+            className={`press flex h-10 shrink-0 items-center gap-2 rounded-lg border pl-3 pr-2.5 text-xs font-semibold text-[#ecd7b0] transition ${
+              showLedger
+                ? "border-[#a77c42] bg-[#24100c]"
+                : "border-[#6a3b27] bg-[#1d0c08] hover:border-[#a77c42]"
+            }`}
           >
             <div className="flex items-center justify-center -space-x-1">
               {all.slice(0, 3).map((p, idx) => {
@@ -279,120 +273,93 @@ export function PA6Announces(ctx: FrameContext) {
               )}
             </div>
             <span>Joueurs</span>
+            <ChevronDown
+              className={`size-4 text-[#bda57d] transition-transform ${showLedger ? "rotate-180" : ""}`}
+              aria-hidden
+            />
           </button>
         </div>
 
-        {/* Vitalité */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-            <span>Survivants</span>
-            <span className="tabular-nums">
-              {alive.length}/{totalPlayers}
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-card overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 transition-all"
-              style={{ width: `${alivePct}%` }}
+        {showLedger && (
+          <div id="presence-ledger" className="anim-tab-in">
+            <PresenceLedger
+              alive={alive}
+              imprisoned={imprisoned}
+              dead={dead}
+              totalPlayers={totalPlayers}
+              alivePct={alivePct}
+              filter={filter}
+              roles={ctx.roles}
+              onFilter={setFilter}
+              onPlayerClick={setOpenPlayerId}
             />
           </div>
-        </div>
+        )}
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <Stat
-            Icon={Sprout}
-            label="En vie"
-            value={alive.length}
-            tone="emerald"
-            active={filter === "alive"}
-            onClick={() => setFilter("alive")}
-          />
-          <Stat
-            Icon={Lock}
-            label="Prison"
-            value={imprisoned.length}
-            tone="amber"
-            active={filter === "prison"}
-            onClick={() => setFilter("prison")}
-          />
-          <Stat
-            Icon={Skull}
-            label="Morts"
-            value={dead.length}
-            tone="rose"
-            active={filter === "dead"}
-            onClick={() => setFilter("dead")}
-          />
-        </div>
-
-        {/* Récap joueurs filtrés */}
-        <div className="mt-3">
-          <PlayersRecap
-            players={filter === "alive" ? alive : filter === "prison" ? imprisoned : dead}
-            roles={ctx.roles}
-            filter={filter}
-            onPlayerClick={(pid) => setOpenPlayerId(pid)}
-          />
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="px-5 py-4 flex-1">
-        {tours.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-card/30 p-8 text-center">
-            <Flame className="size-7 mx-auto opacity-60" aria-hidden />
-            <p className="mt-2 text-xs text-muted-foreground italic">
-              Le manoir est silencieux… Aucune annonce pour le moment.
-            </p>
+        <section className="mt-6" aria-labelledby="announcements-title">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="font-hand text-base leading-none text-[#e8b44a]">
+                les faits du manoir
+              </div>
+              <h3
+                id="announcements-title"
+                className="mt-1 font-display text-xl leading-tight text-foreground"
+              >
+                Annonces
+              </h3>
+            </div>
+            {tours.length > 0 && (
+              <span className="pb-0.5 text-xs tabular-nums text-muted-foreground">
+                {events.length} fait{events.length > 1 ? "s" : ""} consigné
+                {events.length > 1 ? "s" : ""}
+              </span>
+            )}
           </div>
-        ) : (
-          <div className="relative pl-5">
-            {/* Ligne verticale */}
-            <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gradient-to-b from-border via-border/60 to-transparent" />
+          <div className="mt-4">
+          {tours.length === 0 ? (
+            <div className="paper pin mx-auto max-w-[300px] border border-[#d7c493]/70 px-5 py-8 text-center">
+              <Flame className="mx-auto size-7 text-[#8b6b36]" aria-hidden />
+              <p className="mt-2 text-sm italic text-[#6f573b]">
+                Le manoir est silencieux… Aucune annonce pour le moment.
+              </p>
+            </div>
+          ) : (
             <div className="space-y-5">
               {tours.map((tour) => {
-                const accent = tourAccent(tour);
                 const list = sortTourEvents(byTour.get(tour)!);
+
                 return (
-                  <section key={tour} className="relative">
-                    {/* Dot */}
-                    <span
-                      className="absolute -left-[18px] top-1.5 size-3 rounded-full ring-2 ring-background"
-                      style={{ background: accent.dot, boxShadow: `0 0 12px ${accent.dot}` }}
-                    />
-                    <div className="flex items-baseline gap-2">
-                      <h3
-                        className="font-display text-sm font-bold uppercase tracking-widest"
-                        style={{ color: accent.text }}
+                  <section key={tour} aria-labelledby={`tour-${tour}-title`}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h4
+                        id={`tour-${tour}-title`}
+                        className="font-display text-sm uppercase tracking-[0.12em] text-[#e8b44a]"
                       >
                         Tour {tour}
-                      </h3>
-                      <span className="text-[10px] text-muted-foreground">
-                        · {list.length} événement{list.length > 1 ? "s" : ""}
+                      </h4>
+                      <span className="text-[11px] text-[#e7d6ad]/75">
+                        {list.length} événement{list.length > 1 ? "s" : ""}
                       </span>
                     </div>
-                    <ul className="mt-2 space-y-2 stagger">
-                      {list.map((e, i) => {
-                        const id = eventId(e);
-                        const isNew = !seenAtMount.has(id);
-                        return (
-                          <EventCard
-                            key={`${tour}-${i}`}
-                            event={e}
-                            roles={ctx.roles}
-                            accent={accent}
-                            isNew={isNew}
-                            onPlayerClick={(pid) => setOpenPlayerId(pid)}
-                          />
-                        );
-                      })}
-                    </ul>
+
+                    <div className="stagger mt-3 flex flex-col gap-3.5">
+                      {list.map((event) => (
+                        <GazetteCard
+                          key={eventId(event)}
+                          event={event}
+                          roles={ctx.roles}
+                          onOpenTestament={setOpenPlayerId}
+                        />
+                      ))}
+                    </div>
                   </section>
                 );
               })}
             </div>
+          )}
           </div>
-        )}
+        </section>
       </div>
 
       {/* Modal testament */}
@@ -427,135 +394,101 @@ export function PA6Announces(ctx: FrameContext) {
           )}
         </div>
       )}
-
-      {/* Modal joueurs */}
-      {showPlayers && (
-        <div className="fixed inset-0 z-40 bg-background flex flex-col max-w-md mx-auto">
-          <button
-            onClick={() => setShowPlayers(false)}
-            className="self-start p-4 text-sm text-muted-foreground hover:text-foreground transition"
-          >
-            ← retour
-          </button>
-          <div className="flex-1 overflow-y-auto">
-            <PA5Players {...ctx} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ---------- Event card ----------
-export function EventCard({
-  event,
+function PresenceLedger({
+  alive,
+  imprisoned,
+  dead,
+  totalPlayers,
+  alivePct,
+  filter,
   roles,
-  accent,
-  isNew,
+  onFilter,
   onPlayerClick,
-  className = "",
 }: {
-  event: Event;
+  alive: AnyPlayer[];
+  imprisoned: AnyPlayer[];
+  dead: AnyPlayer[];
+  totalPlayers: number;
+  alivePct: number;
+  filter: "alive" | "prison" | "dead";
   roles: Map<string, RoleRow>;
-  accent: { text: string; border: string; bg: string; dot: string };
-  isNew: boolean;
-  onPlayerClick?: (id: string) => void;
-  className?: string;
+  onFilter: (filter: "alive" | "prison" | "dead") => void;
+  onPlayerClick: (id: string) => void;
 }) {
-  if (event.kind === "special") {
-    return (
-      <li
-        className={`elevate rounded-lg border p-3 flex items-center gap-3 relative ${className}`}
-        style={{ borderColor: accent.border, background: accent.bg }}
-      >
-        <div className="grid size-9 shrink-0 place-items-center" style={{ color: accent.text }}>
-          {event.icon}
-        </div>
-        <div className="flex-1 text-sm font-medium italic">{event.text}</div>
-        {isNew && <NewPill />}
-      </li>
-    );
-  }
-  const meta = (event.player.role_meta ?? {}) as Record<string, unknown>;
-  const av = avatarOf(meta.avatar as string | undefined, event.player.id);
+  const selected = filter === "alive" ? alive : filter === "prison" ? imprisoned : dead;
+  const label = filter === "alive" ? "En vie" : filter === "prison" ? "En prison" : "Morts";
 
-  if (event.kind === "death") {
-    const cleaned = !!meta.death_cleaned;
-    const role = roles.get(event.player.role_slug ?? "");
-    const faction = cleaned ? "Effacé" : (role?.faction ?? "Inconnue");
-    const color = cleaned ? "var(--muted-foreground)" : roleColor(role);
-    const hasTestament =
-      typeof meta.testament === "string" && (meta.testament as string).length > 0;
-    return (
-      <li
-        className={`elevate rounded-lg border border-destructive/30 bg-destructive/5 p-3 relative ${className}`}
-      >
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="size-10 rounded-full bg-card flex items-center justify-center overflow-hidden grayscale opacity-80">
-              <AvatarImg avatar={av} size={40} />
-            </div>
-            <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center ring-2 ring-background">
-              <Skull className="size-3" aria-hidden />
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold truncate">{event.player.pseudo}</span>
-              {isNew && <NewPill />}
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              n'est plus en vie{" "}
-              <span className="font-medium" style={{ color }}>
-                · {faction}
-              </span>
-            </div>
-          </div>
-          {hasTestament && (
-            <button
-              onClick={() => onPlayerClick?.(event.player.id)}
-              className="shrink-0 h-9 px-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5 text-xs font-medium active:scale-95"
-              title="Lire le testament"
-            >
-              <Pen size={12} /> Testament
-            </button>
-          )}
-        </div>
-      </li>
-    );
-  }
-
-  // prison
   return (
-    <li
-      className={`elevate rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 relative ${className}`}
+    <section
+      className="mt-4 rounded-lg border border-[#6a3b27] bg-[#1b0c08] p-3"
+      aria-labelledby="presence-title"
     >
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="size-10 rounded-full bg-card flex items-center justify-center overflow-hidden">
-            <AvatarImg avatar={av} size={40} />
-          </div>
-          <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-amber-500 text-amber-50 flex items-center justify-center ring-2 ring-background">
-            <Lock className="size-3" aria-hidden />
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Users className="size-3.5 text-[#e8b44a]" aria-hidden />
+          <h3
+            id="presence-title"
+            className="font-display text-xs uppercase tracking-[0.12em] text-[#ecd7b0]"
+          >
+            Suivi des joueurs
+          </h3>
+        </div>
+        <span className="text-[11px] tabular-nums text-[#bda57d]">{totalPlayers} à la table</span>
+      </div>
+
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#080302]">
+        <div
+          className="h-full bg-[#8ea96e] transition-[width] duration-200"
+          style={{ width: `${alivePct}%` }}
+        />
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <Stat
+          Icon={Sprout}
+          label="En vie"
+          value={alive.length}
+          tone="emerald"
+          active={filter === "alive"}
+          onClick={() => onFilter("alive")}
+        />
+        <Stat
+          Icon={Lock}
+          label="Prison"
+          value={imprisoned.length}
+          tone="amber"
+          active={filter === "prison"}
+          onClick={() => onFilter("prison")}
+        />
+        <Stat
+          Icon={Skull}
+          label="Morts"
+          value={dead.length}
+          tone="rose"
+          active={filter === "dead"}
+          onClick={() => onFilter("dead")}
+        />
+      </div>
+
+      <div className="mt-3 border-t border-[#6a3b27] pt-2.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="font-hand text-base leading-none text-[#e8b44a]">{label}</span>
+          <span className="text-[11px] text-[#bda57d]">
+            {selected.length} joueur{selected.length > 1 ? "s" : ""}
           </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold truncate">{event.player.pseudo}</span>
-            {isNew && <NewPill />}
-          </div>
-          <div className="text-[11px] text-muted-foreground">part en prison</div>
-        </div>
+        <PlayersRecap
+          players={selected}
+          roles={roles}
+          filter={filter}
+          onPlayerClick={onPlayerClick}
+        />
       </div>
-    </li>
-  );
-}
-
-function NewPill() {
-  return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider ring-1 ring-gold/40 animate-pulse">
-      <span className="size-1 rounded-full bg-gold" /> Nouveau
-    </span>
+    </section>
   );
 }
 
@@ -575,28 +508,22 @@ function Stat({
   onClick?: () => void;
 }) {
   const styles = {
-    emerald: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300",
-    amber: "border-amber-500/30 bg-amber-500/5 text-amber-300",
-    rose: "border-destructive/30 bg-destructive/5 text-destructive",
+    emerald: "border-[#6f8b55] text-[#b6d39a]",
+    amber: "border-[#a87935] text-[#e5bb68]",
+    rose: "border-[#9b372f] text-[#e37466]",
   }[tone];
-  const activeRing = active
-    ? {
-        emerald: "ring-2 ring-emerald-400/70",
-        amber: "ring-2 ring-amber-400/70",
-        rose: "ring-2 ring-destructive/70",
-      }[tone]
-    : "opacity-70 hover:opacity-100";
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`press w-full rounded-lg border px-2 py-2 ${styles} ${activeRing}`}
+      className={`press min-h-14 rounded-md border bg-[#24100c] px-1.5 py-2 text-center transition ${styles} ${active ? "ring-1 ring-current" : "opacity-70 hover:opacity-100"}`}
     >
-      <div className="flex items-center justify-center gap-1.5">
-        <Icon className="size-4" aria-hidden />
-        <span className="text-lg font-bold tabular-nums leading-none">{value}</span>
+      <div className="flex items-center justify-center gap-1">
+        <Icon className="size-3.5" aria-hidden />
+        <span className="font-display text-lg tabular-nums leading-none">{value}</span>
       </div>
-      <div className="mt-1 text-center text-[9px] uppercase tracking-wider opacity-80">{label}</div>
+      <div className="mt-1 text-[9px] uppercase tracking-[0.08em]">{label}</div>
     </button>
   );
 }
@@ -619,47 +546,52 @@ function PlayersRecap({
         : filter === "prison"
           ? "Personne en prison."
           : "Aucun mort.";
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-card/30 p-3 text-center text-[11px] text-muted-foreground italic">
-        {empty}
-      </div>
-    );
+    return <p className="py-1 text-[11px] italic text-[#bda57d]">{empty}</p>;
   }
+
   return (
-    <ul className="grid grid-cols-2 gap-1.5">
-      {players.map((p) => {
-        const meta = (p.role_meta ?? {}) as Record<string, unknown>;
-        const av = avatarOf(meta.avatar as string | undefined, p.id);
+    <ul className="flex flex-wrap gap-1.5">
+      {players.map((player) => {
+        const meta = (player.role_meta ?? {}) as Record<string, unknown>;
+        const avatar = avatarOf(meta.avatar as string | undefined, player.id);
         const cleaned = !!meta.death_cleaned;
-        const role = roles.get(p.role_slug ?? "");
-        let color = "var(--foreground)";
-        if (filter === "dead") {
-          color = cleaned ? "var(--muted-foreground)" : roleColor(role);
-        }
+        const role = roles.get(player.role_slug ?? "");
+        const textColor = filter === "dead" ? (cleaned ? "#bda57d" : roleColor(role)) : "#ecd7b0";
         const hasTestament =
           filter === "dead" &&
           typeof meta.testament === "string" &&
           (meta.testament as string).length > 0;
-        return (
-          <li key={p.id}>
-            <button
-              type="button"
-              onClick={() => hasTestament && onPlayerClick(p.id)}
-              disabled={!hasTestament}
-              className={`w-full flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-2 py-1.5 ${hasTestament ? "hover:bg-card/70 active:scale-95 transition" : "cursor-default"}`}
+        const content = (
+          <>
+            <span
+              className={`inline-flex size-5 overflow-hidden rounded-full border border-[#6a3b27] ${filter === "dead" ? "grayscale opacity-80" : ""}`}
             >
-              <span
-                className={`inline-flex size-7 rounded-full overflow-hidden bg-background border border-border shrink-0 ${filter === "dead" ? "grayscale opacity-80" : ""}`}
+              <AvatarImg avatar={avatar} size={20} />
+            </span>
+            <span className="max-w-20 truncate">{player.pseudo}</span>
+            {hasTestament && <Pen className="size-3 text-[#e8b44a]" />}
+          </>
+        );
+
+        return (
+          <li key={player.id}>
+            {hasTestament ? (
+              <button
+                type="button"
+                onClick={() => onPlayerClick(player.id)}
+                className="press inline-flex h-7 items-center gap-1 rounded-md border border-[#6a3b27] bg-[#24100c] px-1.5 text-[11px] font-medium"
+                style={{ color: textColor }}
               >
-                <AvatarImg avatar={av} size={28} />
+                {content}
+              </button>
+            ) : (
+              <span
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-[#6a3b27] bg-[#24100c] px-1.5 text-[11px] font-medium"
+                style={{ color: textColor }}
+              >
+                {content}
               </span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-[12px] font-semibold truncate" style={{ color }}>
-                  {p.pseudo}
-                </span>
-              </span>
-              {hasTestament && <Pen size={11} className="text-amber-400 shrink-0" />}
-            </button>
+            )}
           </li>
         );
       })}
