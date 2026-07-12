@@ -215,7 +215,7 @@ export function actionSummary(
 }
 
 // ───────── Présentation illustrative du résultat
-type ResultTone = "success" | "fail" | "info" | "pending";
+export type ResultTone = "success" | "fail" | "info" | "pending";
 type ParsedResult = { tone: ResultTone; icon: string; headline: string; details: string };
 
 const SUCCESS_RX =
@@ -1997,7 +1997,7 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
 ]);
 
 // ───────── Bannière persistante : Dernier résultat de capacité
-type LastRow = {
+export type LastRow = {
   id: string;
   tour: number;
   phase: string;
@@ -2103,6 +2103,121 @@ function describeActionFromRow(
   }
   // 3) Repli : libellé par rôle (slug stocké dans le payload de capacité).
   return describeAction(p.role as string | undefined, t1, t2);
+}
+
+// Effets dont le RÉSULTAT porte une info neuve (à afficher en bloc). Tout le reste
+// = effet différé ou simple confirmation → on ne montre que l'action + une pastille.
+const INFO_RESULT_EFFECTS = new Set<string>([
+  "track", // Chasseur : vampire ou non
+  "compare", // Boussole : même camp / opposés
+  "investigate_trio", // Détective / Assistant : trio
+  "police", // Policier : verdict
+  "heir_inquiry", // Héritier déchu : verdict
+  "mouchard_reveal", // Mouchard : rôle exact
+  "bet_dice", // Parieur : issue des dés
+  "execute", // Exécuteur : rôle révélé
+  "steal", // Voleur : objet volé
+  "steal_empty", // Voleur : rien à voler
+  "barman_round", // Barman : qui est ivre / passe un bon moment
+  "kill_one_of_two_intent", // Croque-mitaine : qui est visé / épargné
+]);
+
+export type BannerDisplay = {
+  tour: number;
+  time: string;
+  actionText: string;
+  resultMsg: string;
+  storedOutcome: ResultTone | undefined;
+  showResultBlock: boolean;
+  actionPending: boolean;
+  barAccent: string;
+};
+
+// Présentation pure du bandeau Résultat (Piste C). Séparée de LastResultBanner
+// pour être réutilisable avec des données factices (écran de dev /result-lab).
+export function ResultBannerView({
+  d,
+  roles,
+  myRoleSlug,
+  onDismiss,
+}: {
+  d: BannerDisplay;
+  roles: Map<string, RoleRow>;
+  myRoleSlug?: string | null;
+  onDismiss?: () => void;
+}) {
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between px-1 pb-1.5">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          Résultat
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          T{d.tour} · {d.time}
+        </span>
+      </div>
+
+      <div className="panel-v3 result-reveal relative overflow-hidden rounded-xl p-3.5 pl-4 pr-9">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-3 left-0 top-3 w-[2px] rounded-r"
+          style={{ background: `color-mix(in oklab, ${d.barAccent} 55%, oklch(0.6 0.02 60))` }}
+        />
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            aria-label="Masquer"
+            className="absolute top-2 right-2 w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card/60 flex items-center justify-center text-base leading-none"
+          >
+            ×
+          </button>
+        )}
+
+        {d.showResultBlock ? (
+          <>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/90 mb-1.5 truncate">
+              {colorize(d.actionText, roles)}
+            </div>
+            <ResultBlock
+              raw={d.resultMsg}
+              roles={roles}
+              outcome={d.storedOutcome}
+              verdict={myRoleSlug === "boussole" || myRoleSlug === "chasseur_de_vampire"}
+            />
+          </>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            {d.actionPending ? (
+              <Hourglass
+                className="shrink-0 size-5"
+                style={{ color: "oklch(0.77 0.15 70)" }}
+                aria-hidden
+              />
+            ) : (
+              <CircleCheck
+                className="shrink-0 size-5"
+                style={{ color: "oklch(0.74 0.16 155)" }}
+                aria-hidden
+              />
+            )}
+            <span className="min-w-0 flex-1 text-[15px] font-semibold text-foreground leading-snug">
+              {colorize(d.actionText, roles)}
+            </span>
+            <span
+              className="shrink-0 text-[9px] uppercase tracking-[0.16em] font-bold px-2 py-0.5 rounded-full"
+              style={
+                d.actionPending
+                  ? { color: "oklch(0.77 0.15 70)", background: "oklch(0.77 0.15 70 / 0.14)" }
+                  : { color: "oklch(0.74 0.16 155)", background: "oklch(0.74 0.16 155 / 0.14)" }
+              }
+            >
+              {d.actionPending ? "En cours" : "Fait"}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function LastResultBanner({
@@ -2215,63 +2330,42 @@ function LastResultBanner({
           ? "oklch(0.77 0.15 70)"
           : "var(--citoyens)";
 
+  // Piste C : n'affiche le bloc résultat que s'il apporte une info neuve
+  // (l'effet ou l'objet de l'action figure dans INFO_RESULT_EFFECTS / clairvoyance /
+  // piste falsifiée). Sinon, on garde juste la ligne d'action + une pastille d'état.
+  const rowPayload = last.payload ?? {};
+  const rowEffect = rowPayload.effect as string | undefined;
+  const rowItem = rowPayload.item as string | undefined;
+  const isFalsifiedResult = typeof rowEffect === "string" && rowEffect.endsWith("_falsified");
+  const resultIsInformative =
+    (typeof rowEffect === "string" && INFO_RESULT_EFFECTS.has(rowEffect)) ||
+    rowItem === "fiole_clairvoyance" ||
+    isFalsifiedResult;
+  const showResultBlock = resultIsInformative && hasOutcome;
+  const actionPending = storedOutcome === "pending" || /à l'annonce/i.test(resultMsg);
+  const barAccent = showResultBlock
+    ? resultAccent
+    : actionPending
+      ? "oklch(0.77 0.15 70)"
+      : "oklch(0.74 0.16 155)";
+
+  const d: BannerDisplay = {
+    tour: last.tour,
+    time,
+    actionText,
+    resultMsg,
+    storedOutcome,
+    showResultBlock,
+    actionPending,
+    barAccent,
+  };
   return (
-    <div className="mt-3">
-      <div className="flex items-center justify-between px-1 pb-1.5">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          Résultat
-        </span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          T{last.tour} · {time}
-        </span>
-      </div>
-
-      <div
-        key={last.id}
-        className="panel-v3 result-reveal relative overflow-hidden rounded-xl p-3.5 pl-4 pr-9"
-      >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute bottom-3 left-0 top-3 w-[2px] rounded-r"
-          style={{ background: `color-mix(in oklab, ${resultAccent} 55%, oklch(0.6 0.02 60))` }}
-        />
-        <button
-          onClick={() => setDismissedId(last.id)}
-          aria-label="Masquer"
-          className="absolute top-2 right-2 w-6 h-6 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card/60 flex items-center justify-center text-base leading-none"
-        >
-          ×
-        </button>
-
-        {hasOutcome ? (
-          <>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/90 mb-1.5 truncate">
-              {colorize(actionText, roles)}
-            </div>
-            <ResultBlock
-              raw={resultMsg}
-              roles={roles}
-              outcome={storedOutcome}
-              verdict={myRoleSlug === "boussole" || myRoleSlug === "chasseur_de_vampire"}
-            />
-          </>
-        ) : (
-          <div className="flex items-start gap-2">
-            <span className="shrink-0 text-lg leading-none mt-0.5" aria-hidden>
-              ⏳
-            </span>
-            <div className="min-w-0">
-              <div className="text-[14px] font-semibold text-foreground leading-snug">
-                {colorize(actionText, roles)}
-              </div>
-              <div className="mt-0.5 text-[12px] text-muted-foreground leading-snug">
-                Action enregistrée. Le dénouement arrive à l'Annonce.
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <ResultBannerView
+      d={d}
+      roles={roles}
+      myRoleSlug={myRoleSlug}
+      onDismiss={() => setDismissedId(last.id)}
+    />
   );
 }
 

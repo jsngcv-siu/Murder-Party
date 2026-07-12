@@ -807,6 +807,30 @@ function DevGallery() {
             Galerie · Dossier
           </span>
         </div>
+        {/* Écrans dédiés : routes séparées de la galerie (labs, démo). Regroupés
+            ici pour que tout l'outillage dev soit accessible d'un seul endroit. */}
+        <div className="px-2 pt-2 shrink-0">
+          <div
+            className="px-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Écrans dédiés
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <Link
+              to="/result-lab"
+              className="rounded-md border border-border/40 px-2.5 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-card/60 hover:text-gold"
+            >
+              Result Lab
+            </Link>
+            <Link
+              to="/demo"
+              className="rounded-md border border-border/40 px-2.5 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-card/60 hover:text-gold"
+            >
+              Démo (bots)
+            </Link>
+          </div>
+        </div>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

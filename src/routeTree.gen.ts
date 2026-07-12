@@ -9,16 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as FxLabRouteImport } from './routes/fx-lab'
+import { Route as ResultLabRouteImport } from './routes/result-lab'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as DemoRouteImport } from './routes/demo'
-import { Route as AnnonceLabRouteImport } from './routes/annonce-lab'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 
-const FxLabRoute = FxLabRouteImport.update({
-  id: '/fx-lab',
-  path: '/fx-lab',
+const ResultLabRoute = ResultLabRouteImport.update({
+  id: '/result-lab',
+  path: '/result-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevRoute = DevRouteImport.update({
@@ -29,11 +28,6 @@ const DevRoute = DevRouteImport.update({
 const DemoRoute = DemoRouteImport.update({
   id: '/demo',
   path: '/demo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnnonceLabRoute = AnnonceLabRouteImport.update({
-  id: '/annonce-lab',
-  path: '/annonce-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -49,60 +43,49 @@ const GCodeRoute = GCodeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
-  '/fx-lab': typeof FxLabRoute
+  '/result-lab': typeof ResultLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
-  '/fx-lab': typeof FxLabRoute
+  '/result-lab': typeof ResultLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/annonce-lab': typeof AnnonceLabRoute
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
-  '/fx-lab': typeof FxLabRoute
+  '/result-lab': typeof ResultLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/annonce-lab' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
+  fullPaths: '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/annonce-lab' | '/demo' | '/dev' | '/fx-lab' | '/g/$code'
-  id:
-    | '__root__'
-    | '/'
-    | '/annonce-lab'
-    | '/demo'
-    | '/dev'
-    | '/fx-lab'
-    | '/g/$code'
+  to: '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
+  id: '__root__' | '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AnnonceLabRoute: typeof AnnonceLabRoute
   DemoRoute: typeof DemoRoute
   DevRoute: typeof DevRoute
-  FxLabRoute: typeof FxLabRoute
+  ResultLabRoute: typeof ResultLabRoute
   GCodeRoute: typeof GCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/fx-lab': {
-      id: '/fx-lab'
-      path: '/fx-lab'
-      fullPath: '/fx-lab'
-      preLoaderRoute: typeof FxLabRouteImport
+    '/result-lab': {
+      id: '/result-lab'
+      path: '/result-lab'
+      fullPath: '/result-lab'
+      preLoaderRoute: typeof ResultLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev': {
@@ -117,13 +100,6 @@ declare module '@tanstack/react-router' {
       path: '/demo'
       fullPath: '/demo'
       preLoaderRoute: typeof DemoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/annonce-lab': {
-      id: '/annonce-lab'
-      path: '/annonce-lab'
-      fullPath: '/annonce-lab'
-      preLoaderRoute: typeof AnnonceLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -145,10 +121,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AnnonceLabRoute: AnnonceLabRoute,
   DemoRoute: DemoRoute,
   DevRoute: DevRoute,
-  FxLabRoute: FxLabRoute,
+  ResultLabRoute: ResultLabRoute,
   GCodeRoute: GCodeRoute,
 }
 export const routeTree = rootRouteImport
