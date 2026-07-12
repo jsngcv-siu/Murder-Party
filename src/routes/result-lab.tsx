@@ -145,17 +145,19 @@ function ResultLab() {
             <div className="font-display text-[10px] uppercase tracking-[0.34em] text-gold">
               Result Lab · bandeau Résultat
             </div>
-            <h1 className="text-lg font-semibold">Piste C — action + pastille, résultat si utile</h1>
+            <h1 className="text-lg font-semibold">
+              Piste C — action + pastille, résultat si utile
+            </h1>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-6">
         <p className="mb-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Le bloc résultat ne s'affiche <strong className="text-foreground">que</strong> s'il apporte
-          une info neuve (verdict, faction, trio, dés). Sinon on ne montre que la ligne d'action + une
-          pastille <span className="text-[oklch(0.77_0.15_70)]">En cours</span> (différé) ou{" "}
-          <span className="text-[oklch(0.74_0.16_155)]">Fait</span>.
+          Le bloc résultat ne s'affiche <strong className="text-foreground">que</strong> s'il
+          apporte une info neuve (verdict, faction, trio, dés). Sinon on ne montre que la ligne
+          d'action + une pastille <span className="text-[oklch(0.77_0.15_70)]">En cours</span>{" "}
+          (différé) ou <span className="text-[oklch(0.74_0.16_155)]">Fait</span>.
         </p>
 
         <Section title="Effet différé / confirmation" subtitle="Une seule ligne — plus de doublon">

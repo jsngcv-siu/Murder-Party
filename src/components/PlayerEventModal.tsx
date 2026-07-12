@@ -83,7 +83,9 @@ export function PlayerEventModal({
       if (raw) {
         for (const id of JSON.parse(raw) as string[]) seenRef.current.add(id);
       }
-    } catch {}
+    } catch {
+      /* localStorage indisponible (mode privé) — sans effet sur la partie */
+    }
   }, [game.id, me.id]);
 
   const persistSeen = () => {
@@ -92,7 +94,9 @@ export function PlayerEventModal({
         `event-modal-seen-${game.id}-${me.id}`,
         JSON.stringify(Array.from(seenRef.current).slice(-200)),
       );
-    } catch {}
+    } catch {
+      /* localStorage indisponible (mode privé) — sans effet sur la partie */
+    }
   };
 
   // ─── Helpers de résolution ───

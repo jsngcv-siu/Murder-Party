@@ -65,7 +65,12 @@ function previewItem(
   slug: ItemSlug,
   name: string,
   origin: ItemOrigin | null,
-  opts: { consumed?: boolean; variant?: string; from?: string; payload?: Record<string, unknown> } = {},
+  opts: {
+    consumed?: boolean;
+    variant?: string;
+    from?: string;
+    payload?: Record<string, unknown>;
+  } = {},
 ): Item {
   const payload: Record<string, unknown> = { ...(opts.payload ?? {}) };
   if (origin) payload.origin_faction = origin;
@@ -92,7 +97,9 @@ const PREVIEW_INVENTORY: Item[] = [
   previewItem("fiole_clairvoyance", "Fiole de clairvoyance", "Civil"),
   previewItem("relique", "Le Cœur du Manoir", "Neutre", { variant: "coeur_du_manoir" }),
   previewItem("relique", "L'Œil de la Damnation", "Neutre", { variant: "oeil_damnation" }),
-  previewItem("relique", "Le Médaillon du Vieux Maître", "Neutre", { variant: "medaillon_vieux_maitre" }),
+  previewItem("relique", "Le Médaillon du Vieux Maître", "Neutre", {
+    variant: "medaillon_vieux_maitre",
+  }),
   previewItem("lettre", "Lettre anonyme à envoyer", null),
   // ── Consultable ──
   previewItem("indice", "Indice — Lettre déchirée, moitié gauche", "Système", {
@@ -100,13 +107,18 @@ const PREVIEW_INVENTORY: Item[] = [
   }),
   previewItem("indice", "Indice — Le majordome n'a pas d'alibi", "Système"),
   previewItem("indice", "Indice — Un Civil se cache parmi les invités", "Système"),
-  previewItem("relique", "Le Portrait de la Dame Blanche", "Neutre", { variant: "portrait_dame_blanche" }),
+  previewItem("relique", "Le Portrait de la Dame Blanche", "Neutre", {
+    variant: "portrait_dame_blanche",
+  }),
   previewItem("relique", "La poupée du grenier", "Neutre", { variant: "poupee_grenier" }),
   previewItem("lettre", "Lettre déjà envoyée", null, { payload: { sent: true } }),
   // ── Classés ──
   previewItem("couteau", "Couteau", "Méchant", { consumed: true }),
   previewItem("fiole_vie", "Fiole de vie", "Civil", { consumed: true }),
-  previewItem("relique", "La Lettre Scellée", "Neutre", { variant: "lettre_scellee", consumed: true }),
+  previewItem("relique", "La Lettre Scellée", "Neutre", {
+    variant: "lettre_scellee",
+    consumed: true,
+  }),
 ];
 
 function baseGame(over: Partial<GameRow> = {}): GameRow {
@@ -345,9 +357,13 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
       <Frame
         node={
           <PA4Notebook
-            {...ctxFor(civil, {}, {
-              role_meta: { inventory: PREVIEW_INVENTORY } as PlayerRow["role_meta"],
-            })}
+            {...ctxFor(
+              civil,
+              {},
+              {
+                role_meta: { inventory: PREVIEW_INVENTORY } as PlayerRow["role_meta"],
+              },
+            )}
           />
         }
       />

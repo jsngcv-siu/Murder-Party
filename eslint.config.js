@@ -6,7 +6,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output"] },
+  // `supabase/functions/phase-ticker/index.ts` est un bundle GÉNÉRÉ par esbuild
+  // (voir scripts/build-phase-ticker.mjs) — il ne doit pas être linté.
+  { ignores: ["dist", ".output", "supabase/functions/phase-ticker/index.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

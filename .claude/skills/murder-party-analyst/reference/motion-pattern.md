@@ -9,17 +9,17 @@ Ne pas réinventer : copier l'idiome des écrans existants.
 - `tw-animate-css` pour les micro-anims CSS.
 - Skills de référence : **gsap-react** (hook `useGSAP`), **gsap-timeline** (choréo),
   **gsap-plugins** (SplitText…), **gsap-performance** (60fps). **ui-ux-pro-max** §7 pour
-  le *quand/comment* (durées, easing, sens du mouvement).
+  le _quand/comment_ (durées, easing, sens du mouvement).
 
 ## Écrans de référence à copier (vrai code du projet)
 
-| Fichier | Ce qu'il montre |
-|---|---|
-| `src/components/frames/screens/O5Reveal.tsx` | révélation : timeline + `gsap.matchMedia()` + SplitText + aura en boucle |
-| `src/components/frames/screens/T1Transition.tsx` | choréo `gsap.context` + timeline + stagger + `back.out()` |
-| `src/components/DiceDuelModal.tsx` | capacité spectaculaire (dés qui roulent, séquençage `await`) |
-| `src/components/frames/screens/E1EndGame.tsx` | SplitText sur un titre |
-| `src/components/GameToast.tsx` | usage minimal de `useGSAP` |
+| Fichier                                          | Ce qu'il montre                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `src/components/frames/screens/O5Reveal.tsx`     | révélation : timeline + `gsap.matchMedia()` + SplitText + aura en boucle |
+| `src/components/frames/screens/T1Transition.tsx` | choréo `gsap.context` + timeline + stagger + `back.out()`                |
+| `src/components/DiceDuelModal.tsx`               | capacité spectaculaire (dés qui roulent, séquençage `await`)             |
+| `src/components/frames/screens/E1EndGame.tsx`    | SplitText sur un titre                                                   |
+| `src/components/GameToast.tsx`                   | usage minimal de `useGSAP`                                               |
 
 ## Règles maison (non négociables)
 
@@ -50,12 +50,22 @@ function MonRoleCapabilityPanel(/* props: cibles, onAct… */) {
       // Joué UNIQUEMENT si l'utilisateur n'a pas demandé de réduire le mouvement.
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-        tl.from(".cap-aura",   { scale: 0.4, opacity: 0, duration: 0.9, ease: "power2.out" }, 0)
-          .from(".cap-title",  { y: 12, opacity: 0, duration: 0.45 }, 0.15)
-          .from(".cap-target", { y: 16, opacity: 0, stagger: 0.06, duration: 0.4, ease: "back.out(1.4)" }, 0.3)
-          .from(".cap-cta",    { scale: 0.85, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, 0.5);
+        tl.from(".cap-aura", { scale: 0.4, opacity: 0, duration: 0.9, ease: "power2.out" }, 0)
+          .from(".cap-title", { y: 12, opacity: 0, duration: 0.45 }, 0.15)
+          .from(
+            ".cap-target",
+            { y: 16, opacity: 0, stagger: 0.06, duration: 0.4, ease: "back.out(1.4)" },
+            0.3,
+          )
+          .from(".cap-cta", { scale: 0.85, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, 0.5);
         // Aura ambiante en boucle (respiration).
-        gsap.to(".cap-aura", { scale: 1.06, repeat: -1, yoyo: true, duration: 1.8, ease: "sine.inOut" });
+        gsap.to(".cap-aura", {
+          scale: 1.06,
+          repeat: -1,
+          yoyo: true,
+          duration: 1.8,
+          ease: "sine.inOut",
+        });
       });
     },
     { scope: root }, // cleanup auto au démontage
@@ -78,9 +88,11 @@ Après `runCapacity()` (le handler renommé), un petit pop suffit :
 
 ```tsx
 // succès : rebond ; échec : léger shake
-gsap.fromTo(resultRef.current,
+gsap.fromTo(
+  resultRef.current,
   { scale: 0.9, opacity: 0 },
-  { scale: 1, opacity: 1, duration: 0.4, ease: ok ? "back.out(2)" : "power2.out" });
+  { scale: 1, opacity: 1, duration: 0.4, ease: ok ? "back.out(2)" : "power2.out" },
+);
 ```
 
 Pour un titre percutant (révélation, verdict), réutiliser **SplitText** comme dans `O5Reveal`/`E1EndGame`
@@ -88,7 +100,7 @@ Pour un titre percutant (révélation, verdict), réutiliser **SplitText** comme
 
 ## Checklist avant de livrer un écran animé
 
-- [ ] `gsap.matchMedia()` — testé avec *prefers-reduced-motion: reduce* (aucune anim, contenu lisible immédiatement).
+- [ ] `gsap.matchMedia()` — testé avec _prefers-reduced-motion: reduce_ (aucune anim, contenu lisible immédiatement).
 - [ ] `{ scope: ref }` (ou `gsap.context`) → pas de warning ni fuite au démontage.
 - [ ] Durées ≤ 500 ms, une ou deux anims clés (pas de sapin de Noël).
 - [ ] Seulement `transform`/`opacity`. Vérifier dans le preview (60fps, pas de layout shift).

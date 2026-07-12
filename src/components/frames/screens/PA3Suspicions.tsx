@@ -17,7 +17,12 @@ type Level = 0 | 1 | 2 | 3;
 // bandeau « coin corné ».
 const LEVELS = [
   { label: "", token: "var(--suspicion-0)", ribbon: "", ink: "" },
-  { label: "innocent", token: "var(--suspicion-1)", ribbon: "Innocent", ink: "oklch(0.97 0.03 155)" },
+  {
+    label: "innocent",
+    token: "var(--suspicion-1)",
+    ribbon: "Innocent",
+    ink: "oklch(0.97 0.03 155)",
+  },
   { label: "un doute", token: "var(--suspicion-2)", ribbon: "Douteux", ink: "oklch(0.28 0.06 70)" },
   { label: "suspect", token: "var(--suspicion-3)", ribbon: "Suspect", ink: "oklch(0.96 0.03 25)" },
 ] as const;
