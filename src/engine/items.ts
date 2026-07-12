@@ -424,7 +424,7 @@ export async function consumeItem(opts: {
       });
       // Silencieux côté victime : elle ne sait pas qu'elle est empoisonnée
       // (cohérent avec les autres morts différées — couteau, Tueur…).
-      message = `${target!.pseudo} : intention de mort enregistrée — résolue à l'Annonce.`;
+      message = `${target!.pseudo} : intention de mort — à l'Annonce.`;
       break;
     }
     case "fiole_vie": {
@@ -445,7 +445,7 @@ export async function consumeItem(opts: {
         "💚 Soigné",
         "Une fiole de vie te protège pour la prochaine Annonce.",
       );
-      message = `${target!.pseudo} : soin programmé — actif à l'Annonce.`;
+      message = `${target!.pseudo} : soin — à l'Annonce.`;
       break;
     }
     case "fiole_clairvoyance": {
@@ -512,7 +512,7 @@ export async function consumeItem(opts: {
           `${opts.actorPseudo} a utilisé couteau sur ${target!.pseudo}.`,
         );
       }
-      message = `${target!.pseudo} : coup de couteau programmé — résolu à l'Annonce.`;
+      message = `${target!.pseudo} : coup de couteau — à l'Annonce.`;
       break;
     }
     case "relique": {

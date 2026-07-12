@@ -3283,7 +3283,7 @@ export async function executeCapability(opts: {
         });
         return {
           ok: true,
-          message: `Morsure programmée sur ${t1.pseudo} — résolue à la prochaine Annonce`,
+          message: `Morsure sur ${t1.pseudo} — à l'Annonce`,
         };
       }
 
@@ -3307,7 +3307,7 @@ export async function executeCapability(opts: {
         return {
           ok: true,
           message: isVamp
-            ? `🔴 ${t1.pseudo} EST un vampire — exécution programmée à l'Annonce`
+            ? `🔴 ${t1.pseudo} EST un vampire — exécution à l'Annonce`
             : `🟢 ${t1.pseudo} n'est pas un vampire`,
           reveal: { isVampire: isVamp },
         };
@@ -3474,7 +3474,7 @@ export async function executeCapability(opts: {
           .limit(1)
           .maybeSingle();
         if (existingProtect) {
-          return { ok: true, message: `${t1.pseudo} : protection déjà programmée` };
+          return { ok: true, message: `${t1.pseudo} : protection déjà en place — à l'Annonce` };
         }
         await submitIntent({
           gameId: opts.gameId,
@@ -3494,7 +3494,7 @@ export async function executeCapability(opts: {
           title: "🛡️ Protection Majordome",
           body: `${actor.pseudo} (Majordome) protège ${t1.pseudo} — résolu à l'Annonce.`,
         });
-        return { ok: true, message: `${t1.pseudo} : protection programmée` };
+        return { ok: true, message: `${t1.pseudo} : protection — à l'Annonce` };
       }
       case "babysitter": {
         if (!t1) return { ok: false, message: "Cible requise" };
@@ -3540,7 +3540,7 @@ export async function executeCapability(opts: {
           source: "role:ange_gardien",
         });
         await used({ effect: "shield_intent", target });
-        return { ok: true, message: "Bouclier programmé — actif à l'Annonce" };
+        return { ok: true, message: "Bouclier — à l'Annonce" };
       }
       case "paranoiaque": {
         const targetId = m.paranoid_target_id as string | undefined;
@@ -3824,7 +3824,7 @@ export async function executeCapability(opts: {
         await used({ effect: "kill_one_of_two_intent", picked: pick.id, spared: other.id });
         return {
           ok: true,
-          message: `${pick.pseudo} : attaque programmée — ${other.pseudo} épargné`,
+          message: `${pick.pseudo} : attaque à l'Annonce — ${other.pseudo} épargné`,
         };
       }
       case "veuve_noire": {
@@ -4239,7 +4239,7 @@ export async function executeCapability(opts: {
           return { ok: false, message: "Le prisonnier n'a pas encore purgé un tour complet." };
         }
         if ((tMeta.pending_release_for_cycle as number | undefined) === opts.tour + 1) {
-          return { ok: false, message: "Libération déjà programmée pour ce prisonnier." };
+          return { ok: false, message: "Libération de ce prisonnier déjà prévue." };
         }
         await patchMeta(t1.id, {
           pending_release_for_cycle: opts.tour + 1,
@@ -4257,7 +4257,7 @@ export async function executeCapability(opts: {
         });
         return {
           ok: true,
-          message: `Libération de ${t1.pseudo} programmée pour le tour ${opts.tour + 1}`,
+          message: `Libération de ${t1.pseudo} — au tour ${opts.tour + 1}`,
         };
       }
 
@@ -4374,7 +4374,7 @@ export async function executeCapability(opts: {
         });
         return {
           ok: true,
-          message: `🎯 ${t1.pseudo} marqué — il mourra à l'annonce du prochain tour.`,
+          message: `🎯 ${t1.pseudo} marqué — il mourra à l'Annonce du prochain tour.`,
         };
       }
 

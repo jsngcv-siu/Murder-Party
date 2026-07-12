@@ -2068,6 +2068,43 @@ function describeAction(slug: string | null | undefined, t1?: string, t2?: strin
   return `Action enregistrée.`;
 }
 
+// Nom lisible d'une fiole depuis la clé technique (heal/poison/reveal).
+const FIOLE_LABELS: Record<string, string> = {
+  heal: "une Fiole de vie",
+  poison: "une Fiole de mort",
+  reveal: "une Fiole de clairvoyance",
+};
+
+// Décrit l'action à partir de la LIGNE réellement enregistrée (payload), et non du
+// seul rôle du joueur. Sans ça, l'Apothicaire affiche toujours « offert une fiole »
+// même après un USAGE d'objet, et un indice s'affiche sous « enquêté sur un joueur ».
+// Priorité : objet utilisé > effet de capacité spécial > repli par rôle.
+function describeActionFromRow(
+  payload: Record<string, unknown> | null | undefined,
+  t1?: string,
+  t2?: string,
+): string {
+  const p = payload ?? {};
+  // 1) Usage d'un objet (payload.item) → « Tu as utilisé <objet> sur <cible> ».
+  const itemSlug = p.item as string | undefined;
+  if (itemSlug) {
+    const itemName =
+      (p.name as string | undefined) ??
+      (itemSlug in ITEM_CATALOG
+        ? ITEM_CATALOG[itemSlug as keyof typeof ITEM_CATALOG].name
+        : "un objet");
+    return t1 ? `Tu as utilisé ${itemName} sur ${t1}.` : `Tu as utilisé ${itemName}.`;
+  }
+  // 2) Effets de capacité qui méritent un libellé propre (indépendant du rôle).
+  const effect = p.effect as string | undefined;
+  if (effect === "offer_fiole") {
+    const fioleName = FIOLE_LABELS[(p.fiole as string | undefined) ?? ""] ?? "une fiole";
+    return t1 ? `Tu as offert ${fioleName} à ${t1}.` : `Tu as offert ${fioleName}.`;
+  }
+  // 3) Repli : libellé par rôle (slug stocké dans le payload de capacité).
+  return describeAction(p.role as string | undefined, t1, t2);
+}
+
 function LastResultBanner({
   gameId,
   meId,
@@ -2154,7 +2191,7 @@ function LastResultBanner({
     minute: "2-digit",
   });
 
-  const actionText = describeAction(myRoleSlug, t1?.pseudo, t2?.pseudo);
+  const actionText = describeActionFromRow(last.payload, t1?.pseudo, t2?.pseudo);
   // Issue réelle (message stocké après résolution), distincte de la simple
   // description d'action. Si rien de signifiant → état « en attente ».
   const resultMsg = actionSummary(last.payload ?? {}, last.result ?? undefined);
