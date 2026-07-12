@@ -137,7 +137,7 @@ export function itemBorderStyle(item: Item, opts: { consumed?: boolean } = {}): 
   }
   // Contour épais teinté faction : lecture immédiate du camp d'origine.
   return {
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: `color-mix(in oklab, ${tok} 90%, transparent)`,
     background: `linear-gradient(to bottom right, color-mix(in oklab, ${tok} 12%, var(--card)), color-mix(in oklab, ${tok} 5%, transparent))`,
     boxShadow: `0 0 12px color-mix(in oklab, ${tok} 28%, transparent)`,

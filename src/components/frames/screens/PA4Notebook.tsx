@@ -457,7 +457,7 @@ function ItemCard({ it, onOpen }: { it: Item; onOpen: (item: Item) => void }) {
   // NB : `overflow-visible` volontaire — l'étiquette « parchemin » déborde sous
   // la case (voir `-bottom-3`). La grille réserve l'espace via son row-gap.
   const cardClass =
-    "press relative aspect-square rounded-xl border transition focus-visible:outline-none disabled:cursor-not-allowed " +
+    "press relative aspect-square rounded-3xl border transition focus-visible:outline-none disabled:cursor-not-allowed " +
     (isConsumed ? "border-border opacity-45" : "elevate hover:-translate-y-0.5");
   return (
     <button
@@ -469,7 +469,7 @@ function ItemCard({ it, onOpen }: { it: Item; onOpen: (item: Item) => void }) {
     >
       {/* Illustration plein cadre. Fond sombre derrière pour les PNG à fond
           transparent (sinon on verrait le dégradé doré de la carte à travers). */}
-      <span className="absolute inset-0 overflow-hidden rounded-xl bg-[oklch(0.15_0.02_40)]">
+      <span className="absolute inset-0 overflow-hidden rounded-3xl bg-[oklch(0.15_0.02_40)]">
         <ItemIcon item={it} size={64} rounded="none" emojiFontSize={44} fill />
       </span>
 
