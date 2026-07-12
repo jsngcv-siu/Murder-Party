@@ -1183,17 +1183,42 @@ export async function nextCycle(gameId: string, phaseStartedAt = serverNowISO())
   await checkAndEndGame(gameId);
 }
 
-/** Auto-tick called from the client (MJ side). Advances phase if expired. */
-// Verrou de ré-entrance par partie. La transition de phase (resolver, kills,
-// autopsies, recap) peut durer plus longtemps que l'intervalle d'appel de
-// tickPhase (2s en démo, 5s en partie). Sans ce verrou, un 2e/3e tick démarre
-// pendant que le 1er résout encore : tous lisent la MÊME phase expirée (le
-// setPhase n'a pas encore committé) et relancent toute la résolution → chaque
-// notification est émise en double/triple. Le verrou garantit qu'une seule
-// transition tourne à la fois pour une partie donnée (un seul onglet pilote).
+/** Auto-tick appelé depuis les clients. Fait avancer la phase si la frontière
+ *  est franchie. Peut être appelé par N'IMPORTE quel client au premier plan :
+ *  un verrou SERVEUR (claim_phase_tick) garantit qu'un seul exécute réellement la
+ *  transition. Plus de pilote unique élu qui gèle la partie s'il passe en veille. */
+// Verrou local de ré-entrance (par onglet) : évite qu'un même client relance
+// tickPhase pendant qu'il résout déjà. Le verrou SERVEUR (ci-dessous) couvre, lui,
+// la concurrence INTER-clients — indispensable car sans lui un 2e/3e client
+// lirait la MÊME phase expirée et relancerait tout le resolver → notifications en
+// double/triple. Les deux se complètent : local = pas d'aller-retour inutile,
+// serveur = correction.
 const TICK_LOCK_TTL_MS = 30_000;
 const _tickInFlight = new Map<string, number>();
 const MAX_TICK_TRANSITIONS = 6;
+
+/** Lecture seule : une transition est-elle due maintenant ? Pré-contrôle bon
+ *  marché pour ne PAS solliciter le verrou serveur à chaque sondage de chaque
+ *  client (seulement à l'approche d'une frontière de phase). */
+async function phaseTickDue(gameId: string): Promise<boolean> {
+  const { data: g } = await supabase
+    .from("games")
+    .select("phase_started_at, phase_duration_s, status, paused")
+    .eq("id", gameId)
+    .single();
+  const game = g as {
+    phase_started_at: string | null;
+    phase_duration_s: number | null;
+    status: string;
+    paused?: boolean;
+  } | null;
+  if (!game || game.status === "ended" || game.paused) return false;
+  if (!game.phase_started_at || !game.phase_duration_s) return false;
+  const started = new Date(game.phase_started_at).getTime();
+  // Le compteur ne démarre qu'après la frame d'intro (INTRO_S), comme dans la boucle.
+  const elapsed = (serverNow() - started) / 1000 - INTRO_S;
+  return elapsed >= game.phase_duration_s;
+}
 
 export async function tickPhase(gameId: string): Promise<void> {
   const now = Date.now();
@@ -1201,54 +1226,70 @@ export async function tickPhase(gameId: string): Promise<void> {
   if (lockedAt && now - lockedAt < TICK_LOCK_TTL_MS) return;
   _tickInFlight.set(gameId, now);
   try {
-    for (let transitionCount = 0; transitionCount < MAX_TICK_TRANSITIONS; transitionCount++) {
-      const { data: g } = await supabase
-        .from("games")
-        .select("current_phase, phase_started_at, phase_duration_s, status, paused")
-        .eq("id", gameId)
-        .single();
-      const game = g as {
-        current_phase: Phase;
-        phase_started_at: string | null;
-        phase_duration_s: number | null;
-        status: string;
-        paused?: boolean;
-      } | null;
-      if (!game || game.status === "ended") return;
-      if (game.paused) return;
-      if (!game.phase_started_at || !game.phase_duration_s) return;
-      const started = new Date(game.phase_started_at).getTime();
-      // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
-      // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
-      const elapsed = (serverNow() - started) / 1000 - INTRO_S;
-      if (elapsed < game.phase_duration_s) return;
+    // Rien à faire tant que la frontière n'est pas atteinte : on évite de prendre
+    // le verrou serveur à chaque sondage (tous les clients sondent en continu).
+    if (!(await phaseTickDue(gameId))) return;
+    // Verrou SERVEUR inter-clients : un seul client exécute la transition.
+    const { data: won, error: claimErr } = await supabase.rpc(
+      "claim_phase_tick" as never,
+      {
+        p_game_id: gameId,
+      } as never,
+    );
+    if (claimErr || !won) return;
+    try {
+      for (let transitionCount = 0; transitionCount < MAX_TICK_TRANSITIONS; transitionCount++) {
+        const { data: g } = await supabase
+          .from("games")
+          .select("current_phase, phase_started_at, phase_duration_s, status, paused")
+          .eq("id", gameId)
+          .single();
+        const game = g as {
+          current_phase: Phase;
+          phase_started_at: string | null;
+          phase_duration_s: number | null;
+          status: string;
+          paused?: boolean;
+        } | null;
+        if (!game || game.status === "ended") return;
+        if (game.paused) return;
+        if (!game.phase_started_at || !game.phase_duration_s) return;
+        const started = new Date(game.phase_started_at).getTime();
+        // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
+        // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
+        const elapsed = (serverNow() - started) / 1000 - INTRO_S;
+        if (elapsed < game.phase_duration_s) return;
 
-      const nextPhaseStartedAt = new Date(
-        started + (INTRO_S + game.phase_duration_s) * 1000,
-      ).toISOString();
+        const nextPhaseStartedAt = new Date(
+          started + (INTRO_S + game.phase_duration_s) * 1000,
+        ).toISOString();
 
-      if (game.current_phase === "free") {
-        await ringGathering(gameId, "Auto", nextPhaseStartedAt);
-      } else if (game.current_phase === "annonce") {
-        await openGathering(gameId, nextPhaseStartedAt);
-      } else if (game.current_phase === "gathering") {
-        await openVote(gameId, nextPhaseStartedAt);
-      } else if (game.current_phase === "vote") {
-        // Fin de la fenêtre de vote → on clôt (verdict + emprisonnement, idempotent)
-        // et on laisse l'écran de résultat s'afficher pendant VOTE_RESULT_S AVANT de
-        // passer au tour suivant. Le verdict est donc montré à la FIN du vote, plus
-        // au début de l'Enquête suivante.
-        await closeVote(gameId);
-        if (elapsed < game.phase_duration_s + VOTE_RESULT_S) return;
-        await nextCycle(
-          gameId,
-          new Date(
-            started + (INTRO_S + game.phase_duration_s + VOTE_RESULT_S) * 1000,
-          ).toISOString(),
-        );
-      } else {
-        return;
+        if (game.current_phase === "free") {
+          await ringGathering(gameId, "Auto", nextPhaseStartedAt);
+        } else if (game.current_phase === "annonce") {
+          await openGathering(gameId, nextPhaseStartedAt);
+        } else if (game.current_phase === "gathering") {
+          await openVote(gameId, nextPhaseStartedAt);
+        } else if (game.current_phase === "vote") {
+          // Fin de la fenêtre de vote → on clôt (verdict + emprisonnement, idempotent)
+          // et on laisse l'écran de résultat s'afficher pendant VOTE_RESULT_S AVANT de
+          // passer au tour suivant. Le verdict est donc montré à la FIN du vote, plus
+          // au début de l'Enquête suivante.
+          await closeVote(gameId);
+          if (elapsed < game.phase_duration_s + VOTE_RESULT_S) return;
+          await nextCycle(
+            gameId,
+            new Date(
+              started + (INTRO_S + game.phase_duration_s + VOTE_RESULT_S) * 1000,
+            ).toISOString(),
+          );
+        } else {
+          return;
+        }
       }
+    } finally {
+      // Libère le verrou serveur quoi qu'il arrive (return anticipé, throw…).
+      await supabase.rpc("release_phase_tick" as never, { p_game_id: gameId } as never);
     }
   } finally {
     _tickInFlight.delete(gameId);

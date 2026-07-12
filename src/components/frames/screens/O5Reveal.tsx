@@ -20,6 +20,7 @@ export function O5Reveal({
   role,
   onDone,
   skipCountdown = false,
+  alreadyAck = false,
   readyCount,
   total,
 }: {
@@ -27,14 +28,17 @@ export function O5Reveal({
   role: RoleRow;
   onDone: () => void;
   skipCountdown?: boolean;
+  /** Le joueur a DÉJÀ validé (ex. rechargement de page pendant l'attente) : on
+   *  saute le décompte et on affiche directement l'écran d'attente sur la fiche. */
+  alreadyAck?: boolean;
   /** Nombre de joueurs prêts / total (bots inclus) — affiché sur le bouton. */
   readyCount?: number;
   total?: number;
 }) {
   const [count, setCount] = useState(3);
-  // Après avoir cliqué « Entrer », on reste sur un écran d'attente jusqu'à ce que
-  // tout le monde soit prêt (la partie se lance alors automatiquement).
-  const [waiting, setWaiting] = useState(false);
+  // Après avoir cliqué « Entrer » (ou si on a déjà validé), on reste sur la fiche
+  // en mode attente jusqu'à ce que tout le monde soit prêt (lancement auto).
+  const [waiting, setWaiting] = useState(alreadyAck);
   useEffect(() => {
     if (waiting && total != null && (readyCount ?? 0) >= total) onDone();
   }, [waiting, readyCount, total, onDone]);

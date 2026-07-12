@@ -225,14 +225,16 @@ export function PlayerShell({
   // déclenche chaque phase à la main. Le tick auto ne vaut qu'en Mode Joueur Only.
   const autoAdvance = game.mode_detective_player;
 
-  // Avancement calé PILE sur la frontière de phase : au lieu d'un intervalle
-  // grossier de 5 s (qui rognait les tampons de transition), on programme un
-  // réveil exactement à la fin de la phase (INTRO + durée [+ résultat pour le
-  // Vote]), lu sur l'horloge serveur. Un intervalle de sécurité rattrape les cas
-  // limites (réveil manqué, saut d'horloge, désync). tickPhase est idempotent
-  // sous pilote unique, donc un appel en trop est sans effet.
+  // Avancement des phases — piloté par TOUT client au premier plan (plus de
+  // pilote unique élu qui gelait la partie quand son téléphone dormait). Le
+  // verrou SERVEUR (claim_phase_tick, cf. tickPhase) garantit qu'un seul client
+  // exécute réellement la transition, donc plusieurs déclencheurs sont sans
+  // danger. On programme un réveil calé PILE sur la frontière (INTRO + durée
+  // [+ résultat pour le Vote]) lu sur l'horloge serveur, doublé d'un intervalle
+  // de sécurité. Un client en arrière-plan a ses timers suspendus : on ne
+  // planifie donc rien pour lui et on RATTRAPE au réveil (visibilitychange).
   useEffect(() => {
-    if (disableHostDrivers || !isDriver) return;
+    if (disableHostDrivers) return;
     if (!autoAdvance) return;
     if (waitingStart) return;
     if (game.status !== "in_progress" || game.paused) return;
@@ -242,19 +244,34 @@ export function PlayerShell({
     const boundaryS =
       INTRO_S + game.phase_duration_s + (game.current_phase === "vote" ? VOTE_RESULT_S : 0);
     const fireAt = started + boundaryS * 1000;
-    const delay = Math.max(0, fireAt - serverNow());
 
-    // +200 ms de coussin pour que la frontière soit franchie côté serveur.
-    const boundaryTimer = setTimeout(() => void tickPhase(game.id), delay + 200);
-    // Filet de sécurité : re-tente toutes les 4 s au cas où le réveil calé rate.
-    const safety = setInterval(() => void tickPhase(game.id), 4000);
+    let boundaryTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleBoundary = () => {
+      if (boundaryTimer) clearTimeout(boundaryTimer);
+      // +200 ms de coussin pour que la frontière soit franchie côté serveur.
+      const delay = Math.max(0, fireAt - serverNow()) + 200;
+      boundaryTimer = setTimeout(() => void tickPhase(game.id), delay);
+    };
+
+    scheduleBoundary();
+    // Filet de sécurité : re-tente régulièrement au cas où le réveil calé rate.
+    const safety = setInterval(() => void tickPhase(game.id), 3000);
+    // Au retour de veille / bascule d'onglet : les timers ont pu être gelés — on
+    // ré-arme la frontière et on rattrape immédiatement.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        scheduleBoundary();
+        void tickPhase(game.id);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      clearTimeout(boundaryTimer);
+      if (boundaryTimer) clearTimeout(boundaryTimer);
       clearInterval(safety);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [
     disableHostDrivers,
-    isDriver,
     autoAdvance,
     waitingStart,
     game.status,
@@ -561,12 +578,20 @@ export function PlayerShell({
     );
   }
 
-  if (showReveal && myRole) {
+  // Révélation + attente réunies sur UN SEUL écran (la fiche de rôle) : plus de
+  // « Salle d'attente » séparée. Un joueur qui n'a pas encore validé voit le
+  // décompte + sa fiche ; après validation (ou s'il a déjà validé, ex. reload) il
+  // reste sur la fiche en mode « En attente des autres… » jusqu'au démarrage réel
+  // (statut ≠ awaiting_players), puis enchaîne directement sur la 1ʳᵉ transition.
+  if ((showReveal || waitingStart) && myRole && !embedded) {
+    const alreadyAck = !showReveal && waitingStart;
     return (
       <O5Reveal
         player={me}
         role={myRole}
         onDone={() => setShowReveal(false)}
+        skipCountdown={alreadyAck}
+        alreadyAck={alreadyAck}
         readyCount={Math.max(0, totalPlayers - pendingReveals)}
         total={totalPlayers}
       />
@@ -600,81 +625,28 @@ export function PlayerShell({
     waitingTotal: totalToReveal,
   };
 
-  // ── Salle d'attente ──────────────────────────────────────────────────────
-  // État de premier niveau : la partie est ARMÉE (rôles distribués) mais ne
-  // démarre — et le chrono ne s'arme — que lorsque tout le monde est entré.
-  // Même écran pour joueurs et MJ, aucun compte à rebours. En démo (`embedded`)
-  // il n'y a que des bots : la bascule est instantanée, on garde le shell.
+  // ── Attente du départ (cas SANS fiche de rôle) ────────────────────────────
+  // Les JOUEURS patientent désormais sur leur fiche de rôle (écran de révélation
+  // en mode « En attente des autres… », géré plus haut) — il n'y a plus de
+  // « Salle d'attente » séparée. Ce garde-fou ne concerne que les cas sans fiche
+  // (MJ, ou rôle pas encore chargé) : on évite d'afficher le jeu en direct avant
+  // que la partie ne soit réellement lancée (le chrono n'est pas armé). En démo
+  // (`embedded`) la bascule est instantanée, on garde le shell.
   if (waitingStart && !embedded) {
-    const roster = players.filter((p) => !p.is_mj && p.is_alive);
-    const readyN = Math.max(0, totalToReveal - pendingReveals);
     return (
       <div className={rootClass}>
         <ShellHeader {...headerProps} />
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-md mx-auto w-full px-5 py-8 flex flex-col items-center text-center gap-6">
-            <div className="flex flex-col items-center gap-3">
-              <span className="relative flex size-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
-                <span
-                  className="absolute inset-0 rounded-full border border-gold/30 animate-ping"
-                  aria-hidden
-                />
-                <Hourglass className="size-7 text-gold" aria-hidden />
-              </span>
-              <div>
-                <h1
-                  className="text-xl font-bold uppercase tracking-wide text-foreground"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  Salle d'attente
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  La partie commence dès que tout le monde est entré.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="text-3xl font-bold tabular-nums text-gold"
-              style={{ fontFamily: "var(--font-display)" }}
-              aria-live="polite"
-            >
-              {readyN}
-              <span className="text-muted-foreground">/{totalToReveal}</span>
-            </div>
-
-            <ul className="w-full flex flex-col gap-2">
-              {roster.map((p) => {
-                const isBot = p.pseudo.startsWith("Bot ");
-                const revealed =
-                  isBot || !!(p.role_meta as Record<string, unknown> | null)?.revealed_at;
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/60 px-3 py-2"
-                  >
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {p.pseudo}
-                      {p.id === me.id ? " (toi)" : ""}
-                    </span>
-                    {revealed ? (
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                        <Check className="size-4" aria-hidden /> Prêt
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
-                        <span
-                          className="inline-block size-1.5 rounded-full bg-amber-400 animate-pulse"
-                          aria-hidden
-                        />
-                        En attente
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center gap-4 px-5 text-center">
+          <span className="relative flex size-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
+            <span
+              className="absolute inset-0 rounded-full border border-gold/30 animate-ping"
+              aria-hidden
+            />
+            <Hourglass className="size-7 text-gold" aria-hidden />
+          </span>
+          <p className="text-sm text-muted-foreground">
+            La partie commence dès que tout le monde est entré.
+          </p>
         </div>
         {helpOpen && (
           <P11HelpMenu
