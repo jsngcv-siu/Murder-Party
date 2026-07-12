@@ -2,5 +2,6 @@
   "imports": {
     "@/": "../../../src/",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
-  }
+  },
+  "unstable": ["sloppy-imports"]
 }
