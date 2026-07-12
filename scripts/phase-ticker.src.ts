@@ -31,10 +31,7 @@ Deno.serve(async () => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
   setSupabaseClient(admin as never);
 
-  const { data: games, error } = await admin
-    .from("games")
-    .select("id")
-    .eq("status", "in_progress");
+  const { data: games, error } = await admin.from("games").select("id").eq("status", "in_progress");
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

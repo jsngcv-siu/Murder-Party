@@ -625,9 +625,9 @@
       radial-gradient(oklch(0 0 0 / 0.26) 1px, transparent 1.7px),
       radial-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1.7px),
       /* halo chaud discret en haut */
-      radial-gradient(120% 55% at 50% -5%, oklch(0.3 0.055 50 / 0.32), transparent 60%),
+        radial-gradient(120% 55% at 50% -5%, oklch(0.3 0.055 50 / 0.32), transparent 60%),
       /* dégradé vertical : assombrit vers le bas */
-      linear-gradient(180deg, oklch(0.185 0.038 46), oklch(0.115 0.02 38));
+        linear-gradient(180deg, oklch(0.185 0.038 46), oklch(0.115 0.02 38));
     background-size:
       7px 7px,
       11px 11px,

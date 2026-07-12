@@ -45,9 +45,7 @@ export function describeWinCondition(
   // Faction de base
   const base: string[] = [];
   if (role.faction === "Civil") {
-    base.push(
-      "🟦 Tu gagnes quand tous les camps adverses sont éliminés ou emprisonnés.",
-    );
+    base.push("🟦 Tu gagnes quand tous les camps adverses sont éliminés ou emprisonnés.");
   } else if (role.faction === "Méchant") {
     base.push("🟥 Tu gagnes quand les Méchants égalent ou dépassent les autres.");
   } else if (role.slug === "vampire") {
@@ -58,16 +56,12 @@ export function describeWinCondition(
   switch (role.slug) {
     case "veuve_noire": {
       base.length = 0;
-      base.push(
-        "🕷️ Victoire SOLO : sois la seule personne en vie et libre.",
-      );
+      base.push("🕷️ Victoire SOLO : sois la seule personne en vie et libre.");
       break;
     }
     case "parieur_tricheur": {
       base.length = 0;
-      base.push(
-        "🎲 Victoire SOLO : reste seul·e en vie et libre, sans perdre un pari.",
-      );
+      base.push("🎲 Victoire SOLO : reste seul·e en vie et libre, sans perdre un pari.");
       break;
     }
     case "chasseur_de_vampire": {
@@ -76,9 +70,7 @@ export function describeWinCondition(
         "🧛 Traque les Vampires : désigne un joueur pour savoir s'il en est un — et l'éliminer.",
       );
       base.push("🛡️ Immunisé·e : tu ne peux pas être mordu·e.");
-      base.push(
-        "🤝 Allié·e des Civils : tu gagnes avec eux.",
-      );
+      base.push("🤝 Allié·e des Civils : tu gagnes avec eux.");
       break;
     }
     case "empoisonneur": {
@@ -97,22 +89,16 @@ export function describeWinCondition(
 
     case "heritier_dechu": {
       base.length = 0;
-      base.push(
-        "👑 Tu gagnes avec les Méchants (si tu es en vie et qu'au moins un survit).",
-      );
+      base.push("👑 Tu gagnes avec les Méchants (si tu es en vie et qu'au moins un survit).");
       break;
     }
     case "oracle": {
       const proph = (m.prophecy as string | undefined) ?? null;
       base.length = 0;
       if (proph) {
-        base.push(
-          `🔮 Prophétie : victoire des ${proph}. Tu gagnes avec eux si tu survis.`,
-        );
+        base.push(`🔮 Prophétie : victoire des ${proph}. Tu gagnes avec eux si tu survis.`);
       } else {
-        base.push(
-          "🔮 À la 1re Enquête, prédis le camp gagnant. Tu gagnes avec lui si tu survis.",
-        );
+        base.push("🔮 À la 1re Enquête, prédis le camp gagnant. Tu gagnes avec lui si tu survis.");
       }
       break;
     }
@@ -130,10 +116,7 @@ export function describeWinCondition(
     }
     case "vengeur": {
       const cher = findName(m.beloved_id);
-      if (cher)
-        base.push(
-          `💔 Tant que ${cher} vit, tu ne peux pas tuer.`,
-        );
+      if (cher) base.push(`💔 Tant que ${cher} vit, tu ne peux pas tuer.`);
       break;
     }
     case "entremetteur": {
@@ -142,22 +125,14 @@ export function describeWinCondition(
         .map((id) => allPlayers.find((p) => p.id === id)?.pseudo ?? "?")
         .join(" & ");
       base.length = 0;
-      base.push(
-        `💞 Victoire : le couple (${names || "—"}) et toi, seuls survivants.`,
-      );
-      base.push(
-        "🩹 Repli : si le couple meurt, survis en vie et libre jusqu'au bout.",
-      );
+      base.push(`💞 Victoire : le couple (${names || "—"}) et toi, seuls survivants.`);
+      base.push("🩹 Repli : si le couple meurt, survis en vie et libre jusqu'au bout.");
       break;
     }
     case "conservateur": {
       base.length = 0;
-      base.push(
-        "🗝️ Chaque Enquête (2×), confie une relique maudite à une cible.",
-      );
-      base.push(
-        "🫀 Victoire SOLO immédiate dès que quelqu'un reçoit « Le Cœur du Manoir ».",
-      );
+      base.push("🗝️ Chaque Enquête (2×), confie une relique maudite à une cible.");
+      base.push("🫀 Victoire SOLO immédiate dès que quelqu'un reçoit « Le Cœur du Manoir ».");
       break;
     }
   }

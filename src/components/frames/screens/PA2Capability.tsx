@@ -997,7 +997,11 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               <div className="flex flex-wrap items-center gap-2">
                 {myRole && <TypeStamp type={myRole.type} />}
                 {freqs.map((lbl, i) => (
-                  <CapacityChargeChip key={i} label={lbl} state={chargeState(blockedReason, mode)} />
+                  <CapacityChargeChip
+                    key={i}
+                    label={lbl}
+                    state={chargeState(blockedReason, mode)}
+                  />
                 ))}
                 {origRole && (
                   <span className="text-[10px] font-normal text-[color:var(--paper-ink-soft)]">
@@ -1022,7 +1026,9 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                     onClick={() => setCapOpen(true)}
                     aria-label="Voir toute la capacité"
                     className="absolute inset-x-0 bottom-0 flex items-end justify-center pt-7"
-                    style={{ background: "linear-gradient(to bottom, transparent, var(--paper) 72%)" }}
+                    style={{
+                      background: "linear-gradient(to bottom, transparent, var(--paper) 72%)",
+                    }}
                   >
                     <span className="inline-flex animate-pulse items-center gap-1 font-display text-[9px] uppercase tracking-[0.14em] text-[color:var(--paper-ink-soft)]">
                       Voir plus

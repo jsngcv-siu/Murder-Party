@@ -317,47 +317,47 @@ export function PA6Announces(ctx: FrameContext) {
             )}
           </div>
           <div className="mt-4">
-          {tours.length === 0 ? (
-            <div className="paper pin mx-auto max-w-[300px] border border-[#d7c493]/70 px-5 py-8 text-center">
-              <Flame className="mx-auto size-7 text-[#8b6b36]" aria-hidden />
-              <p className="mt-2 text-sm italic text-[#6f573b]">
-                Le manoir est silencieux… Aucune annonce pour le moment.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {tours.map((tour) => {
-                const list = sortTourEvents(byTour.get(tour)!);
+            {tours.length === 0 ? (
+              <div className="paper pin mx-auto max-w-[300px] border border-[#d7c493]/70 px-5 py-8 text-center">
+                <Flame className="mx-auto size-7 text-[#8b6b36]" aria-hidden />
+                <p className="mt-2 text-sm italic text-[#6f573b]">
+                  Le manoir est silencieux… Aucune annonce pour le moment.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {tours.map((tour) => {
+                  const list = sortTourEvents(byTour.get(tour)!);
 
-                return (
-                  <section key={tour} aria-labelledby={`tour-${tour}-title`}>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h4
-                        id={`tour-${tour}-title`}
-                        className="font-display text-sm uppercase tracking-[0.12em] text-[#e8b44a]"
-                      >
-                        Tour {tour}
-                      </h4>
-                      <span className="text-[11px] text-[#e7d6ad]/75">
-                        {list.length} événement{list.length > 1 ? "s" : ""}
-                      </span>
-                    </div>
+                  return (
+                    <section key={tour} aria-labelledby={`tour-${tour}-title`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h4
+                          id={`tour-${tour}-title`}
+                          className="font-display text-sm uppercase tracking-[0.12em] text-[#e8b44a]"
+                        >
+                          Tour {tour}
+                        </h4>
+                        <span className="text-[11px] text-[#e7d6ad]/75">
+                          {list.length} événement{list.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
 
-                    <div className="stagger mt-3 flex flex-col gap-3.5">
-                      {list.map((event) => (
-                        <GazetteCard
-                          key={eventId(event)}
-                          event={event}
-                          roles={ctx.roles}
-                          onOpenTestament={setOpenPlayerId}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          )}
+                      <div className="stagger mt-3 flex flex-col gap-3.5">
+                        {list.map((event) => (
+                          <GazetteCard
+                            key={eventId(event)}
+                            event={event}
+                            roles={ctx.roles}
+                            onOpenTestament={setOpenPlayerId}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </div>

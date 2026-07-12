@@ -328,8 +328,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
     ],
   },
   policier: {
-    cleanCapacity:
-      "1×/tour. Désigne 1 joueur : verdict binaire, Méchant ou non.",
+    cleanCapacity: "1×/tour. Désigne 1 joueur : verdict binaire, Méchant ou non.",
     pages: [
       {
         title: "Subtilités",

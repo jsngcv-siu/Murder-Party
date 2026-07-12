@@ -145,8 +145,7 @@ export function RoleDossierSlider({ pages }: { pages: ReactNode[] }) {
           style={{
             // Rouge de l'épingle du dossier (tokens --pin-red-*, partagés avec
             // .pin::before) : la flèche appartient à la même grammaire visuelle.
-            background:
-              "radial-gradient(circle at 35% 30%, var(--pin-red-hi), var(--pin-red-lo))",
+            background: "radial-gradient(circle at 35% 30%, var(--pin-red-hi), var(--pin-red-lo))",
             boxShadow: "0 4px 12px -3px color-mix(in oklab, var(--pin-red-lo) 60%, transparent)",
           }}
         >

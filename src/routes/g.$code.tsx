@@ -115,7 +115,9 @@ function GamePage() {
         } else {
           window.localStorage.removeItem("mp_last_game");
         }
-      } catch {}
+      } catch {
+        /* localStorage indisponible (mode privé) — sans effet sur la partie */
+      }
 
       const { data: ps } = await supabase
         .from("players")
