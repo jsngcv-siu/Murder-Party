@@ -1130,10 +1130,8 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
     if (!started) return;
     const readNow = () => (usesLocalClock ? Date.now() : serverNow());
     const appear = started - readNow();
-    const disappear = started + VOTE_RESULT_MS - readNow();
     const timers: ReturnType<typeof setTimeout>[] = [];
     if (appear > 0) timers.push(setTimeout(() => setNow(readNow()), appear + 20));
-    if (disappear > 0) timers.push(setTimeout(() => setNow(readNow()), disappear + 50));
     return () => timers.forEach(clearTimeout);
   }, [started, usesLocalClock]);
 
@@ -1180,7 +1178,13 @@ function VoteResultScreen({ ctx, offsetMs = 0 }: { ctx: FrameContext; offsetMs?:
 
   const rootRef = useRef<HTMLDivElement>(null);
   const elapsed = now - started;
-  const visible = started > 0 && elapsed >= 0 && elapsed <= VOTE_RESULT_MS;
+  // Pas de borne HAUTE : l'écran de résultat reste affiché depuis la fin du vote
+  // JUSQU'À ce que la phase bascule réellement (ce composant n'est monté que
+  // pendant la phase Vote → il disparaît de lui-même quand nextCycle passe en
+  // Free). Sinon il se masquait à 8 s pile alors que nextCycle
+  // (resolveCycleTransition : poisons/libérations/manipulations) finit ~1-1,5 s
+  // plus tard → le joueur voyait l'écran de vote figé à 0:00 dans l'intervalle.
+  const visible = started > 0 && elapsed >= 0;
   useBoardIntro(rootRef, [started, visible]);
 
   // Fallback si la notif n'est pas (encore) disponible : on déduit l'emprisonné
