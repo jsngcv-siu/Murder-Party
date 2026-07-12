@@ -68,7 +68,9 @@ export function serverNowISO(): string {
   return new Date(serverNow()).toISOString();
 }
 
-// Pré-charge l'offset dès le chargement du module (navigateur uniquement). Côté
-// serveur (Deno / SSR) : pas de window → serverNow() = Date.now() (l'Edge Function
-// tourne déjà sur l'infra Supabase, horloge ~alignée avec la base).
-if (typeof window !== "undefined") void fetchOffset();
+// Pré-charge l'offset dès le chargement du module (NAVIGATEUR uniquement). On
+// teste `document` (pas `window`) car le runtime Deno de Supabase définit `window`
+// mais PAS `document` → sans ça, ce prefetch tournerait au boot de l'Edge Function
+// et toucherait `supabase` avant l'injection du client service-role (BOOT_ERROR).
+// Côté serveur : serverNow() = Date.now() (infra Supabase, horloge alignée base).
+if (typeof document !== "undefined") void fetchOffset();
