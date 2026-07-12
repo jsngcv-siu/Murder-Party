@@ -131,14 +131,14 @@ export function itemBorderStyle(item: Item, opts: { consumed?: boolean } = {}): 
   // reconnaisse son type même une fois utilisé.
   if (opts.consumed) {
     return {
-      borderWidth: 2,
-      borderColor: `color-mix(in oklab, ${tok} 45%, transparent)`,
+      borderWidth: 3,
+      borderColor: `color-mix(in oklab, ${tok} 55%, transparent)`,
     };
   }
   // Contour épais teinté faction : lecture immédiate du camp d'origine.
   return {
-    borderWidth: 2.5,
-    borderColor: `color-mix(in oklab, ${tok} 85%, transparent)`,
+    borderWidth: 4,
+    borderColor: `color-mix(in oklab, ${tok} 90%, transparent)`,
     background: `linear-gradient(to bottom right, color-mix(in oklab, ${tok} 12%, var(--card)), color-mix(in oklab, ${tok} 5%, transparent))`,
     boxShadow: `0 0 12px color-mix(in oklab, ${tok} 28%, transparent)`,
   };

@@ -22,6 +22,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
 import { useServerTimeOffset, serverNow } from "@/lib/serverTime";
+import { usePhaseDriver } from "@/lib/phaseDriver";
+import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
 import { KillerTargetBanner } from "@/components/KillerTargetBanner";
 import { HoldToReveal } from "@/components/HoldToReveal";
 import { Sigil } from "@/components/Sigil";
@@ -178,7 +180,11 @@ export function PlayerShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embedded, game.status, helpOpen]);
 
-  const isHost = me.user_id != null && me.user_id === game.mj_user_id;
+  // Pilote élu de la partie (avancement des phases + bots). Élection déterministe
+  // parmi les clients présents (cf. usePhaseDriver) : un seul pilote à la fois,
+  // bascule automatique si le pilote se déconnecte. En démo, le pilotage est géré
+  // par la route elle-même → on désactive l'élection ici (disableHostDrivers).
+  const isDriver = usePhaseDriver(game.id, me.id, !disableHostDrivers);
 
   // Sync de démarrage : on attend que tous les humains vivants aient cliqué
   // « Entrer dans la partie » (revealed_at). Les bots sont considérés prêts.
@@ -214,23 +220,53 @@ export function PlayerShell({
     void beginGame(game.id);
   }, [game.status, pendingReveals, game.id]);
 
-  // Auto-tick + bot driver — pilotés par l'host, sauf en démo.
-  // En Mode MJ (un MJ + son dashboard), AUCUN avancement automatique : c'est le
-  // MJ qui déclenche manuellement chaque phase pour rythmer le jeu. Le tick auto
-  // reste actif uniquement en Mode Joueur Only (mode_detective_player = true).
+  // Auto-tick + bot driver — pilotés par le PILOTE ÉLU (plus l'host en dur),
+  // sauf en démo (route dédiée). En Mode MJ, AUCUN avancement automatique : le MJ
+  // déclenche chaque phase à la main. Le tick auto ne vaut qu'en Mode Joueur Only.
   const autoAdvance = game.mode_detective_player;
+
+  // Avancement calé PILE sur la frontière de phase : au lieu d'un intervalle
+  // grossier de 5 s (qui rognait les tampons de transition), on programme un
+  // réveil exactement à la fin de la phase (INTRO + durée [+ résultat pour le
+  // Vote]), lu sur l'horloge serveur. Un intervalle de sécurité rattrape les cas
+  // limites (réveil manqué, saut d'horloge, désync). tickPhase est idempotent
+  // sous pilote unique, donc un appel en trop est sans effet.
   useEffect(() => {
-    if (disableHostDrivers || !isHost) return;
-    if (!autoAdvance) return; // Mode MJ : pas de timer qui passe les phases
-    const id = setInterval(() => {
-      if (waitingStart) return; // gel global tant que tout le monde n'est pas entré
-      void tickPhase(game.id);
-    }, 5000);
-    return () => clearInterval(id);
-  }, [disableHostDrivers, isHost, autoAdvance, game.id, waitingStart]);
+    if (disableHostDrivers || !isDriver) return;
+    if (!autoAdvance) return;
+    if (waitingStart) return;
+    if (game.status !== "in_progress" || game.paused) return;
+    if (!game.phase_started_at || !game.phase_duration_s) return;
+
+    const started = new Date(game.phase_started_at).getTime();
+    const boundaryS =
+      INTRO_S + game.phase_duration_s + (game.current_phase === "vote" ? VOTE_RESULT_S : 0);
+    const fireAt = started + boundaryS * 1000;
+    const delay = Math.max(0, fireAt - serverNow());
+
+    // +200 ms de coussin pour que la frontière soit franchie côté serveur.
+    const boundaryTimer = setTimeout(() => void tickPhase(game.id), delay + 200);
+    // Filet de sécurité : re-tente toutes les 4 s au cas où le réveil calé rate.
+    const safety = setInterval(() => void tickPhase(game.id), 4000);
+    return () => {
+      clearTimeout(boundaryTimer);
+      clearInterval(safety);
+    };
+  }, [
+    disableHostDrivers,
+    isDriver,
+    autoAdvance,
+    waitingStart,
+    game.status,
+    game.paused,
+    game.current_phase,
+    game.phase_started_at,
+    game.phase_duration_s,
+    game.id,
+  ]);
 
   useEffect(() => {
-    if (disableHostDrivers || !isHost) return;
+    if (disableHostDrivers || !isDriver) return;
     if (game.status !== "in_progress") return;
     if (waitingStart) return;
     const d = startBotDriver({
@@ -242,7 +278,7 @@ export function PlayerShell({
       d?.stop();
       stopBotDriver();
     };
-  }, [disableHostDrivers, isHost, game.status, game.id, me.id, waitingStart]);
+  }, [disableHostDrivers, isDriver, game.status, game.id, me.id, waitingStart]);
 
   useEffect(() => {
     async function loadRoles() {
