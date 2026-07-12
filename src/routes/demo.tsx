@@ -90,8 +90,8 @@ const MIN_BOTS = 6;
 // toujours raccourcir via ⏱️ Durées, mettre en pause, prolonger ou relancer le
 // minuteur en direct depuis la barre de contrôle.
 const DEMO_PHASE_DURATIONS = {
-  phase_duration_free_s: 90,
-  phase_duration_gathering_s: 60,
+  phase_duration_free_s: 30,
+  phase_duration_gathering_s: 30,
   phase_duration_vote_s: 30,
 };
 const MAX_BOTS = 15;
@@ -1379,14 +1379,14 @@ function PhaseTimer({ game }: { game: GameRow }) {
 
 function PhaseDurationsEditor({ game }: { game: GameRow }) {
   const [open, setOpen] = useState(false);
-  const [free, setFree] = useState<number>(game.phase_duration_free_s ?? 180);
-  const [gath, setGath] = useState<number>(game.phase_duration_gathering_s ?? 180);
+  const [free, setFree] = useState<number>(game.phase_duration_free_s ?? 30);
+  const [gath, setGath] = useState<number>(game.phase_duration_gathering_s ?? 30);
   const [vote, setVote] = useState<number>(game.phase_duration_vote_s ?? 30);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setFree(game.phase_duration_free_s ?? 180);
-    setGath(game.phase_duration_gathering_s ?? 180);
+    setFree(game.phase_duration_free_s ?? 30);
+    setGath(game.phase_duration_gathering_s ?? 30);
     setVote(game.phase_duration_vote_s ?? 30);
   }, [game.phase_duration_free_s, game.phase_duration_gathering_s, game.phase_duration_vote_s]);
 

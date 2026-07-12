@@ -738,9 +738,9 @@ export async function beginGame(gameId: string): Promise<boolean> {
 // Default per-phase durations in seconds. Can be overridden per-game at creation.
 export const PHASE_DURATIONS: Record<Phase, number> = {
   lobby: 0,
-  free: 180,
+  free: 30,
   annonce: 10,
-  gathering: 180,
+  gathering: 30,
   vote: 30,
   ended: 0,
 };

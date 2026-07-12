@@ -65,8 +65,8 @@ export async function createGame(opts: {
         mj_session_id: sessionId,
         mj_user_id: userId,
         mode_detective_player: opts.modeDetectivePlayer,
-        phase_duration_free_s: 180,
-        phase_duration_gathering_s: 180,
+        phase_duration_free_s: 30,
+        phase_duration_gathering_s: 30,
         phase_duration_vote_s: 30,
       } as never)
       .select()
