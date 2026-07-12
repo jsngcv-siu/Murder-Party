@@ -241,32 +241,38 @@ export function PlayerShell({
     if (!game.phase_started_at || !game.phase_duration_s) return;
 
     const started = new Date(game.phase_started_at).getTime();
-    const boundaryS =
-      INTRO_S + game.phase_duration_s + (game.current_phase === "vote" ? VOTE_RESULT_S : 0);
-    const fireAt = started + boundaryS * 1000;
+    // Frontières à franchir, en secondes depuis phase_started_at. Le Vote en a
+    // DEUX : la fin de la fenêtre de vote (INTRO + durée → closeVote + verdict)
+    // PUIS la fin de l'écran de résultat (+ VOTE_RESULT_S → tour suivant). Sans le
+    // 1er réveil, closeVote n'était déclenché que par le sondage de sécurité (≤3 s
+    // de retard) → l'écran de résultat restait « à 0 » sans verdict un instant.
+    const endS = INTRO_S + game.phase_duration_s;
+    const boundariesS = game.current_phase === "vote" ? [endS, endS + VOTE_RESULT_S] : [endS];
 
-    let boundaryTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleBoundary = () => {
-      if (boundaryTimer) clearTimeout(boundaryTimer);
-      // +200 ms de coussin pour que la frontière soit franchie côté serveur.
-      const delay = Math.max(0, fireAt - serverNow()) + 200;
-      boundaryTimer = setTimeout(() => void tickPhase(game.id), delay);
+    let boundaryTimers: ReturnType<typeof setTimeout>[] = [];
+    const scheduleBoundaries = () => {
+      boundaryTimers.forEach(clearTimeout);
+      boundaryTimers = boundariesS.map((bS) => {
+        // +200 ms de coussin pour que la frontière soit franchie côté serveur.
+        const delay = Math.max(0, started + bS * 1000 - serverNow()) + 200;
+        return setTimeout(() => void tickPhase(game.id), delay);
+      });
     };
 
-    scheduleBoundary();
-    // Filet de sécurité : re-tente régulièrement au cas où le réveil calé rate.
+    scheduleBoundaries();
+    // Filet de sécurité : re-tente régulièrement au cas où un réveil calé rate.
     const safety = setInterval(() => void tickPhase(game.id), 3000);
     // Au retour de veille / bascule d'onglet : les timers ont pu être gelés — on
-    // ré-arme la frontière et on rattrape immédiatement.
+    // ré-arme les frontières et on rattrape immédiatement.
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        scheduleBoundary();
+        scheduleBoundaries();
         void tickPhase(game.id);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      if (boundaryTimer) clearTimeout(boundaryTimer);
+      boundaryTimers.forEach(clearTimeout);
       clearInterval(safety);
       document.removeEventListener("visibilitychange", onVisible);
     };

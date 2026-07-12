@@ -68,6 +68,15 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
     };
   }, [gameId, me.id, game.current_tour]);
 
+  // Sélection d'une carte = vote ENREGISTRÉ immédiatement (le dernier tap fait
+  // foi), pour ne pas perdre le choix d'un joueur qui oublie de « Valider ». Le
+  // bouton Valider ne sert plus qu'à re-confirmer visuellement.
+  async function pick(pid: string) {
+    setTarget(pid);
+    if (pid === votedFor) return; // déjà enregistré pour cette cible
+    setVotedFor(pid); // retour visuel optimiste
+    await castVote(gameId, me.id, pid);
+  }
   async function submit() {
     if (!target) return;
     await castVote(gameId, me.id, target);
@@ -166,7 +175,7 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
             return (
               <button
                 key={p.id}
-                onClick={() => setTarget(p.id)}
+                onClick={() => void pick(p.id)}
                 style={{ WebkitTapHighlightColor: "transparent" }}
                 className="press relative touch-manipulation"
                 aria-label={`Voter contre ${p.pseudo}`}
@@ -267,12 +276,12 @@ export function V1Vote({ me, players, gameId, game, myRole, roles }: FrameContex
           S'abstenir
         </button>
         <button
-          disabled={!target || target === votedFor}
+          disabled={!votedFor}
           onClick={submit}
           className="flex-1 h-14 rounded-xl bg-gradient-to-r from-[oklch(0.58_0.22_22)] to-[oklch(0.50_0.22_22)] text-destructive-foreground font-bold text-sm uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-destructive/25 active:scale-[0.98] transition-transform"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          {votedFor ? "Modifier mon vote" : "Valider mon vote"}
+          {votedFor ? "✓ Vote enregistré" : "Touche une carte pour voter"}
         </button>
       </div>
     </div>
