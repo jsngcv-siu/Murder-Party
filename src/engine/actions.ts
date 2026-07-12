@@ -6,7 +6,7 @@ import { notify, notifyMJ } from "./notify";
 import { checkAndEndGame } from "./winConditions";
 import { submitIntent, resolveDeferredIntents } from "./resolver";
 import { VOTE_RESULT_S, introSFor } from "@/lib/phaseTiming";
-import { serverNow, serverNowISO } from "@/lib/serverTime";
+import { serverNow, serverNowISO } from "@/lib/serverClock";
 
 export type Phase = "lobby" | "free" | "annonce" | "gathering" | "vote" | "ended";
 export type RoleRow = Database["public"]["Tables"]["roles"]["Row"];
