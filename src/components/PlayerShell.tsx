@@ -69,6 +69,14 @@ function hasPostMortemAction(role: RoleRow | null): boolean {
   return ["vengeur"].includes(role.slug);
 }
 
+/** Millisecondes restantes avant la fin de la frame d'intro de la phase courante
+ *  (≤ 0 si pas d'intro ou déjà terminée). Sert à DIFFÉRER les notifs volantes le
+ *  temps que l'écran de transition passe. */
+function introRemainingMs(game: Pick<GameRow, "phase_started_at" | "current_phase">): number {
+  const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
+  return started ? started + introMsFor(game.current_phase) - serverNow() : 0;
+}
+
 export interface PlayerShellProps {
   game: GameRow;
   me: PlayerRow;
@@ -430,10 +438,7 @@ export function PlayerShell({
     // Pendant l'écran de transition de phase (au premier plan), on diffère TOUTE
     // annonce volante : l'écran de phase doit primer. On replanifie l'effet pour
     // la fin de la fenêtre d'intro.
-    const introStarted = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-    const introRemaining = introStarted
-      ? introStarted + introMsFor(game.current_phase) - serverNow()
-      : 0;
+    const introRemaining = introRemainingMs(game);
     if (introRemaining > 0) {
       const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
       return () => clearTimeout(t);
@@ -477,7 +482,9 @@ export function PlayerShell({
         actionLabel: "Voir",
         onAction: () => setTab("cemetery"),
       });
-    } catch {}
+    } catch {
+      /* localStorage indisponible (mode privé…) : la notif n'est pas critique. */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     players,
@@ -520,10 +527,7 @@ export function PlayerShell({
     }
     // Écran de transition de phase au premier plan : on diffère (sans consommer
     // `fresh`) pour rejouer après l'intro.
-    const introStarted = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-    const introRemaining = introStarted
-      ? introStarted + introMsFor(game.current_phase) - serverNow()
-      : 0;
+    const introRemaining = introRemainingMs(game);
     if (introRemaining > 0) {
       const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
       return () => clearTimeout(t);

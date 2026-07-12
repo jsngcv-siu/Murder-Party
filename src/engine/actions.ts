@@ -1657,6 +1657,14 @@ export async function ringGathering(
 ): Promise<string> {
   const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
   const tour = (g as { current_tour: number } | null)?.current_tour ?? 1;
+  // Bascule vers l'ANNONCE EN PREMIER (une seule requête rapide), AVANT le
+  // travail lourd (auto-picks + resolver). Sinon l'écran restait figé sur
+  // l'Enquête à 0:00 pendant ~1-2 s le temps de ces requêtes séquentielles. Le
+  // resolver tourne ensuite PENDANT l'Annonce (10 s) : le dénouement (morts,
+  // prison) se remplit dans la gazette, comme avant. Auto-picks et resolver
+  // travaillent par `tour`, pas selon `current_phase` → la bascule anticipée est
+  // sans effet sur leur logique.
+  await setPhase(gameId, "annonce", phaseStartedAt);
   // Auto-pick (uniquement à la 1ère Enquête pour les rôles "SETUP") :
   // on tire au sort à la place du joueur qui n'a pas validé, pour ne pas
   // bloquer la suite de la partie.
@@ -1670,9 +1678,6 @@ export async function ringGathering(
     .select()
     .single();
   if (error) throw error;
-  // Boucle : fin d'Enquête → phase ANNONCE (dénouement du resolver).
-  // Le Débat s'ouvre ensuite via openGathering().
-  await setPhase(gameId, "annonce", phaseStartedAt);
 
   // Resolver v2 : applique d'abord les intentions catégorisées (PROTECT → ATTACK → CASCADE)
   // en couches déterministes. Ignore les lignes legacy (category=NULL).
