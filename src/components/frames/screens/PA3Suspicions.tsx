@@ -25,6 +25,16 @@ const LEVELS = [
 // Petite dispersion « épinglé à la main » déterministe par position.
 const ROT = [-2, 1.4, -1.1, 1.8, -1.6, 1, -0.8, 1.6, -1.3];
 
+// Hash stable d'un id → entier positif. On ancre rotation/scotch dessus (et non
+// sur l'index de la liste) : ainsi une photo garde exactement sa place et son
+// angle même si l'ordre du tableau `players` change entre deux refetch realtime
+// (ex. joueurs au même `joined_at` → ordre Postgres non déterministe).
+function hashId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 // Croix « décès » barrant la photo d'un joueur mort (deux traits rouge sang).
 function DeadCross() {
   return (
@@ -109,7 +119,12 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
       .eq("id", me.id);
   }
 
-  const others = players.filter((p) => p.id !== me.id && !p.is_mj);
+  // Ordre stable par id : évite tout réordonnancement des photos entre deux
+  // refetch realtime (l'ordre Postgres n'est pas garanti à `joined_at` égal).
+  const others = players
+    .filter((p) => p.id !== me.id && !p.is_mj)
+    .slice()
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   return (
     <div className="cork-surface h-full flex flex-col">
@@ -177,7 +192,7 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
           </svg>
 
           <div className="relative grid grid-cols-3 gap-x-3.5 gap-y-5 px-1">
-            {others.map((p, i) => {
+            {others.map((p) => {
               const lvl = (levels[p.id] ?? 0) as Level;
               const L = LEVELS[lvl];
               const av = avatarOf(
@@ -185,9 +200,12 @@ export function PA3Suspicions({ me, players, gameId, myRole, roles }: FrameConte
                 p.id,
               );
               const dim = !p.is_alive;
-              const rot = ROT[i % ROT.length];
+              // Rotation/scotch ancrés sur l'id (et non l'index) : stables même
+              // si l'ordre de la liste bouge.
+              const h = hashId(p.id);
+              const rot = ROT[h % ROT.length];
               // Léger décalage d'angle du scotch, déterministe et « à la main ».
-              const tapeRot = i % 2 === 0 ? -4 : 3.5;
+              const tapeRot = h % 2 === 0 ? -4 : 3.5;
               return (
                 <button
                   key={p.id}

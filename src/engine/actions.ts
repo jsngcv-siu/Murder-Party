@@ -685,20 +685,54 @@ export async function startGame(gameId: string) {
   }
 
   const freeDur = await phaseDurationFor(gameId, "free");
+  // Salle d'attente : la partie est ARMÉE (rôles distribués) mais PAS encore
+  // démarrée. On NE tamponne PAS le chrono ici — `started_at` et
+  // `phase_started_at` restent nuls tant que tout le monde n'est pas entré.
+  // La bascule vers `in_progress` + l'armement du chrono se font atomiquement
+  // dans `beginGame`, déclenchable par n'importe quel client (voir PlayerShell)
+  // pour ne plus dépendre de la présence d'un host connecté.
   await supabase
     .from("games")
     .update({
-      status: "in_progress",
+      status: "awaiting_players",
       current_phase: "free",
       current_tour: 1,
-      started_at: new Date().toISOString(),
-      phase_started_at: serverNowISO(),
+      started_at: null,
+      phase_started_at: null,
       phase_duration_s: freeDur,
     })
     .eq("id", gameId);
 
   await applySetupEffects(gameId);
-  emit("game_started", `Partie lancée — ${drawablePlayers.length} joueurs`, { gameId });
+  emit("game_started", `Rôles distribués — en attente des joueurs (${drawablePlayers.length})`, {
+    gameId,
+  });
+}
+
+/**
+ * Bascule « salle d'attente → partie en cours ». Appelée dès que tous les
+ * joueurs humains sont entrés (revealed_at). ATOMIQUE et IDEMPOTENTE : la garde
+ * `.eq("status", "awaiting_players")` fait que seul le premier appelant arme le
+ * chrono ; les autres clients qui la déclenchent en même temps ne matchent
+ * aucune ligne. Le compte à rebours de l'Enquête part donc à la seconde EXACTE
+ * où la partie commence réellement — plus de temps grignoté pendant l'attente,
+ * plus de dépendance à un host connecté.
+ * @returns true si CE client a effectué la bascule.
+ */
+export async function beginGame(gameId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("games")
+    .update({
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+      phase_started_at: serverNowISO(),
+    })
+    .eq("id", gameId)
+    .eq("status", "awaiting_players")
+    .select("id");
+  const flipped = (data ?? []).length > 0;
+  if (flipped) emit("game_begin", "Partie commencée — tout le monde est entré", { gameId });
+  return flipped;
 }
 
 // Default per-phase durations in seconds. Can be overridden per-game at creation.

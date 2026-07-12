@@ -51,7 +51,11 @@ function GamePage() {
         .from("players")
         .select()
         .eq("game_id", gid)
-        .order("joined_at", { ascending: true });
+        .order("joined_at", { ascending: true })
+        // Départage déterministe : sans lui, deux joueurs au même `joined_at`
+        // (bots créés en lot) sortent dans un ordre Postgres arbitraire, qui
+        // varie d'un refetch à l'autre → les listes de joueurs « bougent ».
+        .order("id", { ascending: true });
       if (cancelled) return;
       const list = (ps ?? []) as PlayerRow[];
       setPlayers(list);
@@ -117,7 +121,9 @@ function GamePage() {
         .from("players")
         .select()
         .eq("game_id", game.id)
-        .order("joined_at", { ascending: true });
+        .order("joined_at", { ascending: true })
+        // Même départage déterministe que refetchPlayers (cf. plus bas).
+        .order("id", { ascending: true });
       if (cancelled) return;
       const list = (ps ?? []) as PlayerRow[];
       setPlayers(list);

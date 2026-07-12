@@ -1838,7 +1838,8 @@ export function GazetteCard({
           ⚑ DÉPÊCHE · UN MORT
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 11, marginTop: 8 }}>
-          {/* Polaroïd du défunt — photo barrée */}
+          {/* Polaroïd du défunt — photo barrée. Contour à la couleur de faction
+              révélée (renforce le camp du mort ; propre à l'annonce). */}
           <div
             style={{
               position: "relative",
@@ -1847,7 +1848,7 @@ export function GazetteCard({
               background: "#fbfaf6",
               padding: "4px 4px 2px",
               transform: "rotate(-3deg)",
-              boxShadow: "0 6px 12px -5px rgba(0,0,0,.6)",
+              boxShadow: `0 0 0 2px ${factionColor}, 0 0 12px -2px ${factionColor}, 0 6px 12px -5px rgba(0,0,0,.6)`,
             }}
           >
             <div
@@ -1914,29 +1915,24 @@ export function GazetteCard({
             >
               {event.player.pseudo} n'est plus en vie
             </div>
-            {event.reason && (
-              <div
+            <div style={{ marginTop: 5 }}>
+              <span
                 style={{
-                  fontSize: 10,
-                  color: "#6a5444",
-                  fontStyle: "italic",
-                  marginTop: 4,
-                  lineHeight: 1.3,
+                  display: "inline-block",
+                  fontFamily: "var(--font-display)",
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: factionColor,
+                  border: `1.5px solid ${factionColor}`,
+                  borderRadius: 3,
+                  padding: "1.5px 7px",
+                  background: `color-mix(in oklab, ${factionColor} 12%, transparent)`,
                 }}
               >
-                {event.reason}
-              </div>
-            )}
-            <div
-              style={{
-                marginTop: 4,
-                fontFamily: "var(--font-display)",
-                fontSize: 9,
-                letterSpacing: ".06em",
-                color: factionColor,
-              }}
-            >
-              · {faction}
+                {faction}
+              </span>
             </div>
             {hasTestament && (
               <button
@@ -2086,7 +2082,7 @@ export function GazetteCard({
           color: "#e9a18d",
         }}
       >
-        ★ ÉVÉNEMENT DU MJ · RARE
+        ★ ÉVÉNEMENT DU MANOIR
       </div>
       <div
         style={{ fontSize: 12, color: "#ffe7c2", marginTop: 3, paddingRight: 28, lineHeight: 1.25 }}

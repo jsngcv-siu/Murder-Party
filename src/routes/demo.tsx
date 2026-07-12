@@ -424,7 +424,11 @@ function DemoMenu() {
   // considérés "entrés dans la partie". Sans ça, PlayerShell attend
   // indéfiniment les clics « Entrer » sur les non-bots.
   useEffect(() => {
-    if (!gameId || !game || game.status !== "in_progress") return;
+    if (!gameId || !game) return;
+    // La démo n'a que des bots : on les marque « entrés » aussi bien pendant la
+    // salle d'attente (`awaiting_players`) qu'au tour 1 en Enquête — PlayerShell
+    // bascule alors la partie en `in_progress` (chrono armé) de façon atomique.
+    if (game.status !== "in_progress" && game.status !== "awaiting_players") return;
     if (game.current_tour !== 1 || game.current_phase !== "free") return;
     const toStamp = players.filter((p) => {
       if (p.is_mj) return false;

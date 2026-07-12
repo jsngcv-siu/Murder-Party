@@ -42,6 +42,7 @@ import { EventCard, type EventKind, type QueuedEvent } from "@/components/Player
 import { DuelScene } from "@/components/DiceDuelModal";
 import { serverNow } from "@/lib/serverTime";
 import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
+import type { Item, ItemSlug, ItemOrigin } from "@/engine/items";
 
 export const Route = createFileRoute("/dev")({
   // Galerie d'écrans en états synthétiques : accessible uniquement via `vite dev`.
@@ -54,6 +55,59 @@ export const Route = createFileRoute("/dev")({
 // ──────────────────────────────────────────────────────────────────────────
 
 const uid = () => crypto.randomUUID();
+
+// Inventaire de démonstration pour la scène « Inventaire / Journal » : un max
+// d'objets et d'infos pour bien juger le rendu des cartes (PNG plein cadre +
+// étiquette). Couvre les 3 sections (À utiliser / Consultable / Classés), toutes
+// les provenances (Civil / Méchant / Neutre / Système / inconnue) et des noms
+// courts comme longs (test du line-clamp). Presque tous les slugs ont un vrai PNG.
+function previewItem(
+  slug: ItemSlug,
+  name: string,
+  origin: ItemOrigin | null,
+  opts: { consumed?: boolean; variant?: string; from?: string; payload?: Record<string, unknown> } = {},
+): Item {
+  const payload: Record<string, unknown> = { ...(opts.payload ?? {}) };
+  if (origin) payload.origin_faction = origin;
+  if (opts.variant) payload.variant = opts.variant;
+  return {
+    id: uid(),
+    slug,
+    name,
+    icon: "🧩",
+    description: name,
+    received_at: new Date().toISOString(),
+    received_from: opts.from,
+    payload,
+    consumed: opts.consumed,
+  } as Item;
+}
+
+const PREVIEW_INVENTORY: Item[] = [
+  // ── À utiliser ──
+  previewItem("couteau", "Couteau de cuisine ensanglanté", "Méchant", { from: "Inconnu" }),
+  // Les fioles proviennent de l'apothicaire (Civil) — voir buildItem dans actions.ts.
+  previewItem("fiole_mort", "Fiole de mort", "Civil", { from: "Apothicairerie" }),
+  previewItem("fiole_vie", "Fiole de vie", "Civil", { from: "Apothicairerie" }),
+  previewItem("fiole_clairvoyance", "Fiole de clairvoyance", "Civil"),
+  previewItem("relique", "Le Cœur du Manoir", "Neutre", { variant: "coeur_du_manoir" }),
+  previewItem("relique", "L'Œil de la Damnation", "Neutre", { variant: "oeil_damnation" }),
+  previewItem("relique", "Le Médaillon du Vieux Maître", "Neutre", { variant: "medaillon_vieux_maitre" }),
+  previewItem("lettre", "Lettre anonyme à envoyer", null),
+  // ── Consultable ──
+  previewItem("indice", "Indice — Lettre déchirée, moitié gauche", "Système", {
+    payload: { fragment: true, half: "A" },
+  }),
+  previewItem("indice", "Indice — Le majordome n'a pas d'alibi", "Système"),
+  previewItem("indice", "Indice — Un Civil se cache parmi les invités", "Système"),
+  previewItem("relique", "Le Portrait de la Dame Blanche", "Neutre", { variant: "portrait_dame_blanche" }),
+  previewItem("relique", "La poupée du grenier", "Neutre", { variant: "poupee_grenier" }),
+  previewItem("lettre", "Lettre déjà envoyée", null, { payload: { sent: true } }),
+  // ── Classés ──
+  previewItem("couteau", "Couteau", "Méchant", { consumed: true }),
+  previewItem("fiole_vie", "Fiole de vie", "Civil", { consumed: true }),
+  previewItem("relique", "La Lettre Scellée", "Neutre", { variant: "lettre_scellee", consumed: true }),
+];
 
 function baseGame(over: Partial<GameRow> = {}): GameRow {
   const now = new Date().toISOString();
@@ -287,7 +341,17 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     id: "PA4",
     group: "Joueur — vivant",
     label: "Inventaire / Journal",
-    render: () => <Frame node={<PA4Notebook {...ctxFor(civil)} />} />,
+    render: () => (
+      <Frame
+        node={
+          <PA4Notebook
+            {...ctxFor(civil, {}, {
+              role_meta: { inventory: PREVIEW_INVENTORY } as PlayerRow["role_meta"],
+            })}
+          />
+        }
+      />
+    ),
   });
   add({
     id: "PA6",

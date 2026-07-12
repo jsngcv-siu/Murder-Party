@@ -4,13 +4,13 @@
 // menu d'aide, transition de Débat. Aucune logique spécifique à la démo.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { tickPhase } from "@/engine/actions";
+import { tickPhase, beginGame } from "@/engine/actions";
 import { defaultBotConfig, startBotDriver, stopBotDriver } from "@/engine/bots";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import type { FrameContext } from "@/components/frames/registry";
 import { phasePalette } from "@/lib/avatars";
-import { Check, Clock, Lock, Pause, Settings, Skull } from "lucide-react";
+import { Check, Clock, Hourglass, Lock, Pause, Settings, Skull } from "lucide-react";
 import {
   AnnoncesIcon,
   CapaciteIcon,
@@ -21,7 +21,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
-import { useServerTimeOffset, serverNow, serverNowISO } from "@/lib/serverTime";
+import { useServerTimeOffset, serverNow } from "@/lib/serverTime";
 import { KillerTargetBanner } from "@/components/KillerTargetBanner";
 import { HoldToReveal } from "@/components/HoldToReveal";
 import { Sigil } from "@/components/Sigil";
@@ -148,7 +148,7 @@ export function PlayerShell({
   // l'onglet « Annonces » (= journal). On reste piégé indéfiniment.
   useEffect(() => {
     if (embedded) return;
-    if (game.status !== "in_progress") return;
+    if (game.status !== "in_progress" && game.status !== "awaiting_players") return;
     if (typeof window === "undefined") return;
     const SENTINEL = { __mpGameTrap: true } as const;
     const pushTrap = () => {
@@ -196,37 +196,23 @@ export function PlayerShell({
     }
     return { pendingReveals: pending, totalToReveal: total, totalPlayers: everyone };
   }, [players]);
-  const waitingStart =
-    game.status === "in_progress" &&
-    game.current_tour === 1 &&
-    game.current_phase === "free" &&
-    pendingReveals > 0;
+  // Salle d'attente : état de PREMIER NIVEAU (statut dédié), plus un drapeau
+  // composite bricolé par-dessus la phase Enquête. Tant qu'on y est, aucun
+  // chrono n'est armé (`phase_started_at` reste nul côté serveur).
+  const waitingStart = game.status === "awaiting_players";
 
-  // Quand le dernier joueur révèle, on remet phase_started_at = now pour que
-  // le timer démarre frais. Une seule fois, côté host.
-  const restampedRef = useRef(false);
+  // Dès que tout le monde est entré, on arme la partie. Bascule ATOMIQUE côté
+  // serveur (garde `status = awaiting_players`) : n'importe quel client mounté
+  // peut la déclencher, un seul l'emporte — plus de dépendance à l'host, plus de
+  // temps grignoté pendant l'attente. Le chrono d'Enquête part à cet instant.
+  const armingRef = useRef(false);
   useEffect(() => {
-    if (disableHostDrivers || !isHost) return;
-    if (game.status !== "in_progress" || game.current_tour !== 1 || game.current_phase !== "free") {
-      restampedRef.current = true;
-      return;
-    }
-    if (pendingReveals === 0 && !restampedRef.current) {
-      restampedRef.current = true;
-      void supabase
-        .from("games")
-        .update({ phase_started_at: serverNowISO() })
-        .eq("id", game.id);
-    }
-  }, [
-    pendingReveals,
-    isHost,
-    disableHostDrivers,
-    game.status,
-    game.current_phase,
-    game.current_tour,
-    game.id,
-  ]);
+    if (game.status !== "awaiting_players") return;
+    if (pendingReveals > 0) return;
+    if (armingRef.current) return;
+    armingRef.current = true;
+    void beginGame(game.id);
+  }, [game.status, pendingReveals, game.id]);
 
   // Auto-tick + bot driver — pilotés par l'host, sauf en démo.
   // En Mode MJ (un MJ + son dashboard), AUCUN avancement automatique : c'est le
@@ -578,6 +564,94 @@ export function PlayerShell({
     waitingTotal: totalToReveal,
   };
 
+  // ── Salle d'attente ──────────────────────────────────────────────────────
+  // État de premier niveau : la partie est ARMÉE (rôles distribués) mais ne
+  // démarre — et le chrono ne s'arme — que lorsque tout le monde est entré.
+  // Même écran pour joueurs et MJ, aucun compte à rebours. En démo (`embedded`)
+  // il n'y a que des bots : la bascule est instantanée, on garde le shell.
+  if (waitingStart && !embedded) {
+    const roster = players.filter((p) => !p.is_mj && p.is_alive);
+    const readyN = Math.max(0, totalToReveal - pendingReveals);
+    return (
+      <div className={rootClass}>
+        <ShellHeader {...headerProps} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-md mx-auto w-full px-5 py-8 flex flex-col items-center text-center gap-6">
+            <div className="flex flex-col items-center gap-3">
+              <span className="relative flex size-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
+                <span
+                  className="absolute inset-0 rounded-full border border-gold/30 animate-ping"
+                  aria-hidden
+                />
+                <Hourglass className="size-7 text-gold" aria-hidden />
+              </span>
+              <div>
+                <h1
+                  className="text-xl font-bold uppercase tracking-wide text-foreground"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  Salle d'attente
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  La partie commence dès que tout le monde est entré.
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="text-3xl font-bold tabular-nums text-gold"
+              style={{ fontFamily: "var(--font-display)" }}
+              aria-live="polite"
+            >
+              {readyN}
+              <span className="text-muted-foreground">/{totalToReveal}</span>
+            </div>
+
+            <ul className="w-full flex flex-col gap-2">
+              {roster.map((p) => {
+                const isBot = p.pseudo.startsWith("Bot ");
+                const revealed =
+                  isBot || !!(p.role_meta as Record<string, unknown> | null)?.revealed_at;
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/60 px-3 py-2"
+                  >
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {p.pseudo}
+                      {p.id === me.id ? " (toi)" : ""}
+                    </span>
+                    {revealed ? (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                        <Check className="size-4" aria-hidden /> Prêt
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                        <span
+                          className="inline-block size-1.5 rounded-full bg-amber-400 animate-pulse"
+                          aria-hidden
+                        />
+                        En attente
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+        {helpOpen && (
+          <P11HelpMenu
+            ctx={ctx}
+            onClose={() => setHelpOpen(false)}
+            onLeave={handleLeave}
+            onQuit={handleQuit}
+          />
+        )}
+      </div>
+    );
+  }
+
   const isMjView = me.is_mj && !game.mode_detective_player;
   if (isMjView) {
     return (
@@ -904,7 +978,7 @@ function ShellHeader({
         borderColor: `color-mix(in oklab, ${pal.accent} 38%, transparent)`,
       }}
     >
-      <div className="max-w-md mx-auto w-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
+      <div className="max-w-md mx-auto w-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
         {/* Ligne 1 — TOUR N (gauche) · chrono (droite) · paramètres */}
         <div className="flex items-center justify-between gap-2.5">
           <span
@@ -945,7 +1019,7 @@ function ShellHeader({
 
             <button
               onClick={onHelp}
-              className="press h-9 w-9 rounded-full bg-background/40 border border-border flex items-center justify-center text-muted-foreground hover:text-gold"
+              className="press tap-target h-11 w-11 rounded-full bg-background/40 border border-border flex items-center justify-center text-muted-foreground hover:text-gold"
               aria-label="Paramètres"
             >
               <Settings className="size-5" />

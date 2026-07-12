@@ -126,11 +126,20 @@ export function factionTag(f: ItemOrigin | null): string {
  * Quand `consumed`, l'UI gère déjà l'atténuation : on renvoie un style vide.
  */
 export function itemBorderStyle(item: Item, opts: { consumed?: boolean } = {}): CSSProperties {
-  if (opts.consumed) return {};
   const tok = factionToken(itemFaction(item));
+  // Objet classé : contour discret mais toujours coloré par faction, pour qu'on
+  // reconnaisse son type même une fois utilisé.
+  if (opts.consumed) {
+    return {
+      borderWidth: 2,
+      borderColor: `color-mix(in oklab, ${tok} 45%, transparent)`,
+    };
+  }
+  // Contour épais teinté faction : lecture immédiate du camp d'origine.
   return {
-    borderColor: `color-mix(in oklab, ${tok} 55%, transparent)`,
-    background: `linear-gradient(to bottom right, color-mix(in oklab, ${tok} 10%, var(--card)), color-mix(in oklab, ${tok} 4%, transparent))`,
-    boxShadow: `0 0 10px color-mix(in oklab, ${tok} 22%, transparent)`,
+    borderWidth: 2.5,
+    borderColor: `color-mix(in oklab, ${tok} 85%, transparent)`,
+    background: `linear-gradient(to bottom right, color-mix(in oklab, ${tok} 12%, var(--card)), color-mix(in oklab, ${tok} 5%, transparent))`,
+    boxShadow: `0 0 12px color-mix(in oklab, ${tok} 28%, transparent)`,
   };
 }

@@ -74,12 +74,12 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
         Objets reçus durant la partie. Touche une pièce pour l'examiner et l'utiliser.
       </p>
       {inventory.length > 0 && (
-        <div className="mt-2.5 rounded-xl border border-panel-border/70 bg-panel/40 px-3 py-2">
+        <div className="mt-3">
           <div
             className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground/70 mb-1.5"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Clé des sceaux
+            Légende
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-muted-foreground">
             {(
@@ -116,7 +116,7 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           {usable.length > 0 && (
             <>
               <SectionHead label="À utiliser" count={usable.length} />
-              <div className="mt-2 grid grid-cols-3 gap-2.5">
+              <div className="mt-2 grid grid-cols-3 gap-x-2.5 gap-y-6">
                 {usable.map((it) => (
                   <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
                 ))}
@@ -126,7 +126,7 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           {consultable.length > 0 && (
             <>
               <SectionHead label="Consultable" count={consultable.length} />
-              <div className="mt-2 grid grid-cols-3 gap-2.5">
+              <div className="mt-2 grid grid-cols-3 gap-x-2.5 gap-y-6">
                 {consultable.map((it) => (
                   <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
                 ))}
@@ -136,7 +136,7 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           {classes.length > 0 && (
             <>
               <SectionHead label="Classés" count={classes.length} />
-              <div className="mt-2 grid grid-cols-3 gap-2.5">
+              <div className="mt-2 grid grid-cols-3 gap-x-2.5 gap-y-6">
                 {classes.map((it) => (
                   <ItemCard key={it.id} it={it} onOpen={setOpenItem} />
                 ))}
@@ -453,11 +453,12 @@ function SectionHead({ label, count }: { label: string; count: number }) {
 }
 
 function ItemCard({ it, onOpen }: { it: Item; onOpen: (item: Item) => void }) {
-  const faction = itemFaction(it);
   const isConsumed = !!it.consumed;
+  // NB : `overflow-visible` volontaire — l'étiquette « parchemin » déborde sous
+  // la case (voir `-bottom-3`). La grille réserve l'espace via son row-gap.
   const cardClass =
-    "press relative flex aspect-square min-h-24 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl border p-2 text-center transition focus-visible:outline-none disabled:cursor-not-allowed " +
-    (isConsumed ? "border-border bg-card/30 opacity-40" : "elevate hover:-translate-y-0.5");
+    "press relative aspect-square rounded-xl border transition focus-visible:outline-none disabled:cursor-not-allowed " +
+    (isConsumed ? "border-border opacity-45" : "elevate hover:-translate-y-0.5");
   return (
     <button
       type="button"
@@ -466,14 +467,38 @@ function ItemCard({ it, onOpen }: { it: Item; onOpen: (item: Item) => void }) {
       className={cardClass}
       style={itemBorderStyle(it, { consumed: isConsumed })}
     >
-      {!isConsumed && <Seal faction={faction} size={18} />}
-      <ItemIcon item={it} size={44} rounded="lg" emojiFontSize={30} className="leading-none" />
-      <span className="line-clamp-2 text-[10px] font-medium leading-tight text-foreground">
-        {it.name}
+      {/* Illustration plein cadre. Fond sombre derrière pour les PNG à fond
+          transparent (sinon on verrait le dégradé doré de la carte à travers). */}
+      <span className="absolute inset-0 overflow-hidden rounded-xl bg-[oklch(0.15_0.02_40)]">
+        <ItemIcon item={it} size={64} rounded="none" emojiFontSize={44} fill />
       </span>
-      {isConsumed && (
-        <span className="text-[8px] uppercase tracking-[0.12em] text-muted-foreground">Classé</span>
-      )}
+
+      {/* Étiquette « parchemin » : nom porté par une languette qui chevauche le
+          bord bas de la case et déborde légèrement en dessous. */}
+      <span
+        className="absolute inset-x-[9%] -bottom-3 z-10 rounded-[3px] px-1.5 py-1 text-center"
+        style={{
+          background: "linear-gradient(155deg,#f8efd6 0%,#efe1bd 55%,#e4d2a8 100%)",
+          transform: "rotate(-1.4deg)",
+          boxShadow:
+            "0 5px 11px oklch(0 0 0 / 0.55), inset 0 0 0 1px rgb(201 184 140 / 0.5), inset 0 1px 0 #fff3d8",
+        }}
+      >
+        <span
+          className="line-clamp-2 text-[9.5px] font-bold leading-[1.12]"
+          style={{ fontFamily: "var(--font-display)", color: "#463619" }}
+        >
+          {it.name}
+        </span>
+        {isConsumed && (
+          <span
+            className="block text-[7px] font-semibold uppercase tracking-[0.14em]"
+            style={{ color: "#8a6d3b" }}
+          >
+            Classé
+          </span>
+        )}
+      </span>
     </button>
   );
 }

@@ -17,6 +17,12 @@ type Props = {
   rounded?: "full" | "xl" | "lg" | "md" | "none";
   /** Taille de police de l'emoji fallback (par défaut ~0.85·size). */
   emojiFontSize?: number;
+  /**
+   * Plein cadre : l'illustration remplit son conteneur (absolute inset-0,
+   * object-cover) au lieu d'un carré de `size` px. Le parent doit être
+   * `relative` et porter la forme. `size` sert alors juste au fallback emoji.
+   */
+  fill?: boolean;
 };
 
 const ROUNDED: Record<NonNullable<Props["rounded"]>, string> = {
@@ -33,6 +39,7 @@ export function ItemIcon({
   className = "",
   rounded = "lg",
   emojiFontSize,
+  fill = false,
 }: Props) {
   const [failed, setFailed] = useState(false);
   const url = failed ? null : itemIconUrl(item);
@@ -43,21 +50,33 @@ export function ItemIcon({
       <img
         src={url}
         alt={item.name}
-        width={size}
-        height={size}
+        width={fill ? undefined : size}
+        height={fill ? undefined : size}
         loading="lazy"
         draggable={false}
         onError={() => setFailed(true)}
-        className={`inline-block object-cover object-center align-middle ${roundedCls} ${className}`}
-        style={{ width: size, height: size }}
+        className={
+          fill
+            ? `absolute inset-0 h-full w-full object-cover object-center ${roundedCls} ${className}`
+            : `inline-block object-cover object-center align-middle ${roundedCls} ${className}`
+        }
+        style={fill ? undefined : { width: size, height: size }}
       />
     );
   }
   return (
     <span
       aria-hidden
-      className={`inline-flex items-center justify-center align-middle leading-none ${roundedCls} ${className}`}
-      style={{ width: size, height: size, fontSize: emojiFontSize ?? Math.round(size * 0.85) }}
+      className={
+        fill
+          ? `absolute inset-0 flex items-center justify-center leading-none ${roundedCls} ${className}`
+          : `inline-flex items-center justify-center align-middle leading-none ${roundedCls} ${className}`
+      }
+      style={
+        fill
+          ? { fontSize: emojiFontSize ?? Math.round(size * 0.85) }
+          : { width: size, height: size, fontSize: emojiFontSize ?? Math.round(size * 0.85) }
+      }
     >
       {item.icon}
     </span>
