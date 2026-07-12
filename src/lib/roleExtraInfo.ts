@@ -759,6 +759,174 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
+  armurier: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Don anonyme",
+            body: "Tu remets un couteau à un joueur vivant : il ignore que l'arme vient de toi.",
+          },
+          {
+            tag: "Une lame par Enquête",
+            body: "1×/Enquête. Le porteur peut s'en servir une fois pour tuer — la mort tombe à l'Annonce.",
+          },
+          {
+            tag: "À double tranchant",
+            body: "Tu ne choisis pas qui il vise : arme un joueur en qui tu as confiance.",
+          },
+        ],
+      },
+    ],
+  },
+  paranoiaque: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Cible imposée",
+            body: "Le manoir t'assigne une cible au hasard : tu ne la choisis pas.",
+          },
+          {
+            tag: "Protéger ou tuer",
+            body: "1×/partie, tu tranches : la protéger ou la tuer (résolu à l'Annonce). À toi de deviner son camp.",
+          },
+          {
+            tag: "Un seul coup",
+            body: "Ta décision est définitive : aucune seconde chance si tu te trompes.",
+          },
+        ],
+      },
+    ],
+  },
+  journaliste: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Espionne un tableau",
+            body: "Tu lis le tableau de suspicions d'un joueur jusqu'au prochain tour : tu vois qui il soupçonne.",
+          },
+          {
+            tag: "Verrou d'un tour",
+            body: "Le lien se réinitialise à chaque tour : choisis bien qui tu surveilles.",
+          },
+          {
+            tag: "Aveuglé par la falsification",
+            body: "Si ta cible a été falsifiée, tu ne lis rien de fiable.",
+          },
+        ],
+      },
+    ],
+  },
+  voleur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Objet le plus récent",
+            body: "Tu dérobes le dernier objet reçu par ta cible — vivante ou morte.",
+          },
+          {
+            tag: "Fouille les morts",
+            body: "Les cadavres gardent leurs objets : un mort est une proie facile à détrousser.",
+          },
+          {
+            tag: "Main vide",
+            body: "Si ta cible n'a aucun objet, ton tour est perdu.",
+          },
+        ],
+      },
+    ],
+  },
+  conservateur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Reliques au hasard",
+            body: "Tu confies une relique tirée au sort : certaines aident, d'autres piègent leur porteur.",
+          },
+          {
+            tag: "Le Cœur du Manoir",
+            body: "Une relique rarissime : la confier déclenche ta victoire immédiate.",
+          },
+          {
+            tag: "Deux dons par tour",
+            body: "Tu distribues jusqu'à 2 reliques par Enquête.",
+          },
+        ],
+      },
+    ],
+  },
+  accusateur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Marque suspecte",
+            body: "Tu désignes un joueur : il apparaît suspect à toute la table pendant 1 tour.",
+          },
+          {
+            tag: "Pression sur le vote",
+            body: "La marque oriente les soupçons — pratique pour pousser un lynchage.",
+          },
+          {
+            tag: "Bloqué par la bénédiction",
+            body: "Un joueur béni par le Saint échappe à ton accusation.",
+          },
+        ],
+      },
+    ],
+  },
+  voisin: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Surveille une porte",
+            body: "Tu observes un joueur : tu apprends le rôle de tous ceux qui viennent le cibler.",
+          },
+          {
+            tag: "Repère les rôdeurs",
+            body: "Idéal pour démasquer un tueur ou un manipulateur qui s'en prend à ton voisin.",
+          },
+          {
+            tag: "Aveuglé par la falsification",
+            body: "Si ta cible a été falsifiée, tes observations ne révèlent rien.",
+          },
+        ],
+      },
+    ],
+  },
+  falsificateur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Piste brouillée",
+            body: "Tu maquilles un joueur : toute enquête sur lui renvoie « falsifié » et ne révèle rien.",
+          },
+          {
+            tag: "Effet permanent",
+            body: "La falsification dure jusqu'à la fin de la partie — un seul geste, protection durable.",
+          },
+          {
+            tag: "Couvre un allié",
+            body: "Parfait pour cacher un Méchant des Policiers, Détectives et autres fouineurs.",
+          },
+        ],
+      },
+    ],
+  },
 };
 
 /** Récupère les infos supplémentaires d'un rôle (ou null s'il n'en a pas). */

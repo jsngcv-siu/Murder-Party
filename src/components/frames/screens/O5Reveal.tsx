@@ -110,7 +110,6 @@ export function O5Reveal({
         );
       }
       tl.from(".reveal-meta", { y: 8, opacity: 0, duration: 0.4 }, 0.5)
-        .from(".reveal-desc", { y: 10, opacity: 0, duration: 0.45 }, 0.6)
         .from(".reveal-capacity", { y: 16, opacity: 0, duration: 0.5 }, 0.68)
         .from(".reveal-cta", { y: 14, opacity: 0, duration: 0.5 }, 0.8);
 
@@ -342,24 +341,6 @@ export function O5Reveal({
                 {highlightCapacity(role.capacite_full_text)}
               </p>
             </div>
-
-            {/* Citation manuscrite surlignée */}
-            {role.description && (
-              <div
-                className="reveal-desc mt-4 pl-3 pr-3 py-2.5 rounded-r-md"
-                style={{
-                  background: "oklch(0.86 0.10 88 / 0.5)",
-                  borderLeft: "3px solid var(--accent)",
-                }}
-              >
-                <p
-                  className="text-[17px] italic leading-snug"
-                  style={{ fontFamily: "var(--font-hand)", color: "oklch(0.40 0.10 55)" }}
-                >
-                  « {role.description} »
-                </p>
-              </div>
-            )}
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import { ITEM_CATALOG } from "@/engine/items";
 import { RoleIcon } from "@/components/RoleIcon";
 import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
 import { highlightCapacity } from "@/lib/highlightCapacity";
+import { extraInfoFor } from "@/lib/roleExtraInfo";
 import { UsageCard } from "./P10Roles";
 import {
   Shield,
@@ -1473,25 +1474,7 @@ function RolePopup({
           <UsageCard role={role} />
         </div>
 
-        {/* Citation manuscrite (flavor) */}
-        {role.description && (
-          <div
-            className="mt-4 rounded-xl border-l-[3px] pl-3.5 pr-3 py-2.5"
-            style={{
-              borderColor: fcolor,
-              background: `color-mix(in oklab, ${fcolor} 7%, transparent)`,
-            }}
-          >
-            <p
-              className="text-[15px] italic leading-snug"
-              style={{ fontFamily: "var(--font-hand)", color: "var(--foreground)" }}
-            >
-              « {role.description} »
-            </p>
-          </div>
-        )}
-
-        {/* Capacité — texte mis en valeur */}
+        {/* Capacité — texte mis en valeur (cleanCapacity si dispo, comme la fiche en jeu) */}
         <div className="mt-4">
           <div className="flex items-center gap-1.5 mb-1.5">
             <Zap className="size-3.5" style={{ color: fcolor }} aria-hidden />
@@ -1500,9 +1483,45 @@ function RolePopup({
             </span>
           </div>
           <p className="whitespace-pre-line rounded-xl border border-border bg-card/60 p-3.5 text-[14px] leading-relaxed">
-            {highlightCapacity(role.capacite_full_text, "dark")}
+            {highlightCapacity(
+              extraInfoFor(role.slug)?.cleanCapacity ?? role.capacite_full_text,
+              "dark",
+            )}
           </p>
         </div>
+
+        {/* Subtilités — nuances mécaniques détaillées (mêmes notes que la fiche en jeu) */}
+        {(() => {
+          const notes = extraInfoFor(role.slug)?.pages.flatMap((pg) => pg.notes) ?? [];
+          if (notes.length === 0) return null;
+          return (
+            <div className="mt-4">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Info className="size-3.5" style={{ color: fcolor }} aria-hidden />
+                <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+                  Subtilités
+                </span>
+              </div>
+              <div className="space-y-3 rounded-xl border border-border bg-card/60 p-3.5">
+                {notes.map((n, i) => (
+                  <div key={i} className="relative pl-3">
+                    <span
+                      aria-hidden
+                      className="absolute bottom-1 left-0 top-1 w-[2px] rounded-full"
+                      style={{ background: `color-mix(in oklab, ${fcolor} 55%, var(--border))` }}
+                    />
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                      {n.tag}
+                    </div>
+                    <div className="mt-0.5 text-[13px] leading-relaxed">
+                      {highlightCapacity(n.body, "dark")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Fréquence en jeu */}
         <div className={`mt-4 rounded-xl border p-3.5 ${FREQ_COLORS[freq.level]}`}>
