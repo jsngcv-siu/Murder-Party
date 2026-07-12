@@ -218,8 +218,40 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
     return { winner: "Civil", reason: "Tous les ennemis des Citoyens ont été éliminés." };
   }
 
+  // ── FILET anti-blocage : un·e SEUL·E survivant·e libre = fin de partie.
+  // Certains neutres bloquants (empoisonneur sans cible à empoisonner, imitateur,
+  // conservateur…) ne satisfont aucune condition ci-dessus : restés seuls, ils
+  // laissaient evaluateWin renvoyer null indéfiniment → la partie tournait sans
+  // jamais se clore (tours à rallonge). S'il ne reste qu'une personne en vie et
+  // libre, tous les autres camps ont disparu : elle a gagné, quel que soit son rôle.
+  if (alive.length === 1) {
+    const p = alive[0];
+    const role = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
+    const label =
+      LONE_WINNER_LABEL[p.role_slug ?? ""] ??
+      (role?.faction === "Civil"
+        ? "Civil"
+        : role?.faction === "Méchant"
+          ? "Méchants"
+          : (role?.name_fr ?? "Survivant"));
+    return {
+      winner: label,
+      reason: `${p.pseudo} est l'unique survivant·e : tous les autres camps ont disparu.`,
+    };
+  }
+
   return null;
 }
+
+// Libellés de victoire compris par l'écran de fin (E1EndGame) pour les neutres
+// solo qui, restés seuls, gagnent par forfait. Les rôles absents de cette table
+// retombent sur leur faction (Civil/Méchants) ou leur nom (rendu générique).
+const LONE_WINNER_LABEL: Record<string, string> = {
+  empoisonneur: "Empoisonneur",
+  veuve_noire: "Veuve noire",
+  parieur_tricheur: "Parieur tricheur",
+  conservateur: "Conservateur",
+};
 
 export async function checkAndEndGame(gameId: string): Promise<WinResult | null> {
   const { data: g } = await supabase.from("games").select("status").eq("id", gameId).single();
@@ -230,10 +262,10 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   r = withOracleWinners(r, (ps2 ?? []) as PlayerRow[]);
   r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
   await cancelUnresolvedDeferredIntents(gameId, r);
-  await supabase
-    .from("games")
-    .update({ status: "ended", ended_at: new Date().toISOString() })
-    .eq("id", gameId);
+  // Émettre l'annonce de fin AVANT de basculer le statut. Ces deux écritures sont
+  // distinctes : tout observateur qui réagit au passage à `ended` (écran de fin
+  // E1EndGame, audit QA) doit trouver la notification `game_end` déjà présente.
+  // L'ordre inverse laisse une fenêtre où `status = ended` sans `game_end` visible.
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p: { id: string }) => ({
     game_id: gameId,
@@ -244,5 +276,9 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
     payload: { winner: r!.winner } as never,
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  await supabase
+    .from("games")
+    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .eq("id", gameId);
   return r;
 }

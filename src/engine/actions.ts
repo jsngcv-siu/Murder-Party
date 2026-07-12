@@ -1336,10 +1336,9 @@ export async function endGameWithWinner(
     .is("resolved_at", null)
     .eq("timing", "DEFERRED")
     .not("category", "is", null);
-  await supabase
-    .from("games")
-    .update({ status: "ended", ended_at: new Date().toISOString() })
-    .eq("id", gameId);
+  // Annonce de fin AVANT le basculement du statut : garantit que tout observateur
+  // qui réagit à `status = ended` voit déjà la notification `game_end` (cf. même
+  // ordre dans checkAndEndGame).
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p: { id: string }) => ({
     game_id: gameId,
@@ -1350,6 +1349,10 @@ export async function endGameWithWinner(
     payload: { winner, special: true } as never,
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  await supabase
+    .from("games")
+    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .eq("id", gameId);
   emit("game_end", `🏆 ${winner} — ${reason}`, { winner });
 }
 
@@ -1977,10 +1980,8 @@ export async function closeVote(gameId: string) {
         .is("resolved_at", null)
         .eq("timing", "DEFERRED")
         .not("category", "is", null);
-      await supabase
-        .from("games")
-        .update({ status: "ended", ended_at: new Date().toISOString() })
-        .eq("id", gameId);
+      // Annonce de fin AVANT le basculement du statut (cf. checkAndEndGame) :
+      // aucun observateur ne doit voir `status = ended` sans le `game_end`.
       const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
       const rows = (ps ?? []).map((p: { id: string }) => ({
         game_id: gameId,
@@ -1991,6 +1992,10 @@ export async function closeVote(gameId: string) {
         payload: { winner: "Méchants" } as never,
       }));
       if (rows.length) await supabase.from("notifications").insert(rows);
+      await supabase
+        .from("games")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("id", gameId);
       emit("saint_lost", "🕯️ Saint condamné — Citoyens perdent");
       return;
     }

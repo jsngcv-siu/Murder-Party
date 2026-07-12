@@ -256,6 +256,15 @@ async function evaluateWin(gameId) {
   if (mechantsAlive === 0 && vampiresAlive === 0 && entremetteurFactionAlive === 0 && blockingNeutresAlive === 0) {
     return { winner: "Civil", reason: "Tous les ennemis des Citoyens ont \xE9t\xE9 \xE9limin\xE9s." };
   }
+  if (alive.length === 1) {
+    const p = alive[0];
+    const role = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
+    const label = LONE_WINNER_LABEL[p.role_slug ?? ""] ?? (role?.faction === "Civil" ? "Civil" : role?.faction === "M\xE9chant" ? "M\xE9chants" : role?.name_fr ?? "Survivant");
+    return {
+      winner: label,
+      reason: `${p.pseudo} est l'unique survivant\xB7e : tous les autres camps ont disparu.`
+    };
+  }
   return null;
 }
 async function checkAndEndGame(gameId) {
@@ -267,7 +276,6 @@ async function checkAndEndGame(gameId) {
   r = withOracleWinners(r, ps2 ?? []);
   r = withEntremetteurWinner(r, ps2 ?? []);
   await cancelUnresolvedDeferredIntents(gameId, r);
-  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p) => ({
     game_id: gameId,
@@ -278,13 +286,21 @@ async function checkAndEndGame(gameId) {
     payload: { winner: r.winner }
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
   return r;
 }
+var LONE_WINNER_LABEL;
 var init_winConditions = __esm({
   "src/engine/winConditions.ts"() {
     "use strict";
     init_client();
     init_roleMeta();
+    LONE_WINNER_LABEL = {
+      empoisonneur: "Empoisonneur",
+      veuve_noire: "Veuve noire",
+      parieur_tricheur: "Parieur tricheur",
+      conservateur: "Conservateur"
+    };
   }
 });
 
@@ -1180,7 +1196,7 @@ async function consumeItem(opts) {
         source: "item:fiole_mort",
         payload: { kill_reason: "fiole_mort", target_pseudo: target.pseudo }
       });
-      message = `${target.pseudo} : intention de mort enregistr\xE9e \u2014 r\xE9solue \xE0 l'Annonce.`;
+      message = `${target.pseudo} : intention de mort \u2014 \xE0 l'Annonce.`;
       break;
     }
     case "fiole_vie": {
@@ -1201,7 +1217,7 @@ async function consumeItem(opts) {
         "\u{1F49A} Soign\xE9",
         "Une fiole de vie te prot\xE8ge pour la prochaine Annonce."
       );
-      message = `${target.pseudo} : soin programm\xE9 \u2014 actif \xE0 l'Annonce.`;
+      message = `${target.pseudo} : soin \u2014 \xE0 l'Annonce.`;
       break;
     }
     case "fiole_clairvoyance": {
@@ -1254,7 +1270,7 @@ async function consumeItem(opts) {
           `${opts.actorPseudo} a utilis\xE9 couteau sur ${target.pseudo}.`
         );
       }
-      message = `${target.pseudo} : coup de couteau programm\xE9 \u2014 r\xE9solu \xE0 l'Annonce.`;
+      message = `${target.pseudo} : coup de couteau \u2014 \xE0 l'Annonce.`;
       break;
     }
     case "relique": {
@@ -2595,7 +2611,6 @@ async function endGameWithWinner(gameId, winner, reason) {
       outcome: "info"
     }
   }).eq("game_id", gameId).is("resolved_at", null).eq("timing", "DEFERRED").not("category", "is", null);
-  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p) => ({
     game_id: gameId,
@@ -2606,6 +2621,7 @@ async function endGameWithWinner(gameId, winner, reason) {
     payload: { winner, special: true }
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
   emit("game_end", `\u{1F3C6} ${winner} \u2014 ${reason}`, { winner });
 }
 async function resolveCycleTransition(gameId) {
@@ -3037,7 +3053,6 @@ async function closeVote(gameId) {
           outcome: "info"
         }
       }).eq("game_id", gameId).is("resolved_at", null).eq("timing", "DEFERRED").not("category", "is", null);
-      await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
       const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
       const rows = (ps ?? []).map((p) => ({
         game_id: gameId,
@@ -3048,6 +3063,7 @@ async function closeVote(gameId) {
         payload: { winner: "M\xE9chants" }
       }));
       if (rows.length) await supabase.from("notifications").insert(rows);
+      await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
       emit("saint_lost", "\u{1F56F}\uFE0F Saint condamn\xE9 \u2014 Citoyens perdent");
       return;
     }
@@ -3917,7 +3933,7 @@ async function executeCapability(opts) {
         });
         return {
           ok: true,
-          message: `Morsure programm\xE9e sur ${t1.pseudo} \u2014 r\xE9solue \xE0 la prochaine Annonce`
+          message: `Morsure sur ${t1.pseudo} \u2014 \xE0 l'Annonce`
         };
       }
       case "chasseur_de_vampire": {
@@ -3939,7 +3955,7 @@ async function executeCapability(opts) {
         await used({ effect: "track", isVampire: isVamp });
         return {
           ok: true,
-          message: isVamp ? `\u{1F534} ${t1.pseudo} EST un vampire \u2014 ex\xE9cution programm\xE9e \xE0 l'Annonce` : `\u{1F7E2} ${t1.pseudo} n'est pas un vampire`,
+          message: isVamp ? `\u{1F534} ${t1.pseudo} EST un vampire \u2014 ex\xE9cution \xE0 l'Annonce` : `\u{1F7E2} ${t1.pseudo} n'est pas un vampire`,
           reveal: { isVampire: isVamp }
         };
       }
@@ -4055,7 +4071,7 @@ async function executeCapability(opts) {
         if (!t1) return { ok: false, message: "Cible requise" };
         const { data: existingProtect } = await supabase.from("role_actions").select("id").eq("game_id", opts.gameId).eq("actor_player_id", actor.id).eq("tour", opts.tour).eq("source", "role:majordome").eq("category", "PROTECT").limit(1).maybeSingle();
         if (existingProtect) {
-          return { ok: true, message: `${t1.pseudo} : protection d\xE9j\xE0 programm\xE9e` };
+          return { ok: true, message: `${t1.pseudo} : protection d\xE9j\xE0 en place \u2014 \xE0 l'Annonce` };
         }
         await submitIntent({
           gameId: opts.gameId,
@@ -4075,7 +4091,7 @@ async function executeCapability(opts) {
           title: "\u{1F6E1}\uFE0F Protection Majordome",
           body: `${actor.pseudo} (Majordome) prot\xE8ge ${t1.pseudo} \u2014 r\xE9solu \xE0 l'Annonce.`
         });
-        return { ok: true, message: `${t1.pseudo} : protection programm\xE9e` };
+        return { ok: true, message: `${t1.pseudo} : protection \u2014 \xE0 l'Annonce` };
       }
       case "babysitter": {
         if (!t1) return { ok: false, message: "Cible requise" };
@@ -4118,7 +4134,7 @@ async function executeCapability(opts) {
           source: "role:ange_gardien"
         });
         await used({ effect: "shield_intent", target });
-        return { ok: true, message: "Bouclier programm\xE9 \u2014 actif \xE0 l'Annonce" };
+        return { ok: true, message: "Bouclier \u2014 \xE0 l'Annonce" };
       }
       case "paranoiaque": {
         const targetId = m.paranoid_target_id;
@@ -4380,7 +4396,7 @@ async function executeCapability(opts) {
         await used({ effect: "kill_one_of_two_intent", picked: pick2.id, spared: other.id });
         return {
           ok: true,
-          message: `${pick2.pseudo} : attaque programm\xE9e \u2014 ${other.pseudo} \xE9pargn\xE9`
+          message: `${pick2.pseudo} : attaque \xE0 l'Annonce \u2014 ${other.pseudo} \xE9pargn\xE9`
         };
       }
       case "veuve_noire": {
@@ -4729,7 +4745,7 @@ async function executeCapability(opts) {
           return { ok: false, message: "Le prisonnier n'a pas encore purg\xE9 un tour complet." };
         }
         if (tMeta.pending_release_for_cycle === opts.tour + 1) {
-          return { ok: false, message: "Lib\xE9ration d\xE9j\xE0 programm\xE9e pour ce prisonnier." };
+          return { ok: false, message: "Lib\xE9ration de ce prisonnier d\xE9j\xE0 pr\xE9vue." };
         }
         await patchMeta(t1.id, {
           pending_release_for_cycle: opts.tour + 1,
@@ -4747,7 +4763,7 @@ async function executeCapability(opts) {
         });
         return {
           ok: true,
-          message: `Lib\xE9ration de ${t1.pseudo} programm\xE9e pour le tour ${opts.tour + 1}`
+          message: `Lib\xE9ration de ${t1.pseudo} \u2014 au tour ${opts.tour + 1}`
         };
       }
       // ── Oracle : verrouille une prophétie de faction (1×/partie). Gagne avec la faction prédite. ──
@@ -4854,7 +4870,7 @@ async function executeCapability(opts) {
         });
         return {
           ok: true,
-          message: `\u{1F3AF} ${t1.pseudo} marqu\xE9 \u2014 il mourra \xE0 l'annonce du prochain tour.`
+          message: `\u{1F3AF} ${t1.pseudo} marqu\xE9 \u2014 il mourra \xE0 l'Annonce du prochain tour.`
         };
       }
       // ── Voleur : vole l'objet le plus récent d'une cible (vivante ou morte) ──
