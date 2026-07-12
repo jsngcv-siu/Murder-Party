@@ -81,7 +81,7 @@ Re-check LIVE des préconditions ; symétrie « acteur tué ce tour → effet an
 ## 8. Cible d'équilibrage & état connu
 
 - **Cible** : Civils **55 %** / Méchants **45 %** (parties tranchées), toutes tailles. Neutres : présence occasionnelle, win-rate « quand présent » raisonnable (~ ne pas dominer).
-- **Déséquilibres connus (sim, 2026-07-13)** : global parties tranchées **51,5 % / 48,5 %** (Méchants encore un peu trop forts vs cible 55/45, mais l'effondrement Civils à grande table est corrigé). Neutres, win-rate quand présent : **Parieur tricheur ~7 %** (rôle quasi mort, point noir n°1) ; **Veuve noire ~20 %** et **Oracle ~20 %** faibles. **⚠️ L'Empoisonneur N'EST PLUS surpuissant** : ~36 % quand présent (il a été rééquilibré depuis la note « ~51 % » d'avant — ne plus le nerfer).
+- **Déséquilibres connus (sim, 2026-07-13)** : global parties tranchées **51,5 % / 48,5 %** (Méchants encore un peu trop forts vs cible 55/45, mais l'effondrement Civils à grande table est corrigé). Neutres, win-rate quand présent : **Parieur tricheur ~7 %** — **VOULU dur, ne pas buffer** (décision produit 2026-07-13, cf. mémoire) ; **Veuve noire ~20 %** et **Oracle ~20 %** faibles. **⚠️ L'Empoisonneur N'EST PLUS surpuissant** : ~36 % quand présent (il a été rééquilibré depuis la note « ~51 % » d'avant — ne plus le nerfer).
 
 ## 9. Garde-fous d'analyse
 
