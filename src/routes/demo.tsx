@@ -23,7 +23,7 @@ import {
   type RoleRow,
 } from "@/engine/actions";
 import { defaultBotConfig, startBotDriver, stopBotDriver } from "@/engine/bots";
-import { INTRO_S } from "@/lib/phaseTiming";
+import { introSFor } from "@/lib/phaseTiming";
 import { serverNow, serverNowISO } from "@/lib/serverTime";
 import { initReport, onFindingsChange, clearFindings } from "@/engine/qa/report";
 import { runStaticRoleAudit, runInvariantSweep } from "@/engine/qa/driver";
@@ -1351,7 +1351,7 @@ function PhaseTimer({ game }: { game: GameRow }) {
   }, []);
   const dur = game.phase_duration_s ?? 0;
   const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-  const elapsed = started ? (serverNow() - started) / 1000 - INTRO_S : 0;
+  const elapsed = started ? (serverNow() - started) / 1000 - introSFor(game.current_phase) : 0;
   const inIntro = started > 0 && elapsed < 0;
   const remaining = Math.max(0, dur - Math.max(0, elapsed));
   const mm = Math.floor(remaining / 60);

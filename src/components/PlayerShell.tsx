@@ -23,7 +23,7 @@ import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
 import { useServerTimeOffset, serverNow } from "@/lib/serverTime";
 import { usePhaseDriver } from "@/lib/phaseDriver";
-import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
+import { VOTE_RESULT_S, introSFor, introMsFor } from "@/lib/phaseTiming";
 import { KillerTargetBanner } from "@/components/KillerTargetBanner";
 import { HoldToReveal } from "@/components/HoldToReveal";
 import { Sigil } from "@/components/Sigil";
@@ -56,7 +56,6 @@ import {
   VoteOutro,
   FreeEntry,
   AnnonceScreen,
-  INTRO_MS,
 } from "@/components/frames/screens/T1Transition";
 import { O5Reveal } from "@/components/frames/screens/O5Reveal";
 import { PlayerEventModal } from "@/components/PlayerEventModal";
@@ -246,7 +245,7 @@ export function PlayerShell({
     // PUIS la fin de l'écran de résultat (+ VOTE_RESULT_S → tour suivant). Sans le
     // 1er réveil, closeVote n'était déclenché que par le sondage de sécurité (≤3 s
     // de retard) → l'écran de résultat restait « à 0 » sans verdict un instant.
-    const endS = INTRO_S + game.phase_duration_s;
+    const endS = introSFor(game.current_phase) + game.phase_duration_s;
     const boundariesS = game.current_phase === "vote" ? [endS, endS + VOTE_RESULT_S] : [endS];
 
     let boundaryTimers: ReturnType<typeof setTimeout>[] = [];
@@ -432,7 +431,9 @@ export function PlayerShell({
     // annonce volante : l'écran de phase doit primer. On replanifie l'effet pour
     // la fin de la fenêtre d'intro.
     const introStarted = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-    const introRemaining = introStarted ? introStarted + INTRO_MS - serverNow() : 0;
+    const introRemaining = introStarted
+      ? introStarted + introMsFor(game.current_phase) - serverNow()
+      : 0;
     if (introRemaining > 0) {
       const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
       return () => clearTimeout(t);
@@ -520,7 +521,9 @@ export function PlayerShell({
     // Écran de transition de phase au premier plan : on diffère (sans consommer
     // `fresh`) pour rejouer après l'intro.
     const introStarted = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-    const introRemaining = introStarted ? introStarted + INTRO_MS - serverNow() : 0;
+    const introRemaining = introStarted
+      ? introStarted + introMsFor(game.current_phase) - serverNow()
+      : 0;
     if (introRemaining > 0) {
       const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
       return () => clearTimeout(t);
@@ -934,7 +937,7 @@ function ShellHeader({
   // Mode Joueur Only : compte à rebours classique (déclenche l'avancement auto).
   const isMjMode = !game.mode_detective_player;
   const startedRaw = game.phase_started_at ? new Date(game.phase_started_at).getTime() : null;
-  const started = startedRaw ? startedRaw + INTRO_MS : null;
+  const started = startedRaw ? startedRaw + introMsFor(game.current_phase) : null;
   const dur = game.phase_duration_s ?? 0;
   const isWaiting = waitingCount > 0;
   const timerActive =

@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { notify, notifyMJ } from "./notify";
 import { checkAndEndGame } from "./winConditions";
 import { submitIntent, resolveDeferredIntents } from "./resolver";
-import { INTRO_S, VOTE_RESULT_S } from "@/lib/phaseTiming";
+import { VOTE_RESULT_S, introSFor } from "@/lib/phaseTiming";
 import { serverNow, serverNowISO } from "@/lib/serverTime";
 
 export type Phase = "lobby" | "free" | "annonce" | "gathering" | "vote" | "ended";
@@ -1203,10 +1203,11 @@ const MAX_TICK_TRANSITIONS = 6;
 async function phaseTickDue(gameId: string): Promise<boolean> {
   const { data: g } = await supabase
     .from("games")
-    .select("phase_started_at, phase_duration_s, status, paused")
+    .select("current_phase, phase_started_at, phase_duration_s, status, paused")
     .eq("id", gameId)
     .single();
   const game = g as {
+    current_phase: Phase;
     phase_started_at: string | null;
     phase_duration_s: number | null;
     status: string;
@@ -1215,8 +1216,9 @@ async function phaseTickDue(gameId: string): Promise<boolean> {
   if (!game || game.status === "ended" || game.paused) return false;
   if (!game.phase_started_at || !game.phase_duration_s) return false;
   const started = new Date(game.phase_started_at).getTime();
-  // Le compteur ne démarre qu'après la frame d'intro (INTRO_S), comme dans la boucle.
-  const elapsed = (serverNow() - started) / 1000 - INTRO_S;
+  // Le compteur ne démarre qu'après la frame d'intro (variable selon la phase :
+  // 0 pour l'Annonce qui n'en a pas), comme dans la boucle.
+  const elapsed = (serverNow() - started) / 1000 - introSFor(game.current_phase);
   return elapsed >= game.phase_duration_s;
 }
 
@@ -1255,13 +1257,14 @@ export async function tickPhase(gameId: string): Promise<void> {
         if (game.paused) return;
         if (!game.phase_started_at || !game.phase_duration_s) return;
         const started = new Date(game.phase_started_at).getTime();
-        // Le compteur de phase ne démarre qu'après la frame d'intro (INTRO_S, source
-        // unique dans lib/phaseTiming — alignée sur l'affichage UI de la frame).
-        const elapsed = (serverNow() - started) / 1000 - INTRO_S;
+        // Le compteur de phase ne démarre qu'après la frame d'intro (source unique
+        // dans lib/phaseTiming — alignée sur l'UI ; 0 pour l'Annonce sans frame).
+        const introS = introSFor(game.current_phase);
+        const elapsed = (serverNow() - started) / 1000 - introS;
         if (elapsed < game.phase_duration_s) return;
 
         const nextPhaseStartedAt = new Date(
-          started + (INTRO_S + game.phase_duration_s) * 1000,
+          started + (introS + game.phase_duration_s) * 1000,
         ).toISOString();
 
         if (game.current_phase === "free") {
@@ -1280,7 +1283,7 @@ export async function tickPhase(gameId: string): Promise<void> {
           await nextCycle(
             gameId,
             new Date(
-              started + (INTRO_S + game.phase_duration_s + VOTE_RESULT_S) * 1000,
+              started + (introS + game.phase_duration_s + VOTE_RESULT_S) * 1000,
             ).toISOString(),
           );
         } else {

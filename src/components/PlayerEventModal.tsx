@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
-import { INTRO_MS } from "@/components/frames/screens/T1Transition";
+import { introMsFor } from "@/lib/phaseTiming";
 import { serverNow } from "@/lib/serverTime";
 import {
   BoardPin,
@@ -248,7 +248,7 @@ export function PlayerEventModal({
   // ─── Affichage différé : on attend la fin de la frame de transition. ───
   const current = queue[0];
   const phaseStart = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-  const introEnd = phaseStart + INTRO_MS;
+  const introEnd = phaseStart + introMsFor(game.current_phase);
   const [nowTick, setNowTick] = useState(serverNow());
   useEffect(() => {
     if (!current) return;
