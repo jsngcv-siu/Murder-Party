@@ -1,6 +1,6 @@
 // PA2 — Onglet "Capacité" du joueur, désormais structuré en sous-onglets :
 //   Rôle (Drama) · Historique (ScrollText) · Victoire (Trophy) · Chat (MessageCircle)
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import type { FrameContext } from "../registry";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import {
 } from "@/engine/actions";
 import { describeWinCondition } from "@/engine/winCondText";
 import { ChatPanel } from "@/components/ChatPanel";
-import { colorize } from "@/lib/factionText";
+import { colorize, colorizeSegments } from "@/lib/factionText";
 import { highlightCapacity } from "@/lib/highlightCapacity";
 import { RoleDossierSlider } from "@/components/RoleDossierSlider";
 import { extraInfoFor, type RoleInfoPage } from "@/lib/roleExtraInfo";
@@ -566,7 +566,15 @@ function PanelCard({
 // Mise en page sobre, pensée pour la lisibilité : eyebrow + liste de notes
 // (label court + phrase). Un fin trait d'accent (couleur de faction) borde
 // chaque note. Le corps passe par highlightCapacity pour colorer les notions.
-function RoleSubtletyPage({ page, accent }: { page: RoleInfoPage; accent: string }) {
+function RoleSubtletyPage({
+  page,
+  accent,
+  roles,
+}: {
+  page: RoleInfoPage;
+  accent: string;
+  roles: Map<string, RoleRow>;
+}) {
   return (
     <div className="px-8 pb-4 pt-5">
       <div className="mb-3 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
@@ -583,8 +591,19 @@ function RoleSubtletyPage({ page, accent }: { page: RoleInfoPage; accent: string
             <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[color:var(--paper-ink-soft)]">
               {n.tag}
             </div>
+            {/* Rendu composé : les noms de rôles/factions prennent leur couleur de
+                faction (colorizeSegments), les segments neutres passent par
+                highlightCapacity (couleur par mot-clé : timing, kill, guard…). */}
             <div className="mt-0.5 text-xs leading-relaxed text-[color:var(--paper-ink)]">
-              {highlightCapacity(n.body, "paper")}
+              {colorizeSegments(n.body, roles).map((seg, j) =>
+                seg.color ? (
+                  <span key={j} style={{ color: seg.color, fontWeight: 600 }}>
+                    {seg.text}
+                  </span>
+                ) : (
+                  <Fragment key={j}>{highlightCapacity(seg.text, "paper")}</Fragment>
+                ),
+              )}
             </div>
           </li>
         ))}
@@ -1044,7 +1063,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         // Pages suivantes : subtilités du rôle (révélées en slidant).
         const subtletyPages =
           extra?.pages.map((pg, i) => (
-            <RoleSubtletyPage key={i} page={pg} accent={factionColor} />
+            <RoleSubtletyPage key={i} page={pg} accent={factionColor} roles={roles} />
           )) ?? [];
 
         return (

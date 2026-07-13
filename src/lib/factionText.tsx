@@ -32,9 +32,17 @@ export function roleColor(role: RoleRow | null | undefined): string {
   return "var(--foreground)";
 }
 
-/** Renvoie le texte avec les mentions de rôles/factions colorisées. */
-export function colorize(text: string, roles: Map<string, RoleRow>): ReactNode {
-  if (!text) return text;
+/** Un segment de texte, coloré (nom de rôle/faction) ou non. */
+export type ColorSegment = { text: string; color: string | null };
+
+/**
+ * Découpe un texte en segments : les mentions de rôles/factions portent leur
+ * couleur de faction, le reste a `color: null`. Sert de brique commune à
+ * `colorize` (rendu direct) et au rendu des notes de subtilité (où l'on veut
+ * COMBINER cette coloration avec `highlightCapacity` sur les segments neutres).
+ */
+export function colorizeSegments(text: string, roles: Map<string, RoleRow>): ColorSegment[] {
+  if (!text) return [];
   // Construit la liste des termes à matcher (plus longs en premier pour éviter les sous-matches)
   type Term = { regex: RegExp; color: string };
   const terms: Term[] = [];
@@ -51,9 +59,8 @@ export function colorize(text: string, roles: Map<string, RoleRow>): ReactNode {
   terms.sort((a, b) => b.regex.source.length - a.regex.source.length);
 
   // Tokenise : on cherche le 1er match dans le reste du texte, on découpe, on recommence.
-  const out: ReactNode[] = [];
+  const out: ColorSegment[] = [];
   let rest = text;
-  let key = 0;
   while (rest.length > 0) {
     let bestIdx = -1;
     let bestLen = 0;
@@ -67,18 +74,32 @@ export function colorize(text: string, roles: Map<string, RoleRow>): ReactNode {
       }
     }
     if (bestIdx === -1) {
-      out.push(<Fragment key={key++}>{rest}</Fragment>);
+      out.push({ text: rest, color: null });
       break;
     }
-    if (bestIdx > 0) out.push(<Fragment key={key++}>{rest.slice(0, bestIdx)}</Fragment>);
-    out.push(
-      <span key={key++} style={{ color: bestColor, fontWeight: 600 }}>
-        {rest.slice(bestIdx, bestIdx + bestLen)}
-      </span>,
-    );
+    if (bestIdx > 0) out.push({ text: rest.slice(0, bestIdx), color: null });
+    out.push({ text: rest.slice(bestIdx, bestIdx + bestLen), color: bestColor });
     rest = rest.slice(bestIdx + bestLen);
   }
-  return <>{out}</>;
+  return out;
+}
+
+/** Renvoie le texte avec les mentions de rôles/factions colorisées. */
+export function colorize(text: string, roles: Map<string, RoleRow>): ReactNode {
+  if (!text) return text;
+  return (
+    <>
+      {colorizeSegments(text, roles).map((seg, key) =>
+        seg.color ? (
+          <span key={key} style={{ color: seg.color, fontWeight: 600 }}>
+            {seg.text}
+          </span>
+        ) : (
+          <Fragment key={key}>{seg.text}</Fragment>
+        ),
+      )}
+    </>
+  );
 }
 
 function escape(s: string): string {

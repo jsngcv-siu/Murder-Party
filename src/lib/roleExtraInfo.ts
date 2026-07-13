@@ -44,12 +44,16 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Tu ne choisis pas qui tu protèges : le manoir te confie une cible au hasard dès le départ.",
           },
           {
-            tag: "Un seul bouclier",
-            body: "1×/partie seulement. Le bouclier annule la prochaine attaque contre ta cible, puis disparaît.",
+            tag: "Un seul tour couvert",
+            body: "1×/partie. Le bouclier ne protège que le tour où tu l'actives : s'il n'y a pas d'attaque ce tour-là, il est gaspillé.",
           },
           {
-            tag: "Sauve un inconnu",
-            body: "Ta cible ignore qu'elle est veillée. À toi de sentir le bon tour pour lever le bouclier.",
+            tag: "Lis le danger",
+            body: "Tout est dans le timing : active-le le tour où tu sens ta cible menacée, pas trop tôt.",
+          },
+          {
+            tag: "Sauvetage muet",
+            body: "Ta cible ignore qu'elle est veillée — et n'apprendra jamais que tu l'as sauvée.",
           },
         ],
       },
@@ -85,14 +89,14 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Un vrai, deux faux",
-            body: "Le trio mêle le vrai rôle et 2 leurres tirés au hasard. Rien n'indique lequel est le bon.",
+            body: "Le trio mêle le vrai rôle de ta cible et 2 leurres tirés au hasard. Rien n'indique lequel est le bon.",
           },
           {
-            tag: "Le Tueur se cache",
-            body: "Un Tueur t'apparaît camouflé en Citoyen. Un « Citoyen » dans ton trio n'est donc jamais une preuve d'innocence.",
+            tag: "Des leurres crédibles",
+            body: "Les faux rôles sont du même genre que le vrai — un tueur est noyé parmi d'autres profils dangereux : le trio oriente sans prouver.",
           },
           {
-            tag: "L'Usurpateur ment",
+            tag: "L'Usurpateur te berne",
             body: "L'Usurpateur ressort sous sa fausse couverture, jamais sous son vrai rôle.",
           },
         ],
@@ -128,6 +132,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Effet différé",
             body: "La protection couvre le tour suivant, pas le tour où tu la déclenches.",
+          },
+          {
+            tag: "La cible est prévenue",
+            body: "Elle sait qu'elle est gardée : un signal utile pour un allié… ou un indice offert à un ennemi.",
           },
         ],
       },
@@ -168,6 +176,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Résultat vert : même camp. Rouge : camps opposés.",
           },
           {
+            tag: "Perce les masques",
+            body: "La Boussole lit la vraie faction : ni l'Usurpateur ni une falsification ne la trompent.",
+          },
+          {
             tag: "Piège des Neutres",
             body: "Deux Neutres ressortent « même camp », alors qu'ils ne partagent pas forcément le même objectif de victoire.",
           },
@@ -186,7 +198,11 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           },
           {
             tag: "Arme à protéger",
-            body: "Le couteau est un objet de ton inventaire : un Voleur pourrait te le subtiliser avant que tu ne l'utilises.",
+            body: "Le couteau est un objet de ton inventaire : un voleur pourrait te le subtiliser avant que tu ne l'utilises.",
+          },
+          {
+            tag: "Tuer un Civil te trahit",
+            body: "Si ta lame frappe un Civil, tu ressors « suspect » à la police : ne te trompe pas de cible.",
           },
           {
             tag: "Frappe à froid",
@@ -208,6 +224,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Dépend du vote",
             body: "Sans emprisonnement, pas de cible : ta puissance suit les décisions de la table.",
+          },
+          {
+            tag: "Exécution publique",
+            body: "L'exécution révèle le rôle complet du condamné à toute la table — une info précieuse… ou la preuve que tu t'es trompé.",
           },
           {
             tag: "À double tranchant",
@@ -279,15 +299,15 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Protection à contre",
-            body: "Si la protection réussit : ta cible survit, l'attaquant meurt… et toi aussi.",
+            body: "Si une attaque est bel et bien parée : ta cible survit, l'attaquant meurt… et toi aussi.",
           },
           {
-            tag: "Sacrifice utile",
-            body: "En tombant, tu emportes l'assassin : un échange redoutable pour révéler un Méchant.",
+            tag: "Sacrifice ciblé",
+            body: "Seule une attaque interceptée déclenche l'échange — l'assassin tombe avec toi, révélant un Méchant.",
           },
           {
             tag: "Sans attaque, rien",
-            body: "Si personne ne vise ta cible, il ne se passe rien — et tu survis.",
+            body: "Si personne ne vise ta cible, tu ne meurs pas : protéger « à vide » est sans risque.",
           },
         ],
       },
@@ -334,16 +354,20 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Le Tueur passe blanc",
-            body: "Un Tueur t'apparaît « non-Méchant ». Un verdict innocent n'écarte donc jamais le Tueur.",
+            tag: "Trois lames passent blanches",
+            body: "Le Tueur, le Croque-mitaine et le Stratège t'apparaissent « non-Méchant ». Un verdict innocent n'écarte jamais ces trois-là.",
+          },
+          {
+            tag: "Tout Neutre est suspect",
+            body: "Chaque Neutre ressort « soupçons », même un rôle inoffensif (Oracle, Empoisonneur…). Suspect n'est pas Méchant.",
           },
           {
             tag: "L'Usurpateur démasqué",
-            body: "Contrairement aux autres enquêtes, tu vois l'Usurpateur sous son vrai jour, sans sa couverture.",
+            body: "Contrairement aux autres enquêtes, tu le vois sous son vrai jour, sans sa couverture.",
           },
           {
             tag: "Faction, pas rôle",
-            body: "Tu n'obtiens qu'un « Méchant : oui/non » — jamais le rôle précis de la cible.",
+            body: "Tu n'obtiens qu'un « Méchant : oui/non » — jamais le rôle précis.",
           },
         ],
       },
@@ -399,6 +423,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Armé par le deuil",
             body: "Tu ne reçois ton couteau que si ton être cher meurt. Sans ça, tu restes un Civil sans capacité.",
+          },
+          {
+            tag: "Vengeance faillible",
+            body: "Ton couteau est une attaque comme une autre : une protection peut sauver ta cible, et rien ne garantit que tu frappes le vrai coupable.",
           },
         ],
       },
@@ -456,6 +484,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Le survivant est prévenu",
             body: "L'autre cible reçoit « Vous avez survécu à un danger » : elle sait qu'on l'a visée.",
+          },
+          {
+            tag: "Insoupçonné",
+            body: "Tu ressors « non-Méchant » à la police : un contrôle ne te trahit pas.",
           },
         ],
       },
@@ -523,7 +555,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Mort annoncée",
-            body: "Ta cible marquée est prévenue qu'elle est visée et meurt à l'Annonce du tour suivant.",
+            body: "Ta cible marquée est prévenue qu'elle est visée — et le message révèle qu'un Stratège la traque. Elle meurt à l'Annonce du tour suivant.",
           },
           {
             tag: "Fenêtre de contre",
@@ -532,6 +564,10 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Couteau de secours",
             body: "Tu as aussi un couteau pour frapper immédiatement, sans délai ni avertissement.",
+          },
+          {
+            tag: "Blanchi par la police",
+            body: "Comme les autres tueurs, tu ressors « non-Méchant » à la police.",
           },
         ],
       },
@@ -543,12 +579,16 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Camouflage total",
-            body: "Tu apparais en Citoyen à l'Assistant et « non-Méchant » au Policier : les enquêtes te blanchissent.",
+            tag: "Blanchi par la police",
+            body: "Le Policier te voit « non-Méchant » : un contrôle policier ne te démasque jamais.",
           },
           {
             tag: "La lame se transmet",
             body: "Si tu es emprisonné ou tué, un Acolyte vivant et libre devient Tueur au hasard. Le crime survit.",
+          },
+          {
+            tag: "Tes alliés te suivent",
+            body: "Tes complices Méchants sont prévenus de ta cible. La victime, elle, n'est avertie de rien.",
           },
           {
             tag: "Une frappe par Enquête",
