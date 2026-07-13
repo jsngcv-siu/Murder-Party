@@ -166,7 +166,7 @@ export function PlayerShell({
   // garde EXACTEMENT une sentinelle au sommet de l'historique. On en pousse une
   // au montage, et à chaque popstate (= un retour l'a dépilée) on en re-pousse
   // une seule. Si l'aide est ouverte → on la ferme. Sinon → on bascule sur
-  // l'onglet « Annonces » (= journal). On reste piégé indéfiniment.
+  // l'onglet « Annonces » (= cemetery). On reste piégé indéfiniment.
   // NB : `helpOpen` est lu via `helpOpenRef` pour ne pas figurer dans les deps
   // (sinon l'effet se ré-exécute et ré-empile à chaque toggle des Paramètres).
   useEffect(() => {
@@ -188,8 +188,8 @@ export function PlayerShell({
         setHelpOpen(false);
         return;
       }
-      if (tabRef.current !== "journal") {
-        setTab("journal");
+      if (tabRef.current !== "cemetery") {
+        setTab("cemetery");
       }
     };
     window.addEventListener("popstate", onPop);
@@ -373,6 +373,22 @@ export function PlayerShell({
   useEffect(() => {
     if (forcedTab) setTabState(forcedTab);
   }, [forcedTab]);
+
+  // À CHAQUE début de phase, on ramène les joueurs VIVANTS sur l'onglet
+  // « Annonces » (cemetery) : l'annonce est le point central de l'app, on la
+  // veut sous les yeux dès la nouvelle phase. `phase_started_at` est LE signal
+  // canonique d'un changement de phase (mis à jour à chaque transition serveur).
+  // Le basculement se produit DERRIÈRE les écrans plein-écran de transition /
+  // vote / annonce (qui priment) → aucun saut d'onglet brusque n'est visible.
+  // On ne touche pas aux morts (layout Conseil différent), ni pendant l'attente
+  // du départ, ni en démo (l'onglet y est piloté par le sélecteur via forcedTab).
+  useEffect(() => {
+    if (forcedTab) return;
+    if (waitingStart) return;
+    if (!me.is_alive) return;
+    setTab("cemetery");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.phase_started_at]);
 
   // Badge Inventaire = nombre d'objets non consommés dans l'inventaire du joueur.
   useEffect(() => {
