@@ -26,6 +26,7 @@ import { RoleIcon } from "@/components/RoleIcon";
 import { AvatarImg } from "@/components/AvatarImg";
 import { Sigil } from "@/components/Sigil";
 import { colorize, roleColor } from "@/lib/factionText";
+import { CapabilityCard } from "./PA2Capability";
 import { INTRO_MS } from "./T1Transition";
 import { useServerTimeOffset } from "@/lib/serverTime";
 import { toast } from "sonner";
@@ -100,7 +101,7 @@ type Action = {
 // 3 zones de pilotage + cahier de notes.
 type GMTab = "pont" | "recit" | "table" | "notes";
 // Sous-vues de la zone RÉCIT.
-type RecitView = "announces" | "events" | "resolve";
+type RecitView = "announces" | "events" | "resolve" | "results";
 
 const phaseFr = (p: string) =>
   p === "free"
@@ -1673,6 +1674,7 @@ function RecitZone({
           announcements.length || undefined,
         )}
         {seg("events", <ScrollText className="size-3.5" />, "Journal", events.length || undefined)}
+        {seg("results", <Zap className="size-3.5" />, "Résultats")}
         {seg("resolve", <Calculator className="size-3.5" />, "Résol.")}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -1680,10 +1682,136 @@ function RecitZone({
           <RingTab announcements={announcements} game={game} gameId={gameId} players={players} />
         )}
         {view === "events" && <EventsTab events={events} players={players} roles={roles} />}
+        {view === "results" && <ResultsFeed gameId={gameId} players={players} roles={roles} />}
         {view === "resolve" && (
           <ResolveTab gameId={gameId} tour={game.current_tour} players={players} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Fil « Résultats » du MJ ──────────────────────────────────────────────
+// Miroir omniscient de ce que voient les joueurs : chaque capacité jouée est
+// rendue avec la MÊME carte que côté joueur (CapabilityCard → bloc résultat),
+// précédée d'un en-tête « acteur ». Lecture SEULE : aucune écriture, aucun
+// déclenchement — le mode sans MJ n'est en rien affecté. Le MJ a déjà le droit
+// (RLS) de lire toutes les lignes `role_actions` de sa partie.
+type ResultRow = {
+  id: string;
+  tour: number;
+  phase: string;
+  actor_player_id: string;
+  target_player_id: string | null;
+  target_player_id_2: string | null;
+  payload: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  created_at: string;
+};
+
+function ResultsFeed({
+  gameId,
+  players,
+  roles,
+}: {
+  gameId: string;
+  players: PlayerLite[];
+  roles: Map<string, RoleRow>;
+}) {
+  const [rows, setRows] = useState<ResultRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("role_actions")
+        .select(
+          "id, tour, phase, actor_player_id, target_player_id, target_player_id_2, payload, result, created_at",
+        )
+        .eq("game_id", gameId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (!cancelled) setRows((data ?? []) as ResultRow[]);
+    };
+    void load();
+    const ch = supabase
+      .channel(`mj-results-${gameId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "role_actions", filter: `game_id=eq.${gameId}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(ch);
+    };
+  }, [gameId]);
+
+  // CapabilityCard n'a besoin que de { id, pseudo, role_meta } pour les cibles.
+  const cardPlayers = useMemo(
+    () => players.map((p) => ({ id: p.id, pseudo: p.pseudo, role_meta: p.role_meta })),
+    [players],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-2">
+        <EmptyState
+          icon={<Zap className="size-6 mx-auto" />}
+          text="Aucune capacité jouée pour l'instant."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2 space-y-2.5">
+      {rows.map((r) => {
+        const actor = players.find((p) => p.id === r.actor_player_id);
+        const actorRole = actor ? roles.get(actor.role_slug ?? "") : undefined;
+        const actorMeta = (
+          actor?.role_meta && typeof actor.role_meta === "object" ? actor.role_meta : {}
+        ) as Record<string, unknown>;
+        const isItem = !!(r.payload as Record<string, unknown> | null)?.item;
+        return (
+          <div key={r.id}>
+            <div className="flex items-center gap-1.5 mb-1 px-0.5">
+              <AvatarImg
+                id={actor?.id}
+                avatar={avatarOf(
+                  actorMeta.avatar as string | undefined,
+                  actor?.id ?? r.actor_player_id,
+                )}
+                size={18}
+              />
+              <span
+                className="text-xs font-semibold truncate"
+                style={{ color: roleColor(actorRole ?? null) }}
+              >
+                {actor?.pseudo ?? "Joueur inconnu"}
+              </span>
+              {actorRole && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                  <RoleIcon role={actorRole} size={12} /> {actorRole.name_fr}
+                </span>
+              )}
+            </div>
+            <CapabilityCard
+              tour={r.tour}
+              phase={r.phase}
+              created_at={r.created_at}
+              payload={(r.payload ?? {}) as Record<string, unknown>}
+              result={r.result}
+              target_player_id={r.target_player_id}
+              target_player_id_2={r.target_player_id_2}
+              players={cardPlayers}
+              roles={roles}
+              kind={isItem ? "item" : "capability"}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2698,7 +2826,6 @@ function PlayerSheet({
 
   const meta = (player.role_meta as Record<string, unknown>) ?? {};
   const av = avatarOf(meta.avatar as string | undefined, player.id);
-  const name = (id: string | null) => (id ? (players.find((p) => p.id === id)?.pseudo ?? "?") : "");
   const factionColor = roleColor(role);
 
   const status = !player.is_alive
@@ -2941,41 +3068,24 @@ function PlayerSheet({
             (() => {
               const caps = acts.filter((a) => !(a.payload as Record<string, unknown>)?.item);
               const itemActs = acts.filter((a) => !!(a.payload as Record<string, unknown>)?.item);
+              // Même carte que côté joueur (bloc résultat via CapabilityCard),
+              // pour une lecture MJ identique à celle du joueur concerné.
               const renderRow = (a: (typeof acts)[number]) => {
-                const p = (a.payload ?? {}) as Record<string, unknown>;
-                const res = (a.result ?? {}) as Record<string, unknown>;
-                const summary =
-                  (res.summary as string | undefined) ??
-                  (res.message as string | undefined) ??
-                  (p.summary as string | undefined) ??
-                  (p.effect as string | undefined) ??
-                  (p.name as string | undefined) ??
-                  "action";
-                const t1 = name(a.target_player_id);
-                const t2 = name(a.target_player_id_2);
-                const tgt = t1 && t2 ? `→ ${t1} & ${t2}` : t1 ? `→ ${t1}` : "";
+                const isItem = !!(a.payload as Record<string, unknown> | null)?.item;
                 return (
-                  <li
-                    key={a.id}
-                    className="rounded-xl px-3 py-2 border-l-2"
-                    style={{
-                      background: "oklch(0.18 0.03 35 / 0.55)",
-                      borderColor: "oklch(0.30 0.04 35 / 0.55)",
-                      borderLeftColor: "oklch(0.78 0.16 75 / 0.6)",
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-gold font-mono text-[10px]">
-                        Tour {a.tour} · {phaseFr(a.phase)}
-                        {tgt ? ` · ${tgt}` : ""}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground tabular-nums">
-                        {new Date(a.created_at).toLocaleTimeString().slice(0, 5)}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-foreground/90 whitespace-pre-wrap text-xs">
-                      {colorize(summary, rolesMap)}
-                    </div>
+                  <li key={a.id}>
+                    <CapabilityCard
+                      tour={a.tour}
+                      phase={a.phase}
+                      created_at={a.created_at}
+                      payload={(a.payload ?? {}) as Record<string, unknown>}
+                      result={a.result}
+                      target_player_id={a.target_player_id}
+                      target_player_id_2={a.target_player_id_2}
+                      players={players}
+                      roles={rolesMap}
+                      kind={isItem ? "item" : "capability"}
+                    />
                   </li>
                 );
               };
