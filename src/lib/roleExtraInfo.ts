@@ -96,8 +96,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Les faux rôles sont du même genre que le vrai — un tueur est noyé parmi d'autres profils dangereux : le trio oriente sans prouver.",
           },
           {
-            tag: "L'Usurpateur te berne",
-            body: "L'Usurpateur ressort sous sa fausse couverture, jamais sous son vrai rôle.",
+            tag: "Tu perces les masques",
+            body: "Seul enquêteur à démasquer l'Usurpateur ET le Tueur : ils figurent sous leur vrai rôle dans ton trio, là où les autres enquêtes les prennent pour des Civils.",
           },
         ],
       },
@@ -176,8 +176,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Résultat vert : même camp. Rouge : camps opposés.",
           },
           {
-            tag: "Perce les masques",
-            body: "La Boussole lit la vraie faction : ni l'Usurpateur ni une falsification ne la trompent.",
+            tag: "Tu ne perces rien",
+            body: "Seul l'Assistant du détective démasque les déguisements. Pour toi, l'Usurpateur et le Tueur ressortent comme des Civils, et une cible falsifiée ne renvoie rien.",
           },
           {
             tag: "Piège des Neutres",
@@ -362,8 +362,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Chaque Neutre ressort « soupçons », même un rôle inoffensif (Oracle, Empoisonneur…). Suspect n'est pas Méchant.",
           },
           {
-            tag: "L'Usurpateur démasqué",
-            body: "Contrairement aux autres enquêtes, tu le vois sous son vrai jour, sans sa couverture.",
+            tag: "L'Usurpateur te berne",
+            body: "L'Usurpateur ressort sous sa couverture Civil : tu le vois « non-Méchant ». Seul l'Assistant du détective le démasque.",
           },
           {
             tag: "Faction, pas rôle",
@@ -579,8 +579,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Blanchi par la police",
-            body: "Le Policier te voit « non-Méchant » : un contrôle policier ne te démasque jamais.",
+            tag: "Camouflé en Citoyen",
+            body: "Toutes les enquêtes te prennent pour un Civil : Policier « non-Méchant », Boussole « même camp », Mouchard « Citoyen ». Seul l'Assistant du détective te voit sous ton vrai rôle.",
           },
           {
             tag: "La lame se transmet",
@@ -612,8 +612,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Toutes les enquêtes sur toi renvoient ce faux rôle — parfait pour te faire passer pour un Civil.",
           },
           {
-            tag: "Faille : le Policier",
-            body: "Le Policier, lui, te voit sous ton vrai jour. Méfie-toi de qui pourrait l'être.",
+            tag: "Faille : l'Assistant",
+            body: "L'Assistant du détective, lui, te voit sous ton vrai rôle — « L'Usurpateur » figure dans son trio. Méfie-toi de qui pourrait l'être.",
           },
         ],
       },

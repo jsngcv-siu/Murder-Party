@@ -224,12 +224,43 @@ function isFalsified(m: Meta): boolean {
 const FALSIFIED_MSG = "Le joueur a été falsifié";
 
 /**
+ * Slug du rôle APPARENT pour une enquête ordinaire : l'Usurpateur ressort sous sa
+ * COUVERTURE (`cover_slug`, un Civil). Le camouflage Tueur n'affecte pas le slug —
+ * il se gère au niveau du verdict/label par l'appelant (killer-class → innocent /
+ * « Citoyen »). Seul l'Assistant du détective ignore ce helper (il voit le vrai).
+ */
+function apparentSlug(slug: string | null | undefined, m: Meta): string {
+  const cover = m?.cover_slug;
+  return typeof cover === "string" ? cover : (slug ?? "");
+}
+
+/**
+ * Faction APPARENTE d'une cible pour une enquête ordinaire. Seul l'Assistant du
+ * détective perce les déguisements ; TOUT autre enquêteur (Boussole, etc.) voit :
+ *  - l'Usurpateur sous sa COUVERTURE (`cover_slug`, toujours un rôle Civil) ;
+ *  - un Tueur camouflé (killer-class) en CITOYEN → faction « Civil ».
+ * La falsification est traitée séparément, en amont (message dédié).
+ */
+function apparentFaction(
+  slug: string | null | undefined,
+  m: Meta,
+  rolesBySlug: Map<string, RoleRow>,
+): string | undefined {
+  const cover = m?.cover_slug;
+  if (typeof cover === "string") return rolesBySlug.get(cover)?.faction;
+  const role = rolesBySlug.get(slug ?? "");
+  if (role && isKillerClass(role)) return "Civil";
+  return role?.faction;
+}
+
+/**
  * Verdict binaire du Policier : « suspicieux » / « innocent » / « na ».
- * Source de vérité = texte du rôle Policier :
+ * Source de vérité = texte du rôle Policier. Reçoit le rôle APPARENT (l'appelant a
+ * déjà résolu la couverture de l'Usurpateur via `apparentSlug`) :
  *  - Les TUEURS Méchants sont MASQUÉS → non-suspects : Tueur, Croque-mitaine,
  *    Stratège ET Armurier (tout rôle faction Méchant + type TUEUR).
- *  - L'Usurpateur reste SUSPECT : son masquage ne trompe que les enquêtes qui
- *    révèlent un rôle (Assistant du détective, Mouchard), pas le verdict binaire.
+ *  - L'Usurpateur ressort sous sa couverture (un Civil) → non-suspect : seul
+ *    l'Assistant du détective le démasque.
  *  - Tous les autres acolytes Méchants et tous les Neutres → suspects.
  *  - Les autres Civils → non-suspects.
  *  - `override` (ex : Cuisinier ayant tué un Civil) est prioritaire.
@@ -3340,9 +3371,10 @@ export async function executeCapability(opts: {
       // ── Investigations ──
       // Détective & Assistant : trio par TYPE inter-faction.
       // On révèle le vrai rôle + 2 leurres de type compatible (toutes factions
-      // confondues selon le mapping). Le Tueur n'est PAS masqué ici (il l'est
-      // seulement pour Suspicieux/Innocents/Boussole). L'Usurpateur (cover_slug)
-      // reste masqué. La Falsification garde son message dédié.
+      // confondues selon le mapping). L'Assistant du détective est le SEUL rôle à
+      // percer les déguisements : le Tueur ressort sous son VRAI rôle (pas de
+      // camouflage Citoyen) et l'Usurpateur sous son VRAI rôle (cover_slug ignorée).
+      // Seule la Falsification l'aveugle (message dédié).
       case "assistant_du_detective": {
         if (!t1) return { ok: false, message: "Cible requise" };
         const target = opts.allPlayers.find((p) => p.id === t1.id);
@@ -3351,9 +3383,8 @@ export async function executeCapability(opts: {
           await used({ effect: "investigate_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        let trueSlug = target?.role_slug ?? "";
-        // Usurpateur cover : on enquête sur la couverture, pas sur le vrai rôle.
-        if (typeof tMeta.cover_slug === "string") trueSlug = tMeta.cover_slug as string;
+        // Vrai rôle, sans exception : couverture de l'Usurpateur volontairement ignorée.
+        const trueSlug = target?.role_slug ?? "";
         const trueRole = opts.rolesBySlug.get(trueSlug);
         const trueName = trueRole?.name_fr ?? "Citoyen";
 
@@ -3472,9 +3503,12 @@ export async function executeCapability(opts: {
           await used({ effect: "compare_falsified", t1: t1.id, t2: t2.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        const r1 = opts.rolesBySlug.get(t1.role_slug ?? "");
-        const r2 = opts.rolesBySlug.get(t2.role_slug ?? "");
-        const same = r1?.faction === r2?.faction;
+        // La Boussole ne perce aucun déguisement (seul l'Assistant du détective
+        // le fait) : l'Usurpateur ressort sous sa couverture Civil et le Tueur
+        // camouflé en Citoyen → il peut passer pour l'allié d'un vrai Civil.
+        const f1 = apparentFaction(t1.role_slug, m1, opts.rolesBySlug);
+        const f2 = apparentFaction(t2.role_slug, m2, opts.rolesBySlug);
+        const same = f1 === f2;
         await used({ effect: "compare", same });
         return { ok: true, message: same ? "Même camp" : "Camps opposés", reveal: { same } };
       }
@@ -3892,14 +3926,14 @@ export async function executeCapability(opts: {
           await used({ effect: "heir_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        // Investigation : apprend si la cible est suspicieuse ou non. Contrairement
-        // au Policier, l'Héritier conserve le verdict brut (police_verdict). MAIS il
-        // perce la couverture de l'Usurpateur (qui ressort suspect) — ce masquage ne
-        // trompe que les enquêtes qui révèlent un rôle, pas le verdict binaire.
+        // Investigation : apprend si la cible est suspicieuse ou non. L'Héritier ne
+        // perce PAS les déguisements (seul l'Assistant du détective le fait) :
+        // l'Usurpateur ressort sous sa couverture Civil (→ innocent) et le Tueur
+        // camouflé (killer-class → innocent). Sinon, verdict brut (police_verdict).
         const override = tMeta.police_verdict_override as "suspicious" | "innocent" | undefined;
-        const r = opts.rolesBySlug.get(t1.role_slug ?? "");
+        const r = opts.rolesBySlug.get(apparentSlug(t1.role_slug, tMeta));
         const verdict =
-          override ?? (t1.role_slug === "usurpateur" ? "suspicious" : (r?.police_verdict ?? "na"));
+          override ?? (r && isKillerClass(r) ? "innocent" : (r?.police_verdict ?? "na"));
         const isSuspect = verdict === "suspicious";
         await used({ effect: "heir_inquiry", target: t1.id, verdict });
         await notify({
@@ -4119,11 +4153,11 @@ export async function executeCapability(opts: {
         }
         // Override prioritaire (ex: Cuisinier ayant tué un Citoyen ressort suspect)
         const override = tMeta.police_verdict_override as "suspicious" | "innocent" | undefined;
-        // Le Policier PERCE les couvertures : il enquête sur le VRAI rôle (pas la
-        // couverture de l'Usurpateur via cover_slug). Verdict selon le texte du rôle
-        // (Tueur masqué, Usurpateur suspect, Boulets + Neutres suspects) → policierVerdict.
-        const trueRole = opts.rolesBySlug.get(t1.role_slug ?? "");
-        const verdict = policierVerdict(trueRole, override);
+        // Le Policier ne perce PAS les déguisements (seul l'Assistant du détective le
+        // fait) : l'Usurpateur ressort sous sa couverture Civil → « rien à signaler ».
+        // Le Tueur reste blanchi (killer-class → innocent dans policierVerdict).
+        const seenRole = opts.rolesBySlug.get(apparentSlug(t1.role_slug, tMeta));
+        const verdict = policierVerdict(seenRole, override);
         await used({ effect: "police", verdict });
         return {
           ok: true,
@@ -4331,10 +4365,13 @@ export async function executeCapability(opts: {
           });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        // Usurpateur : toutes les enquêtes renvoient à sa couverture (faux rôle).
-        const revealSlug = (meta(t1).cover_slug as string | undefined) ?? t1.role_slug ?? "";
+        // Déguisements (seul l'Assistant du détective les perce) : l'Usurpateur
+        // renvoie sa couverture (faux rôle Civil) et le Tueur camouflé ressort
+        // « Citoyen ». La falsification est déjà gérée au-dessus.
+        const cover = meta(t1).cover_slug as string | undefined;
+        const revealSlug = cover ?? t1.role_slug ?? "";
         const r = opts.rolesBySlug.get(revealSlug);
-        const label = r ? `${r.icon} ${r.name_fr}` : "?";
+        const label = !cover && r && isKillerClass(r) ? "Citoyen" : r ? `${r.icon} ${r.name_fr}` : "?";
         await used({ effect: "mouchard_reveal", target: t1.id, slug: revealSlug });
         await notify({
           gameId: opts.gameId,
