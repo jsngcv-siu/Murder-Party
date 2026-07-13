@@ -156,7 +156,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           },
           {
             tag: "L'ivresse gêne",
-            body: "Le joueur ivre a sa capacité perturbée le tour suivant. Utile aussi pour ralentir un suspect.",
+            body: "Le joueur ivre a sa capacité bloquée le tour suivant. Utile aussi pour ralentir un suspect.",
           },
         ],
       },
