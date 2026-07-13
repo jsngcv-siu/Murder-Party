@@ -23,9 +23,7 @@ const FACTION_COLOR: Record<string, string> = {
 
 export function roleColor(role: RoleRow | null | undefined): string {
   if (!role) return "var(--foreground)";
-  if (role.faction === "Civil") {
-    return role.type === "BOULET" ? "oklch(0.65 0.06 230)" : "var(--citoyens)";
-  }
+  if (role.faction === "Civil") return "var(--citoyens)";
   if (role.faction === "Méchant") return "var(--mechants)";
   if (role.slug === "vampire") return "var(--vampires)";
   if (role.faction === "Neutre") {

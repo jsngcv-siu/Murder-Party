@@ -21,7 +21,7 @@ const P = {
   // Précision du lynch : le vote vise le suspect n°1 de la ville. La proba
   // que ce suspect soit réellement un méchant émerge de l'info d'enquête.
   investigatorReliability: 0.8, // fiabilité d'une enquête (assistant/policier…)
-  coverReliabilityMalus: 0.45, // un méchant "couvert" (usurpateur/falsificateur/tueur camouflé) baisse la fiabilité à ce facteur
+  coverReliabilityMalus: 0.45, // un méchant "couvert" (usurpateur/tueur camouflé) baisse la fiabilité à ce facteur
   townCoordination: 0.75, // proba que la ville converge sur le suspect n°1 (sinon vote dispersé/aléatoire)
   baseSuspicionNoise: 0.15, // bruit social de départ
   // Kills
@@ -71,7 +71,7 @@ function weightedPick(items, wfn) {
 }
 
 // ─────────── ROSTER (reconstruit des migrations, état final) ───────────
-// faction: Civil|Méchant|Neutre ; type: PROTECTEUR|TUEUR|INVESTIGATION|SUPPORT|TROMPERIE|BOULET|MAL|CHAOS|BÉNIN
+// faction: Civil|Méchant|Neutre ; type: PROTECTEUR|TUEUR|INVESTIGATION|SUPPORT|TROMPERIE|MAL|CHAOS|BÉNIN
 // dw = draw_weight ; min = min_players
 const ROLES = [
   // — MÉCHANTS —
@@ -80,9 +80,6 @@ const ROLES = [
   { slug: "stratege", faction: "Méchant", type: "TUEUR", dw: 0.4, min: 8 },
   { slug: "usurpateur", faction: "Méchant", type: "TROMPERIE", dw: 0.7, min: 6, cover: true },
   { slug: "marionnettiste", faction: "Méchant", type: "TROMPERIE", dw: 0.6, min: 9 },
-  { slug: "voleur", faction: "Méchant", type: "TROMPERIE", dw: 1.0, min: 7 },
-  { slug: "accusateur", faction: "Méchant", type: "TROMPERIE", dw: 1.0, min: 7, frame: true },
-  { slug: "falsificateur", faction: "Méchant", type: "TROMPERIE", dw: 0.7, min: 7, cover: true },
   { slug: "cartomancien", faction: "Méchant", type: "INVESTIGATION", dw: 1.0, min: 7 },
   { slug: "mouchard", faction: "Méchant", type: "INVESTIGATION", dw: 1.0, min: 6 },
   { slug: "cleaner", faction: "Méchant", type: "SUPPORT", dw: 1.0, min: 7 },
@@ -129,7 +126,6 @@ const ROLES = [
   { slug: "imitateur", faction: "Neutre", type: "CHAOS", dw: 0.5, min: 8 },
   { slug: "vampire", faction: "Neutre", type: "CHAOS", dw: 0.35, min: 7, vampire: true },
   { slug: "parieur_tricheur", faction: "Neutre", type: "CHAOS", dw: 0.5, min: 8, gambler: true },
-  { slug: "conservateur", faction: "Neutre", type: "CHAOS", dw: 0.7, min: 7, curator: true },
   { slug: "empoisonneur", faction: "Neutre", type: "MAL", dw: 1.0, min: 7, poisoner: true },
   { slug: "heritier_dechu", faction: "Neutre", type: "MAL", dw: 0.6, min: 8, heir: true },
   { slug: "veuve_noire", faction: "Neutre", type: "MAL", dw: 0.6, min: 8, widow: true },
@@ -158,21 +154,18 @@ const CIVIL_QUOTAS = {
     PROTECTEUR: [0, 1],
     TUEUR: [0, 1],
     SUPPORT: [1, 2],
-    BOULET: [0, 0],
   },
   mid: {
     INVESTIGATION: [2, 2],
     PROTECTEUR: [1, 1],
     TUEUR: [1, 1],
     SUPPORT: [1, 2],
-    BOULET: [0, 1],
   },
   large: {
     INVESTIGATION: [2, 3],
     PROTECTEUR: [1, 2],
     TUEUR: [1, 1],
     SUPPORT: [2, 2],
-    BOULET: [0, 1],
   },
 };
 function acolytesCountFor(n) {
@@ -413,7 +406,7 @@ function runInvestigations(players, cycle) {
     const t = chance(0.6) ? cand[0] : pick(cand);
     let reliability =
       (typeof inv.role.invest === "number" ? inv.role.invest : 1) * P.investigatorReliability;
-    // couverture méchante : usurpateur/falsificateur/tueur camouflé réduisent la fiabilité
+    // couverture méchante : usurpateur/tueur camouflé réduisent la fiabilité
     // RÈGLE LIVRÉE : le Policier PERCE les couvertures (verdict binaire sur le vrai rôle).
     if (
       inv.slug !== "policier" &&
@@ -445,11 +438,6 @@ function runInvestigations(players, cycle) {
         t.suspByTown += 0.3;
       }
     }
-  }
-  // accusateur (méchant) : monte la suspicion d'un civil
-  for (const acc of players.filter((p) => p.alive && p.free && p.role.frame)) {
-    const civs = players.filter((p) => p.alive && p.free && p.faction === "Civil");
-    if (civs.length) pick(civs).suspByTown += 0.4;
   }
   // léger bruit
   for (const t of targets) t.suspByTown += (srand() - 0.5) * P.baseSuspicionNoise;
@@ -573,12 +561,6 @@ function succession(players) {
 }
 
 function neutralActions(players, cycle) {
-  // Conservateur : ~2 distributions de relique/cycle, 5 % = Cœur du Manoir → victoire immédiate.
-  const cons = players.find((p) => p.alive && p.free && p.slug === "conservateur");
-  if (cons) {
-    const draws = 2; // 1×/phase libre + 1×/rassemblement
-    for (let d = 0; d < draws; d++) if (chance(0.05)) return { winner: "conservateur" };
-  }
   // Imitateur : se transforme en le dernier mort (hérite faction/slug) dès qu'un mort existe.
   const imi = players.find((p) => p.alive && p.free && p.slug === "imitateur" && !p.transformed);
   if (imi && cycle >= 2) {
@@ -720,7 +702,7 @@ function classifyWinner(win, players) {
   if (w === "Vampires") return "Neutre:vampire";
   if (w === "Amoureux") return "Neutre:entremetteur";
   if (
-    ["veuve_noire", "parieur_tricheur", "empoisonneur", "conservateur", "heritier_dechu"].includes(
+    ["veuve_noire", "parieur_tricheur", "empoisonneur", "heritier_dechu"].includes(
       w,
     )
   )
@@ -770,9 +752,6 @@ function runBatch(n, games) {
           break;
         case "parieur_tricheur":
           won = winner === "parieur_tricheur";
-          break;
-        case "conservateur":
-          won = winner === "conservateur";
           break;
         case "heritier_dechu":
           won = winner === "Méchants" && p.alive && p.free;

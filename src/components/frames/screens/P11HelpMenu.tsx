@@ -15,7 +15,6 @@ import {
   Search,
   Heart,
   VenetianMask,
-  Anchor,
   Skull,
   Flame,
   Smile,
@@ -485,14 +484,14 @@ const NEUTRE_SOUSCAMPS: {
     color: "oklch(0.80 0.12 300)",
     label: "Solitaires",
     goal: "Remplissent un objectif personnel et pacifique — sans tuer.",
-    ex: "Conservateur, Pèlerin, Oracle, Ange Gardien…",
+    ex: "Oracle, Entremetteur…",
   },
   {
     Icon: VenetianMask,
     color: "var(--vampires)",
     label: "Subversifs",
     goal: "Convertissent ou infectent la table pour la retourner à leur cause.",
-    ex: "Vampire, Mort-Vivant, Empoisonneur…",
+    ex: "Vampire, Empoisonneur, Veuve noire…",
   },
   {
     Icon: Swords,
@@ -1135,12 +1134,6 @@ const TYPE_LEGEND: { Icon: LucideIcon; color: string; label: string; desc: strin
   { Icon: Skull, color: "oklch(0.55 0.20 22)", label: "Mal", desc: "Pouvoirs malveillants." },
   { Icon: Flame, color: "oklch(0.75 0.18 50)", label: "Chaos", desc: "Sème le désordre." },
   {
-    Icon: Anchor,
-    color: "oklch(0.60 0.06 230)",
-    label: "Boulet",
-    desc: "Encombrant — complique la partie.",
-  },
-  {
     Icon: Smile,
     color: "oklch(0.70 0.14 150)",
     label: "Bénin",
@@ -1366,7 +1359,6 @@ function RolePopup({
     INVESTIGATION: { icon: Search, color: "oklch(0.65 0.14 220)" },
     SUPPORT: { icon: Heart, color: "oklch(0.75 0.12 20)" },
     TROMPERIE: { icon: VenetianMask, color: "oklch(0.65 0.12 300)" },
-    BOULET: { icon: Anchor, color: "oklch(0.60 0.06 230)" },
     MAL: { icon: Skull, color: "oklch(0.55 0.20 22)" },
     CHAOS: { icon: Flame, color: "oklch(0.75 0.18 50)" },
     BÉNIN: { icon: Smile, color: "oklch(0.70 0.14 150)" },
@@ -1553,7 +1545,6 @@ const OBJ_ACCENT: Record<string, string> = {
   fiole_clairvoyance: "oklch(0.70 0.15 300)",
   couteau: "oklch(0.65 0.16 30)",
   lettre: "oklch(0.74 0.13 300)",
-  relique: "oklch(0.80 0.14 75)",
 };
 
 function CatalogCard({

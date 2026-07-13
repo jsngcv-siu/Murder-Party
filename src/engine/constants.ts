@@ -43,21 +43,18 @@ const CIVIL_QUOTAS: Record<"small" | "mid" | "large", FactionQuotas> = {
     PROTECTEUR: { min: 0, max: 1 },
     TUEUR: { min: 0, max: 1 },
     SUPPORT: { min: 1, max: 2 },
-    BOULET: { min: 0, max: 0 },
   },
   mid: {
     INVESTIGATION: { min: 2, max: 2 },
     PROTECTEUR: { min: 1, max: 1 },
     TUEUR: { min: 1, max: 1 },
     SUPPORT: { min: 1, max: 2 },
-    BOULET: { min: 0, max: 1 },
   },
   large: {
     INVESTIGATION: { min: 2, max: 3 },
     PROTECTEUR: { min: 1, max: 2 },
     TUEUR: { min: 1, max: 1 },
     SUPPORT: { min: 2, max: 2 },
-    BOULET: { min: 0, max: 1 },
   },
 };
 

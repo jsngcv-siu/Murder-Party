@@ -123,19 +123,6 @@ const THEMES: Record<string, VictoryTheme> = {
     headerBg: "linear-gradient(to bottom, oklch(0.33 0.14 88 / 0.5), transparent)",
     motion: "fall",
   },
-  Conservateur: {
-    title: "Le Conservateur garde le Manoir",
-    accent: "oklch(0.80 0.15 70)",
-    accentSoft: "oklch(0.80 0.15 70 / 0.16)",
-    titleColor: "oklch(0.86 0.16 72)",
-    pageBg: "radial-gradient(ellipse at top, oklch(0.24 0.10 55 / 0.7), oklch(0.06 0.03 38) 74%)",
-    headerBg: "linear-gradient(to bottom, oklch(0.30 0.13 55 / 0.6), transparent)",
-    motion: "float",
-    pulse: "breathe",
-    glow: "oklch(0.78 0.16 72 / 0.45)",
-    vignette: "oklch(0.05 0.04 40)",
-    particleCount: 20,
-  },
 };
 
 function themeFor(winner: string): VictoryTheme {
@@ -167,8 +154,6 @@ function emblemRolesFor(winner: string, roles: Map<string, RoleRow>): RoleRow[] 
       return pick("veuve_noire");
     case "Parieur tricheur":
       return pick("parieur_tricheur");
-    case "Conservateur":
-      return pick("conservateur");
     case "Neutres":
       return ofFaction("Neutre");
     default: {
@@ -265,12 +250,6 @@ function computeGroups(
       mainTone = "text-yellow-300";
       const v = real.filter((p) => p.role_slug === "parieur_tricheur");
       if (v.length) groups.push({ label: "Le Parieur Tricheur", players: v, tone: mainTone });
-      break;
-    }
-    case "Conservateur": {
-      mainTone = "text-amber-300";
-      const v = real.filter((p) => p.role_slug === "conservateur");
-      if (v.length) groups.push({ label: "Le Conservateur", players: v, tone: mainTone });
       break;
     }
     default: {
@@ -372,7 +351,7 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
         ease: "back.out(1.7)",
       });
 
-      // Halo pulsant derrière l'emblème (ambiances renforcées : Vampires, Conservateur).
+      // Halo pulsant derrière l'emblème (ambiances renforcées : Vampires…).
       const glowEl = root.querySelector<HTMLElement>(".vic-glow");
       if (glowEl && theme.pulse === "heartbeat") {
         // Double battement type cœur, puis pause — sinistre.

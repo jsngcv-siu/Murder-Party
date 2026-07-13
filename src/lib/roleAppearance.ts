@@ -122,7 +122,7 @@ export function computeRoleFrequency(role: RoleRow, all: RoleRow[]): RoleFrequen
     };
   }
   // Cas spécial : Le Tueur classique est presence=MUST mais partage désormais le slot
-  // Tueur méchant avec Croque-mitaine et Armurier (tirage pondéré). On calcule sa fréquence réelle.
+  // Tueur méchant avec Croque-mitaine et Stratège (tirage pondéré). On calcule sa fréquence réelle.
   if (role.presence === "MUST" && !(role.faction === "Méchant" && role.type === "TUEUR")) {
     return {
       level: "always",

@@ -6,6 +6,16 @@ import { getMeta } from "./roleMeta";
 export type Winner = string | null;
 export type WinResult = { winner: Winner; reason: string };
 
+/**
+ * Neutre « bénin » : ne bloque pas la victoire des Civils et peut gagner avec
+ * n'importe quel camp. Source de vérité : drapeau `is_benign` en base ; repli
+ * sur l'ancienne logique type BÉNIN tant que la migration n'est pas appliquée.
+ */
+export function isBenignRole(r: { type?: string | null; is_benign?: boolean | null }): boolean {
+  if (r.is_benign != null) return r.is_benign;
+  return (r.type ?? "").toUpperCase() === "BÉNIN";
+}
+
 async function cancelUnresolvedDeferredIntents(gameId: string, result: WinResult): Promise<void> {
   const endedAt = new Date().toISOString();
   const resolution = {
@@ -116,7 +126,7 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const isBlockingNeutre = (p: PlayerRow) => {
     const r = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
     if (!r || r.faction !== "Neutre") return false;
-    if ((r.type ?? "").toUpperCase() === "BÉNIN") return false;
+    if (isBenignRole(r)) return false;
     if (p.role_slug === "vampire") return false;
     // Chasseur de Vampire : allié des Civils, il ne bloque pas leur victoire (il gagne avec eux).
     if (p.role_slug === "chasseur_de_vampire") return false;
@@ -128,10 +138,10 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
     }
     return true;
   };
-  // Neutre BÉNIN (ex : Oracle) — peut gagner avec n'importe quelle faction, ne bloque personne.
+  // Neutre bénin (ex : Oracle) — peut gagner avec n'importe quelle faction, ne bloque personne.
   const isBenignNeutre = (p: PlayerRow) => {
     const r = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
-    return r?.faction === "Neutre" && (r?.type ?? "").toUpperCase() === "BÉNIN";
+    return r?.faction === "Neutre" && isBenignRole(r);
   };
 
   const mechantsAlive = alive.filter(isMechant).length;
@@ -219,8 +229,8 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   }
 
   // ── FILET anti-blocage : un·e SEUL·E survivant·e libre = fin de partie.
-  // Certains neutres bloquants (empoisonneur sans cible à empoisonner, imitateur,
-  // conservateur…) ne satisfont aucune condition ci-dessus : restés seuls, ils
+  // Certains neutres bloquants (empoisonneur sans cible à empoisonner,
+  // imitateur…) ne satisfont aucune condition ci-dessus : restés seuls, ils
   // laissaient evaluateWin renvoyer null indéfiniment → la partie tournait sans
   // jamais se clore (tours à rallonge). S'il ne reste qu'une personne en vie et
   // libre, tous les autres camps ont disparu : elle a gagné, quel que soit son rôle.
@@ -250,7 +260,6 @@ const LONE_WINNER_LABEL: Record<string, string> = {
   empoisonneur: "Empoisonneur",
   veuve_noire: "Veuve noire",
   parieur_tricheur: "Parieur tricheur",
-  conservateur: "Conservateur",
 };
 
 export async function checkAndEndGame(gameId: string): Promise<WinResult | null> {

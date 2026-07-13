@@ -621,10 +621,7 @@ function DemoMenu() {
     if (!role) return "var(--muted-foreground)";
     const f = role.faction;
     const t = role.type ?? "";
-    if (f === "Civil") {
-      // "boulet" = civil moins fiable → bleu moins saturé
-      return role.type === "BOULET" ? "oklch(0.65 0.06 230)" : "var(--citoyens)";
-    }
+    if (f === "Civil") return "var(--citoyens)";
     if (f === "Méchant") return "var(--mechants)";
     if (f === "Neutre") {
       // Neutre Subversif → violet vif ; autres neutres → violet pastel
@@ -636,7 +633,7 @@ function DemoMenu() {
   // Ordre de tri : MJ d'abord, puis par faction (Citoyens → Méchants → Vampires → Neutres → sans rôle), puis pseudo.
   const factionOrder = (r: RoleRow | null): number => {
     if (!r) return 99;
-    if (r.faction === "Civil") return r.type === "BOULET" ? 2 : 1;
+    if (r.faction === "Civil") return 1;
     if (r.faction === "Méchant") return 3;
     if (r.slug === "vampire") return 4;
     if (r.faction === "Neutre") return /subversif/i.test(r.type ?? "") ? 5 : 6;
@@ -917,11 +914,6 @@ function DemoMenu() {
                     >
                       <RoleIcon role={r} size={16} />
                       <span className="font-medium">{r.name_fr}</span>
-                      {r.type === "BOULET" && (
-                        <span className="ml-auto text-[9px] uppercase tracking-wider text-muted-foreground">
-                          boulet
-                        </span>
-                      )}
                     </div>
                   ))}
               </div>
@@ -1221,13 +1213,7 @@ function DemoMenu() {
             {
               label: "Civils",
               items: all
-                .filter((r) => r.faction === "Civil" && r.type !== "BOULET")
-                .sort((a, b) => a.name_fr.localeCompare(b.name_fr)),
-            },
-            {
-              label: "Boulets (Civils)",
-              items: all
-                .filter((r) => r.faction === "Civil" && r.type === "BOULET")
+                .filter((r) => r.faction === "Civil")
                 .sort((a, b) => a.name_fr.localeCompare(b.name_fr)),
             },
             {

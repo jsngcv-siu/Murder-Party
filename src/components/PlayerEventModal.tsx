@@ -109,7 +109,7 @@ export function PlayerEventModal({
       const attackerSlug = attackerId ? (playersById.get(attackerId)?.role_slug ?? null) : null;
       // Mapping des raisons "rôle" : on essaie d'abord le slug de l'attaquant
       // (cas direct : tueur, croque-mitaine, vengeur, etc.), puis l'origine
-      // de l'arme (cas couteau de l'Armurier).
+      // de l'arme (couteau du Cuisinier / Vengeur / Stratège).
       let byRoleSlug: string | null = null;
       if (isExecution) byRoleSlug = "executeur";
       else if (weaponFromSlug) byRoleSlug = weaponFromSlug;

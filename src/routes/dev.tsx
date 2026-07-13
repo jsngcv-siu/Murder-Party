@@ -95,11 +95,6 @@ const PREVIEW_INVENTORY: Item[] = [
   previewItem("fiole_mort", "Fiole de mort", "Civil", { from: "Apothicairerie" }),
   previewItem("fiole_vie", "Fiole de vie", "Civil", { from: "Apothicairerie" }),
   previewItem("fiole_clairvoyance", "Fiole de clairvoyance", "Civil"),
-  previewItem("relique", "Le Cœur du Manoir", "Neutre", { variant: "coeur_du_manoir" }),
-  previewItem("relique", "L'Œil de la Damnation", "Neutre", { variant: "oeil_damnation" }),
-  previewItem("relique", "Le Médaillon du Vieux Maître", "Neutre", {
-    variant: "medaillon_vieux_maitre",
-  }),
   previewItem("lettre", "Lettre anonyme à envoyer", null),
   // ── Consultable ──
   previewItem("indice", "Indice — Lettre déchirée, moitié gauche", "Système", {
@@ -107,18 +102,10 @@ const PREVIEW_INVENTORY: Item[] = [
   }),
   previewItem("indice", "Indice — Le majordome n'a pas d'alibi", "Système"),
   previewItem("indice", "Indice — Un Civil se cache parmi les invités", "Système"),
-  previewItem("relique", "Le Portrait de la Dame Blanche", "Neutre", {
-    variant: "portrait_dame_blanche",
-  }),
-  previewItem("relique", "La poupée du grenier", "Neutre", { variant: "poupee_grenier" }),
   previewItem("lettre", "Lettre déjà envoyée", null, { payload: { sent: true } }),
   // ── Classés ──
   previewItem("couteau", "Couteau", "Méchant", { consumed: true }),
   previewItem("fiole_vie", "Fiole de vie", "Civil", { consumed: true }),
-  previewItem("relique", "La Lettre Scellée", "Neutre", {
-    variant: "lettre_scellee",
-    consumed: true,
-  }),
 ];
 
 function baseGame(over: Partial<GameRow> = {}): GameRow {
@@ -183,12 +170,12 @@ const CAST: CastSpec[] = [
   { pseudo: "Ivo", slugs: ["entremetteur"], faction: "Neutre" },
   {
     pseudo: "Jin",
-    slugs: ["assistant_du_detective", "journaliste", "policier"],
+    slugs: ["assistant_du_detective", "policier"],
     faction: "Civil",
     imprisoned: true,
     meta: { imprisoned_since_cycle: 2 },
   },
-  { pseudo: "Kya", slugs: ["medium", "voyante"], faction: "Civil" },
+  { pseudo: "Kya", slugs: ["medium"], faction: "Civil" },
   { pseudo: "Léo", slugs: ["chasseur_de_vampire"], faction: "Neutre" },
 ];
 
@@ -613,7 +600,6 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     ["Empoisonneur", "Victoire — Empoisonneur"],
     ["Veuve noire", "Victoire — Veuve noire"],
     ["Parieur tricheur", "Victoire — Parieur tricheur"],
-    ["Conservateur", "Victoire — Conservateur"],
   ];
   for (const [winner, label] of winners) {
     add({

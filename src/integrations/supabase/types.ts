@@ -518,8 +518,12 @@ export type Database = {
           icon: string;
           image_url: string | null;
           instruction_verb: string;
+          is_benign: boolean | null;
           is_disabled: boolean;
+          is_hostile: boolean | null;
+          is_killer_class: boolean | null;
           is_special: boolean;
+          mechanic: string | null;
           min_players: number;
           name_fr: string;
           phase_activation: string;
@@ -547,8 +551,12 @@ export type Database = {
           icon: string;
           image_url?: string | null;
           instruction_verb?: string;
+          is_benign?: boolean | null;
           is_disabled?: boolean;
+          is_hostile?: boolean | null;
+          is_killer_class?: boolean | null;
           is_special?: boolean;
+          mechanic?: string | null;
           min_players?: number;
           name_fr: string;
           phase_activation: string;
@@ -576,8 +584,12 @@ export type Database = {
           icon?: string;
           image_url?: string | null;
           instruction_verb?: string;
+          is_benign?: boolean | null;
           is_disabled?: boolean;
+          is_hostile?: boolean | null;
+          is_killer_class?: boolean | null;
           is_special?: boolean;
+          mechanic?: string | null;
           min_players?: number;
           name_fr?: string;
           phase_activation?: string;
