@@ -879,39 +879,11 @@ function ReadyChecklist({
   phase: string;
   onSelect: (id: string) => void;
 }) {
-  const [nudged, setNudged] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(true);
   const pending = expectedActors.filter((p) => !acted.has(p.id));
   const doneCount = expectedActors.length - pending.length;
   const pct =
     expectedActors.length === 0 ? 100 : Math.round((doneCount / expectedActors.length) * 100);
-
-  async function nudge(p: PlayerLite) {
-    if (nudged.has(p.id)) return;
-    setNudged((s) => new Set(s).add(p.id));
-    const { error } = await supabase.from("notifications").insert({
-      game_id: gameId,
-      player_id: p.id,
-      type: "mj_nudge",
-      title: "⏰ Le Détective t'attend",
-      body: "L'Enquête se termine bientôt — pense à utiliser ta capacité.",
-      payload: { tour, phase, nudge: true } as never,
-    });
-    if (error) {
-      toast.error("Relance impossible");
-      setNudged((s) => {
-        const n = new Set(s);
-        n.delete(p.id);
-        return n;
-      });
-    } else {
-      toast.success(`⏰ ${p.pseudo} relancé`);
-    }
-  }
-
-  async function nudgeAll() {
-    for (const p of pending) await nudge(p);
-  }
 
   return (
     <section>
@@ -957,14 +929,6 @@ function ReadyChecklist({
 
         {open && (
           <div className="px-2 pb-2.5 space-y-1">
-            {pending.length > 1 && (
-              <button
-                onClick={() => void nudgeAll()}
-                className="w-full mb-1 text-[10px] uppercase tracking-wider py-1.5 rounded-lg border border-amber-400/40 text-amber-300 hover:bg-amber-500/10 transition"
-              >
-                Relancer tous les retardataires
-              </button>
-            )}
             {expectedActors.map((p) => {
               const r = roles.get(p.role_slug ?? "");
               const m = (p.role_meta ?? {}) as Record<string, unknown>;
@@ -998,13 +962,9 @@ function ReadyChecklist({
                       ✓ a joué
                     </span>
                   ) : (
-                    <button
-                      onClick={() => void nudge(p)}
-                      disabled={nudged.has(p.id)}
-                      className="shrink-0 text-[9px] px-2 py-0.5 rounded-full border border-amber-400/50 text-amber-300 hover:bg-amber-500/15 disabled:opacity-40 transition"
-                    >
-                      {nudged.has(p.id) ? "relancé" : "relancer"}
-                    </button>
+                    <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/40">
+                      en attente
+                    </span>
                   )}
                 </div>
               );

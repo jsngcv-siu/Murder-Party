@@ -9,7 +9,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
@@ -148,16 +147,6 @@ export function PlayerEventModal({
 
   const enqueue = (row: NotificationRow) => {
     if (seenRef.current.has(row.id)) return;
-    // Le « nudge » du MJ est volontairement discret : un toast, pas une modale bloquante.
-    if (row.type === "mj_nudge") {
-      seenRef.current.add(row.id);
-      persistSeen();
-      toast(row.title ?? "Le Détective t'attend", {
-        description: row.body ?? undefined,
-        duration: 5000,
-      });
-      return;
-    }
     const ev = resolveEvent(row);
     if (!ev) return;
     seenRef.current.add(row.id);
@@ -174,7 +163,7 @@ export function PlayerEventModal({
         .select("id, type, title, body, payload, created_at")
         .eq("game_id", game.id)
         .eq("player_id", me.id)
-        .in("type", ["death", "imprisoned", "released", "bitten", "vampire_bite", "mj_nudge"])
+        .in("type", ["death", "imprisoned", "released", "bitten", "vampire_bite"])
         .order("created_at", { ascending: true });
       if (cancelled) return;
       const rows = (data ?? []) as NotificationRow[];
