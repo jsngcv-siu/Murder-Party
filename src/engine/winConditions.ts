@@ -260,6 +260,7 @@ const LONE_WINNER_LABEL: Record<string, string> = {
   empoisonneur: "Empoisonneur",
   veuve_noire: "Veuve noire",
   parieur_tricheur: "Parieur tricheur",
+  conservateur: "Conservateur",
 };
 
 export async function checkAndEndGame(gameId: string): Promise<WinResult | null> {

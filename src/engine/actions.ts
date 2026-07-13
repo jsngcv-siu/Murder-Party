@@ -196,8 +196,10 @@ export const SCHEDULES_NEXT_TOUR = new Set<string>([
   "maitre_chanteur",
   "barman",
   "babysitter",
+  "accusateur",
   "veuve_noire",
   "marionnettiste",
+  "falsificateur",
 ]);
 
 /**
@@ -215,11 +217,17 @@ export function allowedActivePhases(_role: RoleRow): Set<Phase> {
   return new Set<Phase>(["free"]);
 }
 
+/** Renvoie true si la cible est falsifiée (flag posé par le Falsificateur, permanent). */
+function isFalsified(m: Meta): boolean {
+  return m?.falsified === true;
+}
+const FALSIFIED_MSG = "Le joueur a été falsifié";
+
 /**
  * Verdict binaire du Policier : « suspicieux » / « innocent » / « na ».
  * Source de vérité = texte du rôle Policier :
  *  - Les TUEURS Méchants sont MASQUÉS → non-suspects : Tueur, Croque-mitaine,
- *    Stratège (tout rôle faction Méchant + type TUEUR).
+ *    Stratège ET Armurier (tout rôle faction Méchant + type TUEUR).
  *  - L'Usurpateur reste SUSPECT : son masquage ne trompe que les enquêtes qui
  *    révèlent un rôle (Assistant du détective, Mouchard), pas le verdict binaire.
  *  - Tous les autres acolytes Méchants et tous les Neutres → suspects.
@@ -243,6 +251,9 @@ export function policierVerdict(
 
 /** Nombre d'utilisations autorisées par tour pour les rôles "per cycle". */
 function perCycleLimit(role: RoleRow): number {
+  // Conservateur : ses 2 distributions de reliques se jouent désormais en Enquête
+  // (auparavant 1× phase libre + 1× rassemblement) → 2×/tour, même phase.
+  if (role.slug === "conservateur") return 2;
   const m = (role.usage_label ?? "").match(/(\d+)\s*×\s*\/\s*(tour|phase\s*libre|enqu[eê]te)/i);
   if (m) return parseInt(m[1], 10);
   return 1;
@@ -469,7 +480,7 @@ export async function drawRoles(
   const slugs: string[] = [];
 
   // ─── Tueur méchant principal (1 seul par partie, pondéré par draw_weight) ───
-  // Le Tueur classique a un poids dominant ; Croque-mitaine / Stratège sont des alternatives plus rares.
+  // Le Tueur classique a un poids dominant ; Croque-mitaine / Armurier sont des alternatives plus rares.
   const tueurs = eligible.filter((r) => r.faction === "Méchant" && isKillerClass(r));
   if (tueurs.length === 0) throw new Error("Aucun Tueur disponible (seed roles).");
   const [leTueur] = weightedDraw(tueurs, 1);
@@ -981,6 +992,30 @@ async function applySetupEffects(gameId: string) {
     }
   }
 
+  // Paranoïaque → cible aléatoire (toutes factions confondues), à protéger OU tuer 1× dans la partie.
+  const parano = ofSlug("paranoiaque");
+  if (parano) {
+    const others = alive.filter((p) => p.id !== parano.id);
+    const tgt = others[Math.floor(Math.random() * others.length)];
+    if (tgt) {
+      await patchMeta(parano.id, {
+        paranoid_target_id: tgt.id,
+        paranoid_target_pseudo: tgt.pseudo,
+      });
+      const body = `Ta cible : ${tgt.pseudo}. À toi de deviner s'il est de ton côté. 1× dans la partie : protège-le ou tue-le.`;
+      await notify({
+        gameId,
+        playerId: parano.id,
+        type: "paranoid_target",
+        title: "🎯 Ta cible",
+        body,
+        mjTitle: "🎯 Paranoïaque",
+        mjBody: `${parano.pseudo} (Paranoïaque) surveille ${tgt.pseudo}.`,
+      });
+      await logSetup(parano.id, body, { targetId: tgt.id, effect: "paranoid_target" });
+    }
+  }
+
   // Mouchard → notif d'activation (capacité active en Enquête : choisir 1 joueur).
   const mouchard = ofSlug("mouchard");
   if (mouchard) {
@@ -1110,6 +1145,25 @@ async function applySetupEffects(gameId: string) {
         payload: { apo_own: true },
       }),
     );
+  }
+
+  // Conservateur → ne reçoit RIEN au setup. Il distribuera les reliques à d'autres
+  // joueurs via sa capacité active (2×/Enquête). S'il distribue Le Cœur du
+  // Manoir, la partie se termine immédiatement avec une victoire spéciale.
+  const conserv = ofSlug("conservateur");
+  if (conserv) {
+    const body =
+      "Deux fois par Enquête, désigne un joueur : il recevra une relique maudite au hasard. Tu gagnes si Le Cœur du Manoir est distribué.";
+    await notify({
+      gameId,
+      playerId: conserv.id,
+      type: "conservateur_setup",
+      title: "🗝️ Conservateur — éveillé",
+      body,
+      mjTitle: "🗝️ Conservateur",
+      mjBody: `${conserv.pseudo} (Conservateur) distribue des reliques aux autres joueurs.`,
+    });
+    await logSetup(conserv.id, body, { effect: "conservateur_setup" });
   }
 }
 
@@ -1433,6 +1487,28 @@ async function autoPickMouchard(gameId: string, tour: number): Promise<void> {
   const newLast = { ...((m.last_use as Record<string, number> | undefined) ?? {}), mouchard: tour };
   await patchMeta(mouchard.id, { uses: newUses, last_use: newLast });
 
+  const tMeta = meta(t1);
+  if (isFalsified(tMeta)) {
+    await supabase.from("role_actions").insert({
+      game_id: gameId,
+      actor_player_id: mouchard.id,
+      tour,
+      phase: "free",
+      target_player_id: t1.id,
+      payload: { effect: "mouchard_falsified", auto: true, target: t1.id } as never,
+      result: { message: FALSIFIED_MSG, summary: FALSIFIED_MSG } as never,
+    });
+    await notify({
+      gameId,
+      playerId: mouchard.id,
+      type: "mouchard_reveal",
+      title: "📢 Mouchard (auto)",
+      body: `Cible auto : ${t1.pseudo}. ${FALSIFIED_MSG}.`,
+      mjTitle: "📢 Mouchard auto",
+      mjBody: `${mouchard.pseudo} (Mouchard) → cible auto ${t1.pseudo} — piste falsifiée.`,
+    });
+    return;
+  }
   const { data: rs } = await supabase.from("roles").select().eq("set_id", "set1");
   const rolesBySlug = new Map<string, RoleRow>();
   for (const r of (rs ?? []) as RoleRow[]) rolesBySlug.set(r.slug, r);
@@ -2996,6 +3072,10 @@ export async function executeCapability(opts: {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (t1.id === actor.id)
           return { ok: false, message: "Tu dois surveiller un autre joueur." };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "guetteur_watch_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         const history = {
           ...((m.guetteur_watch_history ?? {}) as Record<
             string,
@@ -3112,6 +3192,43 @@ export async function executeCapability(opts: {
         };
       }
 
+      // ── Armurier : 1×/Enquête. Remet anonymement un couteau à un joueur vivant.
+      // Le porteur ignore l'identité du donneur. Le kill par couteau est résolu au
+      // à la prochaine Annonce (mécanique standard de l'objet couteau).
+      case "armurier": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (!t1.is_alive) return { ok: false, message: "Cible morte" };
+        const { grantItem, buildItem } = await import("./items");
+        await grantItem(
+          t1.id,
+          buildItem("couteau", {
+            from: "Inconnu",
+            originFaction: "Méchant",
+            nameOverride: "Couteau de l'Armurier",
+            descriptionOverride:
+              "Un couteau anonyme remis par l'Armurier apparaît dans ton inventaire. Tu peux l'utiliser une fois pour tuer un joueur — résolu à la prochaine Annonce.",
+            // `gifted_by_id` : permet de notifier l'Armurier quand SON couteau est
+            // utilisé (cf. useItem, case "couteau"). Reste invisible au porteur.
+            payload: {
+              mechant_origin: true,
+              gifted_by_id: actor.id,
+              gifted_by_pseudo: actor.pseudo,
+            },
+          }),
+        );
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "anon_gift",
+          title: "🗡️ Un couteau apparaît",
+          body: "Tu trouves un couteau dans ton inventaire. Tu ignores qui te l'a remis. Utilisable une fois pour tuer.",
+          mjTitle: "🗡️ Armurier — livraison",
+          mjBody: `${actor.pseudo} (Armurier) remet anonymement un couteau à ${t1.pseudo}.`,
+        });
+        await used({ effect: "armurier_gift", target_pseudo: t1.pseudo });
+        return { ok: true, message: `Un couteau a été remis anonymement à ${t1.pseudo}.` };
+      }
+
       // ── Empoisonneur : 1×/Enquête. Malédiction permanente, NON LÉTALE.
       // Victoire = tous les survivants hors prison sont empoisonnés.
       case "empoisonneur": {
@@ -3225,11 +3342,15 @@ export async function executeCapability(opts: {
       // On révèle le vrai rôle + 2 leurres de type compatible (toutes factions
       // confondues selon le mapping). Le Tueur n'est PAS masqué ici (il l'est
       // seulement pour Suspicieux/Innocents/Boussole). L'Usurpateur (cover_slug)
-      // reste masqué.
+      // reste masqué. La Falsification garde son message dédié.
       case "assistant_du_detective": {
         if (!t1) return { ok: false, message: "Cible requise" };
         const target = opts.allPlayers.find((p) => p.id === t1.id);
         const tMeta = meta(target);
+        if (isFalsified(tMeta)) {
+          await used({ effect: "investigate_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         let trueSlug = target?.role_slug ?? "";
         // Usurpateur cover : on enquête sur la couverture, pas sur le vrai rôle.
         if (typeof tMeta.cover_slug === "string") trueSlug = tMeta.cover_slug as string;
@@ -3347,6 +3468,10 @@ export async function executeCapability(opts: {
         if (!t1 || !t2) return { ok: false, message: "Deux cibles requises" };
         const m1 = meta(t1),
           m2 = meta(t2);
+        if (isFalsified(m1) || isFalsified(m2)) {
+          await used({ effect: "compare_falsified", t1: t1.id, t2: t2.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         const r1 = opts.rolesBySlug.get(t1.role_slug ?? "");
         const r2 = opts.rolesBySlug.get(t2.role_slug ?? "");
         const same = r1?.faction === r2?.faction;
@@ -3440,6 +3565,45 @@ export async function executeCapability(opts: {
         });
         await used({ effect: "shield_intent", target });
         return { ok: true, message: "Bouclier — à l'Annonce" };
+      }
+      case "paranoiaque": {
+        const targetId = m.paranoid_target_id as string | undefined;
+        if (!targetId) return { ok: false, message: "Aucune cible assignée" };
+        const target = opts.allPlayers.find((p) => p.id === targetId);
+        if (!target) return { ok: false, message: "Cible introuvable" };
+        if (!target.is_alive) return { ok: false, message: "Ta cible est déjà morte" };
+        const choice = (opts.extra?.choice as string | undefined) ?? null;
+        if (choice !== "protect" && choice !== "kill") {
+          return { ok: false, message: "Choisis : protéger ou tuer" };
+        }
+        if (choice === "protect") {
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: target.id,
+            category: "PROTECT",
+            timing: "DEFERRED",
+            source: "role:paranoiaque",
+          });
+          await used({ effect: "paranoid_protect", target: target.id });
+          return { ok: true, message: `Tu protèges ${target.pseudo} à l'Annonce` };
+        } else {
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: target.id,
+            category: "ATTACK",
+            timing: "DEFERRED",
+            source: "role:paranoiaque",
+            payload: { kill_reason: "paranoiaque", target_pseudo: target.pseudo },
+          });
+          await used({ effect: "paranoid_kill", target: target.id });
+          return { ok: true, message: `Tu attaques ${target.pseudo} à l'Annonce` };
+        }
       }
       case "saint": {
         const target = t1 ?? actor;
@@ -3723,6 +3887,11 @@ export async function executeCapability(opts: {
       case "heritier_dechu": {
         if (!t1) return { ok: false, message: "Cible requise" };
         const tMeta = meta(t1);
+        // Falsification : comme tout investigateur, l'Héritier est aveuglé.
+        if (isFalsified(tMeta)) {
+          await used({ effect: "heir_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         // Investigation : apprend si la cible est suspicieuse ou non. Contrairement
         // au Policier, l'Héritier conserve le verdict brut (police_verdict). MAIS il
         // perce la couverture de l'Usurpateur (qui ressort suspect) — ce masquage ne
@@ -3944,11 +4113,15 @@ export async function executeCapability(opts: {
       case "policier": {
         if (!t1) return { ok: false, message: "Cible requise" };
         const tMeta = meta(t1);
+        if (isFalsified(tMeta)) {
+          await used({ effect: "police_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         // Override prioritaire (ex: Cuisinier ayant tué un Citoyen ressort suspect)
         const override = tMeta.police_verdict_override as "suspicious" | "innocent" | undefined;
         // Le Policier PERCE les couvertures : il enquête sur le VRAI rôle (pas la
         // couverture de l'Usurpateur via cover_slug). Verdict selon le texte du rôle
-        // (Tueur masqué, Usurpateur suspect, Neutres suspects) → policierVerdict.
+        // (Tueur masqué, Usurpateur suspect, Boulets + Neutres suspects) → policierVerdict.
         const trueRole = opts.rolesBySlug.get(t1.role_slug ?? "");
         const verdict = policierVerdict(trueRole, override);
         await used({ effect: "police", verdict });
@@ -3961,8 +4134,13 @@ export async function executeCapability(opts: {
         };
       }
 
-      case "cartomancien": {
+      case "cartomancien":
+      case "journaliste": {
         if (!t1) return { ok: false, message: "Cible requise" };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "tarot_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         // Espionne le tableau de suspicion live de la cible jusqu'à la prochaine Enquête.
         await patchMeta(actor.id, { card_target_id: t1.id, card_target_cycle: opts.tour });
         await used({ effect: "tarot_spy", target: t1.id });
@@ -4140,6 +4318,19 @@ export async function executeCapability(opts: {
       // ── Mouchard : 1×/partie, révèle le rôle exact d'une cible ──
       case "mouchard": {
         if (!t1) return { ok: false, message: "Cible requise" };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "mouchard_falsified", target: t1.id });
+          await notify({
+            gameId: opts.gameId,
+            playerId: actor.id,
+            type: "mouchard_reveal",
+            title: "📢 Mouchard",
+            body: FALSIFIED_MSG,
+            mjTitle: "📢 Mouchard",
+            mjBody: `${actor.pseudo} (Mouchard) cible ${t1.pseudo} — piste falsifiée.`,
+          });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         // Usurpateur : toutes les enquêtes renvoient à sa couverture (faux rôle).
         const revealSlug = (meta(t1).cover_slug as string | undefined) ?? t1.role_slug ?? "";
         const r = opts.rolesBySlug.get(revealSlug);
@@ -4216,6 +4407,229 @@ export async function executeCapability(opts: {
         return {
           ok: true,
           message: `🎯 ${t1.pseudo} marqué — il mourra à l'Annonce du prochain tour.`,
+        };
+      }
+
+      // ── Voleur : vole l'objet le plus récent d'une cible (vivante ou morte) ──
+      case "voleur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        const { data: tFresh } = await supabase
+          .from("players")
+          .select("role_meta")
+          .eq("id", t1.id)
+          .single();
+        const tMeta = ((tFresh as { role_meta: Meta } | null)?.role_meta ?? {}) as Meta;
+        const inv = (tMeta.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+        if (inv.length === 0) {
+          await used({ effect: "steal_empty", target: t1.id });
+          await notify({
+            gameId: opts.gameId,
+            playerId: actor.id,
+            type: "steal_empty",
+            title: "🥷 Inventaire vide",
+            body: `${t1.pseudo} n'avait aucun objet à voler.`,
+            mjTitle: "🥷 Voleur",
+            mjBody: `${actor.pseudo} (Voleur) tente de voler ${t1.pseudo} — inventaire vide.`,
+          });
+          return { ok: true, message: `${t1.pseudo} n'a rien à voler` };
+        }
+        const [stolen, ...rest] = inv;
+        await patchMeta(t1.id, { inventory: rest });
+        const myInv = (m.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+        const stolenItem = {
+          ...stolen,
+          received_from: t1.pseudo,
+          received_at: new Date().toISOString(),
+        };
+        await patchMeta(actor.id, { inventory: [stolenItem, ...myInv] });
+        const itemName = (stolen.name as string | undefined) ?? "un objet";
+        await used({ effect: "steal", target: t1.id, item: stolen.slug });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "steal_ok",
+          title: "🥷 Vol réussi",
+          body: `Tu dérobes ${itemName} à ${t1.pseudo}.`,
+          mjTitle: "🥷 Voleur",
+          mjBody: `${actor.pseudo} (Voleur) dérobe ${itemName} à ${t1.pseudo}.`,
+        });
+        if (t1.is_alive) {
+          await notify({
+            gameId: opts.gameId,
+            playerId: t1.id,
+            type: "stolen_from",
+            title: "🥷 Vol",
+            body: `On t'a dérobé ${itemName}.`,
+          });
+        }
+        return { ok: true, message: `${itemName} volé à ${t1.pseudo}` };
+      }
+
+      // ── Conservateur : distribue une relique aléatoire à une cible ──
+      case "conservateur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas te désigner toi-même." };
+        const { rollRelique, buildRelique, grantItem, RELIQUE_CATALOG } = await import("./items");
+        const variant = rollRelique();
+        const def = RELIQUE_CATALOG[variant];
+        if (variant === "coeur_du_manoir") {
+          // Fin spéciale immédiate : ne distribue pas l'objet, met fin à la partie.
+          await used({ effect: "relique_distribute", target: t1.id, variant });
+          await endGameWithWinner(
+            opts.gameId,
+            "Conservateur",
+            `${actor.pseudo} (Conservateur) a confié ${def.icon} ${def.name} à ${t1.pseudo}. Le Manoir reconnaît son gardien.`,
+          );
+          return {
+            ok: true,
+            message: `🫀 Tu as offert Le Cœur du Manoir à ${t1.pseudo} — Victoire du Conservateur.`,
+          };
+        }
+        const rel = buildRelique(variant, actor.pseudo);
+        await grantItem(t1.id, rel);
+        await used({ effect: "relique_distribute", target: t1.id, variant });
+        const isActive = def.effect && def.effect !== "special_win";
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "relique_received",
+          title: "🗝️ Une relique t'est confiée",
+          body: `Tu reçois ${def.icon} ${def.name}. ${def.description}${isActive ? " Tu peux l'utiliser depuis ton Carnet." : ""}`,
+        });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "relique_given",
+          title: "🗝️ Relique distribuée",
+          body: `Tu as confié ${def.icon} ${def.name} à ${t1.pseudo}.`,
+          mjTitle: "🗝️ Conservateur",
+          mjBody: `${actor.pseudo} confie ${def.icon} ${def.name} à ${t1.pseudo}.`,
+        });
+        return { ok: true, message: `${def.icon} ${def.name} confiée à ${t1.pseudo}.` };
+      }
+
+      // ── Accusateur : marque la cible comme suspecte pendant 1 tour ──
+      case "accusateur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (
+          await tryBlessingBlock({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actor: { id: actor.id, pseudo: actor.pseudo },
+            actorRole: {
+              faction: role.faction,
+              type: role.type ?? null,
+              is_hostile: role.is_hostile,
+            },
+            target: { id: t1.id, pseudo: t1.pseudo, role_meta: t1.role_meta },
+            actionLabel: "accusation",
+          })
+        )
+          return { ok: false, message: `${t1.pseudo} est sous bénédiction — accusation annulée.` };
+        const until = opts.tour + 1;
+        await patchMeta(t1.id, { marked_suspect_until_cycle: until });
+        // Rend le statut visible via la barre du haut (StatusBandeau lit aussi player_statuses + realtime).
+        await supabase.from("player_statuses").insert({
+          game_id: opts.gameId,
+          player_id: t1.id,
+          status_slug: "marked",
+          source: "role:accusateur",
+          active_from_tour: opts.tour,
+          active_until_tour: until,
+          payload: { by: actor.id, by_pseudo: actor.pseudo } as never,
+        });
+        await used({ effect: "accuse", target: t1.id, until });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "accused",
+          title: "🔖 Accusation contre toi",
+          body: `Un Accusateur a jeté la suspicion sur toi (1 tour).`,
+          mjTitle: "🔖 Accusateur",
+          mjBody: `${actor.pseudo} (Accusateur) accuse ${t1.pseudo} — suspect pour 1 tour.`,
+        });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "accuse_ok",
+          title: "🔖 Accusation lancée",
+          body: `Suspicion jetée sur ${t1.pseudo} (1 tour).`,
+        });
+        return { ok: true, message: `${t1.pseudo} suspect (1 tour)` };
+      }
+
+      case "voisin": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "watch_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
+        // Mémorise la cible surveillée — la vue passive lit role_actions ciblant cette personne.
+        await patchMeta(actor.id, { watch_target: t1.id, watch_set_cycle: opts.tour });
+        await used({ effect: "watch", target: t1.id });
+        return { ok: true, message: `Tu surveilles ${t1.pseudo}` };
+      }
+
+      // ── Falsificateur : pose un flag PERMANENT sur la cible. Tout investigateur
+      //    ciblant cette personne reçoit "Le joueur a été falsifié" au lieu de l'info.
+      case "falsificateur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas te falsifier toi-même." };
+        if (
+          await tryBlessingBlock({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actor: { id: actor.id, pseudo: actor.pseudo },
+            actorRole: {
+              faction: role.faction,
+              type: role.type ?? null,
+              is_hostile: role.is_hostile,
+            },
+            target: { id: t1.id, pseudo: t1.pseudo, role_meta: t1.role_meta },
+            actionLabel: "falsification",
+          })
+        )
+          return {
+            ok: false,
+            message: `${t1.pseudo} est sous bénédiction — falsification annulée.`,
+          };
+        const tMeta = meta(t1);
+        if (isFalsified(tMeta)) {
+          await used({ effect: "falsify_redundant", target: t1.id });
+          return { ok: true, message: `Piste déjà falsifiée sur ${t1.pseudo}.` };
+        }
+        await patchMeta(t1.id, {
+          falsified: true,
+          falsified_by: actor.id,
+          falsified_at_tour: opts.tour,
+        });
+        await used({ effect: "falsify", target: t1.id });
+        // Statut permanent "falsified" — visible sur la fiche cible jusqu'à la fin de la partie.
+        await supabase.from("player_statuses").insert({
+          game_id: opts.gameId,
+          player_id: t1.id,
+          status_slug: "falsified",
+          source: "role:falsificateur",
+          active_from_tour: opts.tour,
+          active_until_tour: 9999,
+          payload: { by: actor.id, by_pseudo: actor.pseudo, tour: opts.tour } as never,
+        });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "falsified",
+          title: "🪪 Piste falsifiée",
+          body: "Pour le reste de la partie, toute enquête menée sur toi renverra une piste brouillée et ne révélera rien de clair.",
+          mjTitle: "🪪 Falsificateur",
+          mjBody: `${actor.pseudo} (Falsificateur) falsifie ${t1.pseudo} — toute investigation sur cette cible renverra "Le joueur a été falsifié" pour le reste de la partie.`,
+        });
+        return {
+          ok: true,
+          message: `Piste falsifiée sur ${t1.pseudo} — les investigateurs ne pourront plus rien apprendre sur cette cible.`,
         };
       }
 

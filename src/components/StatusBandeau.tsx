@@ -81,6 +81,12 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       tone: "yellow",
       desc: "Bénédiction active. Une grâce te protège — vois les détails du rôle qui l'a accordée.",
     },
+    marked: {
+      icon: Flag,
+      label: "Suspect",
+      tone: "orange",
+      desc: "Un accusateur a jeté la suspicion sur toi en public. Cela peut influencer les votes.",
+    },
     manipulated: {
       icon: Drama,
       label: "Manipulé",
@@ -166,6 +172,9 @@ export function StatusBandeau({
   const blocked = meta.blocked_until_cycle as number | undefined;
   const blockedFrom = (meta.blocked_from_cycle as number | undefined) ?? -Infinity;
   if (blocked && blocked >= tour && blockedFrom <= tour) pushDef("blocked", STATUS_BADGE.blocked);
+  const markedUntil = meta.marked_suspect_until_cycle as number | undefined;
+  const markedLegacy = meta.marked_suspect as boolean | undefined;
+  if ((markedUntil && markedUntil >= tour) || markedLegacy) pushDef("marked", STATUS_BADGE.marked);
   const linkedId =
     (meta.linked_with as string | undefined) ?? (meta.linked_to as string | undefined);
   if (linkedId) {

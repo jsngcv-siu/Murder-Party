@@ -8,7 +8,6 @@ import type { GameRow, PlayerRow, RoleRow, Phase } from "../actions";
 import type { Database } from "@/integrations/supabase/types";
 import type { FindingInput } from "./types";
 import { addFindings, withGame } from "./report";
-import { isBenignRole } from "../winConditions";
 
 type RoleActionRow = Database["public"]["Tables"]["role_actions"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
@@ -26,7 +25,7 @@ function factionsThatWon(players: PlayerRow[], rolesBySlug: Map<string, RoleRow>
   const isVampire = (p: PlayerRow) => p.role_slug === "vampire" || meta(p).converted === true;
   const isBenign = (p: PlayerRow) => {
     const r = rolesBySlug.get(p.role_slug ?? "");
-    return r?.faction === "Neutre" && isBenignRole(r);
+    return r?.faction === "Neutre" && (r?.type ?? "").toUpperCase() === "BÉNIN";
   };
 
   const won = new Set<string>();

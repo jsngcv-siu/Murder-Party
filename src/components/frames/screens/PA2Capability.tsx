@@ -20,7 +20,7 @@ import { RoleDossierSlider } from "@/components/RoleDossierSlider";
 import { extraInfoFor, type RoleInfoPage } from "@/lib/roleExtraInfo";
 import { RoleIcon } from "@/components/RoleIcon";
 import { AvatarImg } from "@/components/AvatarImg";
-import { ITEM_CATALOG, type ItemOrigin } from "@/engine/items";
+import { ITEM_CATALOG, RELIQUE_CATALOG, type ItemOrigin } from "@/engine/items";
 import { factionToken } from "@/lib/factionText";
 import { avatarOf, type AvatarDef } from "@/lib/avatars";
 import {
@@ -202,6 +202,14 @@ export function actionSummary(
   const summary =
     (fallbackResult?.summary as string | undefined) ?? (payload.summary as string | undefined);
   if (summary) return summary;
+  // Conservateur : affiche la relique distribuée même sans résultat enregistré.
+  if (payload.effect === "relique_distribute") {
+    const variant = payload.variant as string | undefined;
+    if (variant) {
+      const def = RELIQUE_CATALOG[variant as keyof typeof RELIQUE_CATALOG];
+      if (def) return `${def.icon} ${def.name} confiée.`;
+    }
+  }
   // Pas de message disponible : on évite d'exposer le slug technique.
   return "Capacité utilisée.";
 }
@@ -932,6 +940,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
     myRole?.slug !== "vengeur" &&
     myRole?.slug !== "juge" &&
     myRole?.slug !== "executeur" &&
+    myRole?.slug !== "paranoiaque" &&
     !(myRole?.slug === "saint" && meMeta.saint_used === true);
   const showAngeGardienBtn = myRole?.slug === "ange_gardien";
   // Le motif de blocage est désormais porté par le chip « Ton action » en haut —
@@ -1132,7 +1141,17 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "temoin" && (
         <WitnessRevealPanel meId={me.id} gameId={gameId} players={players} roles={roles} />
       )}
-      {myRole?.slug === "cartomancien" && (
+      {myRole?.slug === "voisin" && (
+        <NeighborWatchPanel
+          gameId={gameId}
+          watchTargetId={(meMeta.watch_target as string | undefined) ?? null}
+          watchSetCycle={(meMeta.watch_set_cycle as number | undefined) ?? null}
+          players={players}
+          roles={roles}
+          tour={game.current_tour}
+        />
+      )}
+      {(myRole?.slug === "cartomancien" || myRole?.slug === "journaliste") && (
         <CartomancienBoardPanel
           targetId={(meMeta.card_target_id as string | undefined) ?? null}
           targetCycle={(meMeta.card_target_cycle as number | undefined) ?? null}
@@ -1160,6 +1179,17 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               | Record<string, { target_id: string; target_pseudo: string }>
               | undefined) ?? {}
           }
+        />
+      )}
+      {myRole?.slug === "paranoiaque" && (
+        <ParanoiaquePanel
+          targetId={(meMeta.paranoid_target_id as string | undefined) ?? null}
+          targetPseudoFallback={(meMeta.paranoid_target_pseudo as string | undefined) ?? null}
+          players={players}
+          used={usesOf(meMeta, "paranoiaque") > 0}
+          busy={busy}
+          blocked={!!blockedReason}
+          onAct={(choice) => void runCapacity({ extra: { choice }, skipTargetCheck: true })}
         />
       )}
       {myRole?.slug === "medecin_legiste" && <LegisteAutopsiesPanel gameId={gameId} meId={me.id} />}
@@ -1468,6 +1498,10 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
           );
         })()}
 
+      {myRole?.slug === "falsificateur" && (
+        <FalsificateurPanel meId={me.id} players={players} roles={roles} />
+      )}
+
       {!NO_LAST_RESULT_ROLES.has(myRole?.slug ?? "") && (
         <LastResultBanner
           gameId={gameId}
@@ -1592,6 +1626,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         myRole?.slug !== "vengeur" &&
         myRole?.slug !== "juge" &&
         myRole?.slug !== "executeur" &&
+        myRole?.slug !== "paranoiaque" &&
         !(myRole?.slug === "saint" && meMeta.saint_used === true) &&
         !(blockedReason != null && /^Déjà utilisé/.test(blockedReason)) && (
           <>
@@ -1701,6 +1736,13 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
             </PanelCard>
           );
         })()}
+      {myRole?.slug === "conservateur" && (
+        <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-start gap-1.5">
+          <KeyRound className="size-4 shrink-0 mt-0.5" aria-hidden />{" "}
+          <span>Désigne un joueur ci-dessous : il recevra une relique maudite au hasard.</span>
+        </div>
+      )}
+
       {hasStickyFooter && (
         <div className="sticky bottom-0 left-0 right-0 -mx-5 -mb-5 mt-4 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background/95 to-background/80 backdrop-blur-md border-t border-border z-20 space-y-2 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)]">
           {result && !result.ok && (
@@ -1854,10 +1896,86 @@ function MarionnettistePanel({ ctx }: { ctx: FrameContext }) {
   );
 }
 
+// ───────── Falsificateur : panneau listant les joueurs falsifiés par moi
+function FalsificateurPanel({
+  meId,
+  players,
+  roles,
+}: {
+  meId: string;
+  players: Array<{ id: string; pseudo: string; role_slug?: string | null; role_meta?: unknown }>;
+  roles: Map<string, RoleRow>;
+}) {
+  const falsified = players
+    .map((p) => {
+      const meta = (p.role_meta && typeof p.role_meta === "object" ? p.role_meta : {}) as Record<
+        string,
+        unknown
+      >;
+      if (meta.falsified !== true || meta.falsified_by !== meId) return null;
+      return { p, tour: (meta.falsified_at_tour as number | undefined) ?? null };
+    })
+    .filter((x): x is { p: (typeof players)[number]; tour: number | null } => !!x);
+
+  return (
+    <PanelCard
+      tone="red"
+      icon={NotebookPen}
+      label="Joueurs falsifiés"
+      action={
+        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-destructive/15 text-destructive font-semibold tabular-nums">
+          {falsified.length}
+        </span>
+      }
+    >
+      {falsified.length === 0 ? (
+        <div className="text-[11px] text-muted-foreground italic">
+          Aucun joueur falsifié pour l'instant.
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {falsified.map(({ p, tour }) => {
+            const meta = (
+              p.role_meta && typeof p.role_meta === "object" ? p.role_meta : {}
+            ) as Record<string, unknown>;
+            const r = roles.get(p.role_slug ?? "");
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-2 rounded-lg bg-background/40 border border-border/40 px-2 py-1.5"
+              >
+                <AvatarImg
+                  id={p.id}
+                  avatar={avatarOf(meta.avatar as string | undefined, p.id)}
+                  size={26}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground/95 truncate">{p.pseudo}</div>
+                  {r && (
+                    <div className="text-[10px] text-muted-foreground truncate inline-flex items-center gap-1">
+                      <RoleIcon role={r} size={12} /> {r.name_fr}
+                    </div>
+                  )}
+                </div>
+                {tour != null && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-fuchsia-500/10 text-fuchsia-200/80 font-semibold tabular-nums">
+                    T{tour}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
 // ───────── Liste des rôles qui n'ont PAS besoin du bandeau "Dernier résultat"
 // (panneau dédié, action purement passive, ou setup unique avec affichage propre)
 const NO_LAST_RESULT_ROLES = new Set<string>([
   "temoin",
+  "voisin",
   "usurpateur",
   "avocat",
   "guetteur",
@@ -1866,7 +1984,9 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   "medecin_legiste",
   "medium",
   "cartomancien",
+  "journaliste",
   "veuve_noire",
+  "paranoiaque",
   "oracle",
   "entremetteur",
   "imitateur",
@@ -1876,8 +1996,10 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   // Décision joueur : pas de bandeau (panneau dédié ou pas d'info utile)
   "cleaner",
   "marionnettiste",
+  "falsificateur",
   "empoisonneur",
   "vampire",
+  "conservateur",
 ]);
 
 // ───────── Bannière persistante : Dernier résultat de capacité
@@ -1894,8 +2016,10 @@ export type LastRow = {
 
 // Description neutre de l'action menée par le joueur, sans révéler l'issue.
 const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> = {
+  accusateur: (t) => `Tu as accusé ${t ?? "un joueur"}.`,
   ange_gardien: (t) => `Tu as protégé ${t ?? "un joueur"}.`,
   apothicaire: (t) => `Tu as offert une fiole à ${t ?? "un joueur"}.`,
+  armurier: (t) => `Tu as armé ${t ?? "un joueur"}.`,
   assistant_du_detective: (t) => `Tu as enquêté sur ${t ?? "un joueur"}.`,
   avocat: (t) => `Tu as défendu ${t ?? "un joueur"}.`,
   babysitter: (t) => `Tu as veillé sur ${t ?? "un joueur"}.`,
@@ -1904,6 +2028,7 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   cartomancien: (t) => `Tu as tiré les cartes pour ${t ?? "un joueur"}.`,
   chasseur_de_vampire: (t) => `Tu as traqué ${t ?? "un joueur"}.`,
   cleaner: (t) => `Tu as nettoyé les traces de ${t ?? "un joueur"}.`,
+  conservateur: (t) => `Tu as confié une relique à ${t ?? "un joueur"}.`,
   croque_mitaine: (t) => `Tu as effrayé ${t ?? "un joueur"}.`,
   cuisinier: () => `Tu as préparé ton plat.`,
   empoisonneur: (t) => `Tu as empoisonné ${t ?? "un joueur"}.`,
@@ -1911,9 +2036,12 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
     t && t2 ? `Tu as lié ${t} et ${t2}.` : `Tu as tenté de lier deux joueurs.`,
   executeur: (t) => `Tu as désigné ${t ?? "un joueur"} comme cible.`,
   facteur: (t) => `Tu as posté un message à ${t ?? "un joueur"}.`,
+  falsificateur: (t) =>
+    t ? `Tu as falsifié des informations visant ${t}.` : `Tu as falsifié des informations.`,
   guetteur: (t) => `Tu as surveillé ${t ?? "un joueur"}.`,
   heritier_dechu: (t) => `Tu as enquêté sur ${t ?? "un joueur"}.`,
   imitateur: (t) => `Tu as imité ${t ?? "un joueur"}.`,
+  journaliste: (t) => `Tu as enquêté sur ${t ?? "un joueur"}.`,
   juge: (t) => `Tu as jugé ${t ?? "un joueur"}.`,
   maitre_chanteur: (t) => `Tu as fait chanter ${t ?? "un joueur"}.`,
   majordome: (t) => `Tu as servi ${t ?? "un joueur"}.`,
@@ -1923,6 +2051,7 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   medium: () => `Tu as contacté les morts.`,
   mouchard: (t) => `Tu as espionné ${t ?? "un joueur"}.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
+  paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
   policier: (t) => `Tu as arrêté ${t ?? "un joueur"}.`,
   saint: (t) => `Tu as béni ${t ?? "un joueur"}.`,
@@ -1933,6 +2062,8 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   vampire: (t) => `Tu as mordu ${t ?? "un joueur"}.`,
   vengeur: (t) => `Tu as ciblé ${t ?? "un joueur"} pour ta vengeance.`,
   veuve_noire: (t) => `Tu as séduit ${t ?? "un joueur"}.`,
+  voisin: (t) => `Tu as rendu visite à ${t ?? "un joueur"}.`,
+  voleur: (t) => `Tu as volé ${t ?? "un joueur"}.`,
 };
 
 function describeAction(slug: string | null | undefined, t1?: string, t2?: string): string {
@@ -1991,6 +2122,8 @@ const INFO_RESULT_EFFECTS = new Set<string>([
   "mouchard_reveal", // Mouchard : rôle exact
   "bet_dice", // Parieur : issue des dés
   "execute", // Exécuteur : rôle révélé
+  "steal", // Voleur : objet volé
+  "steal_empty", // Voleur : rien à voler
   "barman_round", // Barman : qui est ivre / passe un bon moment
   "kill_one_of_two_intent", // Croque-mitaine : qui est visé / épargné
 ]);
@@ -2668,6 +2801,105 @@ function WitnessRevealPanel({
             Civil
           </div>
         </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Panneau passif Voisin : actions vues sur la cible surveillée
+function NeighborWatchPanel({
+  gameId,
+  watchTargetId,
+  watchSetCycle,
+  players,
+  roles,
+  tour,
+}: {
+  gameId: string;
+  watchTargetId: string | null;
+  watchSetCycle: number | null;
+  players: import("@/engine/actions").PlayerRow[];
+  roles: Map<string, RoleRow>;
+  tour: number;
+}) {
+  const [actors, setActors] = useState<Array<{ actor_player_id: string; tour: number }>>([]);
+  useEffect(() => {
+    if (!watchTargetId) {
+      setActors([]);
+      return;
+    }
+    async function load() {
+      let q = supabase
+        .from("role_actions")
+        .select("actor_player_id,tour")
+        .eq("game_id", gameId)
+        .or(`target_player_id.eq.${watchTargetId},target_player_id_2.eq.${watchTargetId}`);
+      if (typeof watchSetCycle === "number") q = q.gte("tour", watchSetCycle);
+      const { data } = await q.order("created_at", { ascending: false }).limit(40);
+      // Dédup : un même acteur ne compte qu'une fois par tour, même s'il a effectué plusieurs actions.
+      const seen = new Set<string>();
+      const unique: typeof actors = [];
+      for (const row of (data ?? []) as typeof actors) {
+        const key = `${row.actor_player_id}:${row.tour}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(row);
+      }
+      setActors(unique);
+    }
+    void load();
+    const ch = supabase
+      .channel(`voisin-${watchTargetId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "role_actions" },
+        () => void load(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [gameId, watchTargetId, watchSetCycle]);
+
+  const targetName = watchTargetId
+    ? (players.find((p) => p.id === watchTargetId)?.pseudo ?? "?")
+    : null;
+  return (
+    <PanelCard tone="indigo" icon={Radar} label="Surveillance">
+      {!watchTargetId && (
+        <div className="mt-1 text-muted-foreground italic">Désigne quelqu'un à surveiller.</div>
+      )}
+      {watchTargetId && (
+        <>
+          <div className="mt-1 text-foreground/90">
+            Cible : <span className="font-semibold">{targetName}</span> · {actors.length}{" "}
+            visiteur(s)
+          </div>
+          {actors.length > 0 && (
+            <ul className="mt-1 space-y-0.5">
+              {actors.map((a, i) => {
+                const p = players.find((pp) => pp.id === a.actor_player_id);
+                const pm = (p?.role_meta ?? {}) as Record<string, unknown>;
+                // Le Voisin apprend le RÔLE du visiteur. On respecte la couverture
+                // de l'Usurpateur (cover_slug) comme les autres enquêtes.
+                const slug =
+                  (typeof pm.cover_slug === "string" ? pm.cover_slug : p?.role_slug) ?? "";
+                const r = slug ? roles.get(slug) : null;
+                return (
+                  <li key={i} className="text-foreground/80 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-muted-foreground">Tour {a.tour} ·</span>
+                    <span className="font-semibold">{p?.pseudo ?? "Joueur inconnu"}</span>
+                    {r && (
+                      <span className="inline-flex items-center gap-1 text-foreground/70">
+                        — <RoleIcon role={r} size={14} /> {r.name_fr}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
     </PanelCard>
   );
@@ -3678,6 +3910,89 @@ function LegisteAutopsiesPanel({ gameId, meId }: { gameId: string; meId: string 
           ))}
         </ul>
       )}
+    </PanelCard>
+  );
+}
+
+function ParanoiaquePanel({
+  targetId,
+  targetPseudoFallback,
+  players,
+  used,
+  busy,
+  blocked,
+  onAct,
+}: {
+  targetId: string | null;
+  targetPseudoFallback: string | null;
+  players: { id: string; pseudo: string; is_alive: boolean }[];
+  used: boolean;
+  busy: boolean;
+  blocked: boolean;
+  onAct: (choice: "protect" | "kill") => void;
+}) {
+  const [choice, setChoice] = useState<"protect" | "kill" | null>(null);
+  const tgt = targetId ? players.find((p) => p.id === targetId) : null;
+  const pseudo = tgt?.pseudo ?? targetPseudoFallback ?? "?";
+  const targetDead = tgt ? !tgt.is_alive : false;
+
+  if (used) {
+    return (
+      <PanelCard tone="neutral" icon={Target} label="Paranoïaque">
+        <div className="text-muted-foreground">
+          Capacité utilisée. Cible : <span className="font-semibold text-foreground">{pseudo}</span>
+          .
+        </div>
+      </PanelCard>
+    );
+  }
+
+  return (
+    <PanelCard
+      tone="amber"
+      icon={Target}
+      label="Ta cible"
+      action={<span className="text-sm font-bold text-foreground">{pseudo}</span>}
+    >
+      <div className="text-[11px] text-muted-foreground mb-3">
+        À toi de deviner sa faction. 1× dans la partie : protège-la ou tue-la (résolu à l'Annonce).
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          disabled={busy || blocked || targetDead}
+          onClick={() => setChoice("protect")}
+          className={`h-12 rounded-lg text-sm font-semibold transition ${
+            choice === "protect"
+              ? "bg-sky-500/30 text-sky-100 ring-1 ring-sky-400"
+              : "bg-card/60 hover:bg-card text-foreground"
+          } disabled:opacity-40 inline-flex items-center justify-center gap-1.5`}
+        >
+          <Shield className="size-4" aria-hidden /> Protéger
+        </button>
+        <button
+          disabled={busy || blocked || targetDead}
+          onClick={() => setChoice("kill")}
+          className={`h-12 rounded-lg text-sm font-semibold transition ${
+            choice === "kill"
+              ? "bg-rose-500/30 text-rose-100 ring-1 ring-rose-400"
+              : "bg-card/60 hover:bg-card text-foreground"
+          } disabled:opacity-40 inline-flex items-center justify-center gap-1.5`}
+        >
+          <Swords className="size-4" aria-hidden /> Tuer
+        </button>
+      </div>
+      {targetDead && (
+        <div className="mt-2 text-xs text-rose-300">
+          Ta cible est morte — capacité inutilisable.
+        </div>
+      )}
+      <button
+        disabled={!choice || busy || blocked || targetDead}
+        onClick={() => choice && onAct(choice)}
+        className="mt-3 h-11 w-full rounded-lg bg-gold text-primary-foreground font-semibold disabled:opacity-40"
+      >
+        {busy ? "…" : "Valider"}
+      </button>
     </PanelCard>
   );
 }

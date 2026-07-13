@@ -81,6 +81,11 @@ const DEFERRED: Scenario[] = [
     d: mkAction("Tu as servi Faye.", true),
   },
   {
+    label: "Armurier",
+    note: "Confirmation immédiate → pastille « Fait ».",
+    d: mkAction("Tu as armé Milo.", false),
+  },
+  {
     label: "Offrir une fiole",
     note: "Don immédiat → « Fait ».",
     d: mkAction("Tu as offert une Fiole de vie à Faye.", false),

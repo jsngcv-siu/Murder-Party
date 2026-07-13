@@ -129,6 +129,12 @@ export function describeWinCondition(
       base.push("🩹 Repli : si le couple meurt, survis en vie et libre jusqu'au bout.");
       break;
     }
+    case "conservateur": {
+      base.length = 0;
+      base.push("🗝️ Chaque Enquête (2×), confie une relique maudite à une cible.");
+      base.push("🫀 Victoire SOLO immédiate dès que quelqu'un reçoit « Le Cœur du Manoir ».");
+      break;
+    }
   }
 
   return { factionLabel: role.faction ?? "—", lines: base };

@@ -47,7 +47,7 @@ for (const rel of relValues) {
 }
 
 // Table 2 : effet du "cover malus" (réalisme des couvertures méchantes)
-console.log("\nTABLE 2 — impact du malus de couverture (usurpateur/tueur camouflé)");
+console.log("\nTABLE 2 — impact du malus de couverture (usurpateur/falsificateur/tueur camouflé)");
 console.log("  reliability=0.80, killerSuccess=0.70, townCoordination=0.75");
 for (const cv of coverValues) {
   const v = civShare({

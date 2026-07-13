@@ -1,9 +1,9 @@
 // Fréquence d'usage d'un rôle, présentée en CADRES SÉPARÉS.
 // - Source prioritaire : frequency_label (ex. "1×/Enquête").
-// - Repli si vide : dérivée de phase_activation (certains rôles n'ont pas de
-//   frequency_label en base).
-// - Les libellés composés ("A + B") sont éclatés en plusieurs cadres pour être
-//   plus lisibles.
+// - Repli si vide : dérivée de phase_activation (certains rôles, ex. le
+//   Falsificateur, n'ont pas de frequency_label en base).
+// - Les libellés composés ("A + B", ex. le Conservateur) sont éclatés en
+//   plusieurs cadres pour être plus lisibles.
 type FreqRole = {
   frequency_label?: string | null;
   usage_label?: string | null;

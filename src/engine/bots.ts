@@ -126,9 +126,7 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
 
   const { data: pRaw } = await supabase.from("players").select().eq("game_id", gameId);
   const players = (pRaw ?? []) as PlayerRow[];
-  // Le MJ (is_mj=true) n'est jamais une cible : il pilote la partie sans rôle.
-  // Sans ce filtre, les bots peuvent voter contre le « Démo MJ » et l'emprisonner.
-  const alive = players.filter((p) => p.is_alive && !p.is_imprisoned && !p.is_mj);
+  const alive = players.filter((p) => p.is_alive && !p.is_imprisoned);
   // Un "vrai" bot n'a pas de user_id (auth anonyme côté humain renseigne user_id
   // sur la player row). On ne pilote JAMAIS un joueur humain, même si la démo
   // tourne dans un autre onglet : sinon ses capacités s'auto-exécutent.
@@ -215,7 +213,8 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
       }
 
       // Usage d'objets — uniquement en Enquête : un objet offensif (couteau,
-      // fiole de mort) se dénoue à l'Annonce qui SUIT l'Enquête.
+      // fiole de mort) se dénoue à l'Annonce qui SUIT l'Enquête. C'est
+      // ce qui ferme la chaîne « l'Armurier arme un allié → l'allié tue ».
       if (game.current_phase === "free") {
         await maybeUseItem({
           gameId,
@@ -309,9 +308,24 @@ function pickCapabilityTargets(
       const sorted = mostSuspect(others);
       return sorted.slice(0, 1);
     }
+    case "armurier": {
+      // Arme un ALLIÉ Méchant — qui s'en servira pour tuer —, jamais un ennemi.
+      // Préfère un allié pas encore armé ; à défaut, s'arme lui-même.
+      const allies = others.filter((p) => isVillainRole(p.role_slug, rolesBySlug));
+      if (allies.length === 0) return [bot];
+      const armed = (p: PlayerRow) =>
+        readInventory(p.role_meta as Record<string, unknown>).some(
+          (it) => it.slug === "couteau" && !it.consumed,
+        );
+      const unarmed = allies.filter((p) => !armed(p));
+      return [pickRandom(unarmed.length > 0 ? unarmed : allies)];
+    }
+    case "accusateur":
+    case "voleur":
     case "marionnettiste":
     case "maitre_chanteur":
     case "cleaner":
+    case "falsificateur":
     case "empoisonneur":
     case "cuisinier": {
       // Bots "subversifs" : sabotent un Citoyen au hasard
@@ -323,8 +337,10 @@ function pickCapabilityTargets(
     case "policier":
     case "chasseur_de_vampire":
     case "heritier_dechu":
+    case "journaliste":
     case "cartomancien":
-    case "mouchard": {
+    case "mouchard":
+    case "voisin": {
       return mostSuspect(others).slice(0, 1);
     }
     // ── Protecteurs / soin : favorisent les alliés
@@ -360,6 +376,7 @@ function pickCapabilityTargets(
       return [pickRandom(others)];
     }
     case "parieur_tricheur":
+    case "conservateur":
     case "usurpateur": {
       return [pickRandom(others)];
     }
@@ -372,6 +389,7 @@ function pickCapabilityTargets(
     case "avocat":
     case "medecin_legiste":
     case "medium":
+    case "paranoiaque":
       return [];
     default: {
       // Fallback générique basé sur target_mode
@@ -394,7 +412,8 @@ function pickRandom<T>(arr: T[]): T {
  *  - offensif (couteau, fiole de mort) → l'ennemi le plus suspect (jamais un allié) ;
  *  - soin (fiole de vie) → soi-même ou un allié ;
  *  - clairvoyance → un ennemi suspect (gain d'info).
- * C'est l'étape qui transforme « avoir un objet » en « s'en servir ».
+ * C'est l'étape qui transforme « avoir un objet » en « s'en servir » — sans quoi
+ * le couteau de l'Armurier resterait inerte dans l'inventaire de l'allié.
  */
 async function maybeUseItem(opts: {
   gameId: string;

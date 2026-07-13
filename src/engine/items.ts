@@ -9,6 +9,7 @@ export type ItemSlug =
   | "fiole_clairvoyance"
   | "couteau"
   | "lettre"
+  | "relique"
   | "indice";
 
 /** Faction du rôle dont provient un objet (pour colorer son contour). */
@@ -29,6 +30,7 @@ const RECEIVED_FROM_FACTION: Record<string, ItemOrigin> = {
   Apothicairerie: "Civil",
   Apothicaire: "Civil",
   Stratège: "Méchant",
+  Inconnu: "Méchant",
 };
 
 /**
@@ -40,6 +42,7 @@ export function itemFaction(item: Item): ItemOrigin | null {
   const stamped = item.payload?.origin_faction as ItemOrigin | undefined;
   if (stamped) return stamped; // priorité : tamponné au grant (survit au vol d'objet)
   if (item.payload?.mechant_origin === true) return "Méchant";
+  if (item.slug === "relique") return "Neutre"; // toujours le Conservateur
   if (item.slug === "indice") return "Système"; // remis par le jeu au setup, pas un rôle
   if (item.received_from && RECEIVED_FROM_FACTION[item.received_from]) {
     return RECEIVED_FROM_FACTION[item.received_from];
@@ -93,6 +96,12 @@ export const ITEM_CATALOG: Record<
     name: "Lettre anonyme",
     icon: "📨",
     description: "Une lettre anonyme t'a été remise.",
+  },
+  relique: {
+    slug: "relique",
+    name: "Relique",
+    icon: "🗝️",
+    description: "Une relique mystérieuse.",
   },
   indice: {
     slug: "indice",
@@ -158,6 +167,10 @@ export function itemNeedsTarget(
   payload?: Record<string, unknown> | null,
 ): "single" | "none" {
   if (slug === "indice") return "none";
+  if (slug === "relique") {
+    const v = (payload?.variant as ReliqueVariant | undefined) ?? null;
+    return v === "lettre_scellee" || v === "oeil_damnation" ? "single" : "none";
+  }
   // Lettre du facteur : envoyée à un joueur vivant (n'est utilisable que si jamais envoyée).
   if (slug === "lettre") {
     const sent = !!payload?.sent;
@@ -169,6 +182,10 @@ export function itemNeedsTarget(
 /** Indique si l'objet peut être activement utilisé (sinon : consultation seule). */
 export function itemIsUsable(slug: ItemSlug, payload?: Record<string, unknown> | null): boolean {
   if (slug === "indice") return false; // consultation seule
+  if (slug === "relique") {
+    const v = (payload?.variant as ReliqueVariant | undefined) ?? null;
+    return RELIQUES_WITH_EFFECT.has(v ?? "");
+  }
   if (slug === "lettre") {
     // Utilisable uniquement si la lettre n'a pas encore été envoyée.
     return !payload?.sent;
@@ -179,6 +196,130 @@ export function itemIsUsable(slug: ItemSlug, payload?: Record<string, unknown> |
     slug === "fiole_clairvoyance" ||
     slug === "couteau"
   );
+}
+
+// ─── Reliques du Conservateur ────────────────────────────────────────────
+export type ReliqueVariant =
+  | "coeur_du_manoir"
+  | "oeil_damnation"
+  | "medaillon_vieux_maitre"
+  | "lettre_scellee"
+  | "miroir_minuit"
+  | "clef_aile_interdite"
+  | "poupee_grenier"
+  | "lettre_oubliee"
+  | "portrait_dame_blanche"
+  | "bougie_des_ames";
+
+type ReliqueEffect = "reveal_random" | "protect_self" | "block_target" | "special_win";
+type ReliqueDef = {
+  name: string;
+  icon: string;
+  description: string;
+  weight: number;
+  effect?: ReliqueEffect;
+};
+
+export const RELIQUE_CATALOG: Record<ReliqueVariant, ReliqueDef> = {
+  coeur_du_manoir: {
+    name: "Le Cœur du Manoir",
+    icon: "🫀",
+    weight: 5.0,
+    effect: "special_win",
+    description:
+      "Relique ultime — si tu la révèles, le Conservateur remporte la partie. Tout le monde perd.",
+  },
+  oeil_damnation: {
+    name: "L'Œil de la Damnation",
+    icon: "👁️",
+    weight: 4.0,
+    effect: "reveal_random",
+    description: "Révèle le rôle d'un joueur au hasard.",
+  },
+  medaillon_vieux_maitre: {
+    name: "Le Médaillon du Vieux Maître",
+    icon: "🏅",
+    weight: 4.0,
+    effect: "protect_self",
+    description: "Te protège pendant 1 tour entier.",
+  },
+  lettre_scellee: {
+    name: "La Lettre Scellée",
+    icon: "✉️",
+    weight: 4.0,
+    effect: "block_target",
+    description: "Bloque la capacité d'un joueur ciblé pendant 1 tour.",
+  },
+  miroir_minuit: {
+    name: "Le Miroir de Minuit",
+    icon: "🪞",
+    weight: 10.0,
+    description: "Un reflet glacé, sans pouvoir. Pure beauté maudite.",
+  },
+  clef_aile_interdite: {
+    name: "La Clé de l'Aile Interdite",
+    icon: "🗝️",
+    weight: 12.0,
+    description: "Elle n'ouvre plus rien — ou alors plus rien d'utile.",
+  },
+  poupee_grenier: {
+    name: "La poupée du grenier",
+    icon: "🪆",
+    weight: 14.0,
+    description: "Elle te regarde fixement. Aucune capacité.",
+  },
+  lettre_oubliee: {
+    name: "La Lettre Oubliée",
+    icon: "📜",
+    weight: 16.0,
+    description: "Une lettre jamais lue, jamais envoyée. Aucun effet.",
+  },
+  portrait_dame_blanche: {
+    name: "Le Portrait de la Dame Blanche",
+    icon: "🖼️",
+    weight: 17.5,
+    description: "Son regard te suit. C'est tout.",
+  },
+  bougie_des_ames: {
+    name: "La Bougie des Âmes",
+    icon: "🕯️",
+    weight: 13.5,
+    description: "Sa flamme vacille — sans réelle utilité.",
+  },
+};
+
+const RELIQUES_WITH_EFFECT = new Set<string>([
+  "coeur_du_manoir",
+  "oeil_damnation",
+  "medaillon_vieux_maitre",
+  "lettre_scellee",
+]);
+
+/** Tire une variante de relique au sort selon les poids. */
+export function rollRelique(): ReliqueVariant {
+  const entries = Object.entries(RELIQUE_CATALOG) as [ReliqueVariant, ReliqueDef][];
+  const total = entries.reduce((a, [, v]) => a + v.weight, 0);
+  let r = Math.random() * total;
+  for (const [k, v] of entries) {
+    r -= v.weight;
+    if (r <= 0) return k;
+  }
+  return entries[0][0];
+}
+
+/** Construit un item relique nommé (variant en payload). */
+export function buildRelique(variant: ReliqueVariant, from = "Manoir"): Item {
+  const def = RELIQUE_CATALOG[variant];
+  return {
+    id: crypto.randomUUID(),
+    slug: "relique",
+    name: def.name,
+    icon: def.icon,
+    description: def.description,
+    received_at: new Date().toISOString(),
+    received_from: from,
+    payload: { variant, origin_faction: "Neutre" satisfies ItemFaction }, // Conservateur
+  };
 }
 
 type UsePlayer = { id: string; pseudo: string; role_slug: string | null };
@@ -299,8 +440,11 @@ export async function consumeItem(opts: {
         source: "item:fiole_vie",
         payload: { target_pseudo: target!.pseudo },
       });
-      // Silencieux côté protégé : comme toutes les protections (Ange gardien,
-      // Majordome, Barman), la cible ne doit pas savoir qu'elle est protégée.
+      await notify(
+        target!.id,
+        "💚 Soigné",
+        "Une fiole de vie te protège pour la prochaine Annonce.",
+      );
       message = `${target!.pseudo} : soin — à l'Annonce.`;
       break;
     }
@@ -319,7 +463,8 @@ export async function consumeItem(opts: {
       const mechantOrigin =
         (item.payload as Record<string, unknown> | null)?.mechant_origin === true;
       // Origine du couteau pour l'annonce de mort au joueur visé.
-      // "Cuisine" = couteau du Cuisinier (passif), "Vengeance" = couteau du Vengeur.
+      // "Cuisine" = couteau du Cuisinier (passif), "Vengeance" = couteau du
+      // Vengeur, "Inconnu" = couteau remis anonymement par l'Armurier.
       let weaponFromSlug: string | null = null;
       switch (item.received_from) {
         case "Cuisine":
@@ -330,6 +475,9 @@ export async function consumeItem(opts: {
           break;
         case "Stratège":
           weaponFromSlug = "stratege";
+          break;
+        case "Inconnu":
+          weaponFromSlug = "armurier";
           break;
         default:
           weaponFromSlug = null;
@@ -350,7 +498,99 @@ export async function consumeItem(opts: {
           weapon_from_slug: weaponFromSlug,
         },
       });
+      // Si ce couteau a été remis par l'Armurier, on le prévient que SON arme a
+      // servi : « [porteur] a utilisé couteau sur [cible] ». (Le porteur insère
+      // la notif — autorisé par la RLS ; l'historique secret de l'Armurier ne
+      // peut, lui, pas être écrit par un autre joueur.)
+      const giftedById = (item.payload as Record<string, unknown> | null)?.gifted_by_id as
+        | string
+        | undefined;
+      if (giftedById) {
+        await notify(
+          giftedById,
+          "🔪 Ton couteau a frappé",
+          `${opts.actorPseudo} a utilisé couteau sur ${target!.pseudo}.`,
+        );
+      }
       message = `${target!.pseudo} : coup de couteau — à l'Annonce.`;
+      break;
+    }
+    case "relique": {
+      const variant = (item.payload?.variant as ReliqueVariant | undefined) ?? null;
+      const def = variant ? RELIQUE_CATALOG[variant] : null;
+      if (variant === "coeur_du_manoir") {
+        const { endGameWithWinner } = await import("./actions");
+        await endGameWithWinner(
+          gameId,
+          "Conservateur",
+          `${opts.actorPseudo} a révélé Le Cœur du Manoir. Le Manoir le reconnaît comme son gardien.`,
+        );
+        message =
+          "🫀 Le Cœur du Manoir bat dans tes mains — toutes les factions s'inclinent. Victoire du Conservateur.";
+      } else if (variant === "oeil_damnation") {
+        // Révèle le rôle d'un joueur vivant au hasard (≠ porteur)
+        const { data: pool } = await supabase
+          .from("players")
+          .select("id, pseudo, role_slug")
+          .eq("game_id", gameId)
+          .eq("is_alive", true)
+          .eq("is_mj", false)
+          .neq("id", actorId);
+        const list = (pool ?? []) as Array<{
+          id: string;
+          pseudo: string;
+          role_slug: string | null;
+        }>;
+        if (list.length === 0) {
+          message = "👁️ Personne d'autre n'est en vie — l'Œil reste aveugle.";
+        } else {
+          const picked = list[Math.floor(Math.random() * list.length)];
+          const r = picked.role_slug ? opts.rolesBySlug.get(picked.role_slug) : null;
+          message = `👁️ L'Œil de la Damnation s'ouvre : ${picked.pseudo} est ${r ? `${r.icon} ${r.name_fr} (${r.faction})` : "de rôle inconnu"}.`;
+        }
+        await notify(actorId, "👁️ L'Œil de la Damnation", message);
+      } else if (variant === "medaillon_vieux_maitre") {
+        // Protection pour 1 tour (cycle courant)
+        const { data: row } = await supabase
+          .from("players")
+          .select("role_meta")
+          .eq("id", actorId)
+          .maybeSingle();
+        const meta0 = (row?.role_meta ?? {}) as Record<string, unknown>;
+        const protUntil = Math.max((meta0.protected_until_cycle as number | undefined) ?? -1, tour);
+        await supabase
+          .from("players")
+          .update({ role_meta: { ...meta0, protected_until_cycle: protUntil } as never })
+          .eq("id", actorId);
+        message = "🏅 Le Médaillon du Vieux Maître te protège pour le restant du tour.";
+        await notify(actorId, "🏅 Médaillon activé", message);
+      } else if (variant === "lettre_scellee") {
+        if (!target) {
+          message = "Cible requise pour La Lettre Scellée.";
+          break;
+        }
+        const { data: row } = await supabase
+          .from("players")
+          .select("role_meta")
+          .eq("id", target.id)
+          .maybeSingle();
+        const meta0 = (row?.role_meta ?? {}) as Record<string, unknown>;
+        const blockUntil = Math.max((meta0.blocked_until_cycle as number | undefined) ?? -1, tour);
+        await supabase
+          .from("players")
+          .update({ role_meta: { ...meta0, blocked_until_cycle: blockUntil } as never })
+          .eq("id", target.id);
+        message = `✉️ La Lettre Scellée bloque la capacité de ${target.pseudo} pour le tour.`;
+        await notify(
+          target.id,
+          "✉️ Capacité scellée",
+          "Une Lettre Scellée bloque ta capacité pour le restant du tour.",
+        );
+        await notify(actorId, "✉️ Lettre Scellée utilisée", message);
+      } else {
+        message = def ? `${def.icon} ${def.name} révélée. ${def.description}` : "Relique révélée.";
+        await notify(actorId, "🗝️ Relique révélée", message);
+      }
       break;
     }
   }

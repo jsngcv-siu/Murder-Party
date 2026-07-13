@@ -731,7 +731,7 @@ export async function resolveDeferredIntents(
   // ── Cleaner pré-traitement : sélectionne quelles morts méchantes seront nettoyées.
   // Règles :
   //   • Seules les attaques tagguées `mechant_mechanic: true` sont éligibles
-  //     (Tueur, Croque-mitaine — pas Vengeur/Cuisinier).
+  //     (Tueur, Croque-mitaine, couteau d'Armurier — pas Vengeur/Cuisinier).
   //   • Si plusieurs attaques éligibles et moins d'uses Cleaner restants, on
   //     choisit aléatoirement parmi les cibles éligibles.
   //   • Le flag `clean_armed` doit être actif sur un Cleaner vivant.
