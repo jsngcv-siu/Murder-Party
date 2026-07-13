@@ -249,13 +249,91 @@ les non-MJ** (même cause RLS).
 
 ---
 
-## 7. Résumé décisionnel
+## 7. Le canal NOTIFICATIONS (l'autre moitié du jeu)
 
-- **Migration RLS non déployée** → bandeau = ligne d'action + `FAIT` pour **tout**
-  rôle chez un joueur non-MJ ; l'info (trio/verdict/dés/« à l'Annonce ») est perdue
-  dans le bandeau ET dans l'Historique. Le MJ, lui, voit tout.
-- **Migration déployée** → §3/§4/§5 deviennent la réalité pour tous.
+Le bandeau (§3–§5) ne montre qu'**une chose** : le résultat de **ta propre
+capacité**. Tout le reste de l'information passe par les **notifications** — un
+canal séparé qui touche l'**acteur**, la/les **cible(s)**, les **coéquipiers** et
+le **MJ** (chaque notif porte un `mjBody` → c'est ce qui alimente le récit MJ).
+
+**4 surfaces d'affichage :**
+
+1. **Modales bloquantes** (cartes centrées, `PlayerEventModal`) — **uniquement**
+   5 événements : `death`, `imprisoned`, `released`, `bitten`, `executed`.
+2. **Fil d'annonces / notifications** du joueur — tout le reste.
+3. **Toasts** discrets.
+4. **Récit MJ** — via le `mjBody` de chaque notif.
+
+> Beaucoup de rôles ne parlent **jamais** via le bandeau : ils reçoivent leur info
+> au **setup** (début de partie) ou à la **résolution** (Annonce).
+
+### 7.a — Notifications de SETUP (début de partie, écran T1)
+
+| Rôle | Type | Contenu (au joueur) |
+| --- | --- | --- |
+| **Témoin** | `temoin_reveal` | « Tu reconnais X : {rôle} » (1 Civil au hasard, jamais un Méchant) |
+| **Ange Gardien** | `ward` | « Tu veilles sur X. » (cible civile imposée) |
+| **Paranoïaque** | `paranoid_target` | « Ta cible : X. Protège-le ou tue-le 1× dans la partie. » |
+| **Vengeur** | `vengeur_setup` | « Choisis ton être cher parmi 2 Civils : X · Y » |
+| **Entremetteur** | `entremetteur_setup` | « À la 1ère Enquête, lie 2 joueurs. » |
+| **Usurpateur** | `cover_pending` | « Choisis ta couverture parmi : {3 rôles} » |
+| **Mouchard** | `mouchard_setup` | « Désigne 1 joueur : tu apprendras son rôle exact. » |
+| **Oracle** | `oracle_setup` | « Prédis la faction gagnante. » |
+| **Veuve noire** | `veuve_setup` | « Choisis 2 cibles à chaque Enquête. » |
+| **Stratège** | `stratege_setup` | « Marque une cible ou frappe au couteau. » (+ reçoit un couteau) |
+| **Conservateur** | `conservateur_setup` | « Distribue des reliques ; gagne si Le Cœur du Manoir sort. » |
+| **Indices** | `indice_setup` | « Tu as reçu un indice. » (dans l'inventaire) |
+| **Cuisinier · Apothicaire** | _(objet, pas de notif texte)_ | reçoivent couteau / 3 fioles en inventaire |
+
+### 7.b — Notifications à l'USAGE d'une capacité
+
+| Rôle | Destinataire | Type · contenu |
+| --- | --- | --- |
+| **Tueur · Stratège** | Coéquipiers Méchants | `killer_targeted` — « X est la cible de cette nuit. » |
+| **Exécuteur** | **TOUS** | `execution_reveal` — rôle COMPLET du condamné révélé |
+| **Armurier** | Cible | `anon_gift` — « Un couteau apparaît (donneur inconnu). » |
+| **Facteur** | Cible | `letter` — « Une lettre anonyme est apparue. » |
+| **Apothicaire** | Cible | `fiole_offerte` — « Une fiole t'est offerte. » |
+| **Conservateur** | Cible | `relique_received` — « Tu reçois {relique}. » |
+| **Maître chanteur** | Cible | `blackmail` — « Demain, tu ne pourras pas agir. » |
+| **Accusateur** | Cible (+ soi) | `accused` / `accuse_ok` — « Suspicion jetée sur toi. » |
+| **Falsificateur** | Cible | `falsified` — « Toute enquête sur toi renverra une piste brouillée. » |
+| **Babysitter** | Cible | `babysat` — « À l'abri demain, mais capacité bloquée. » |
+| **Barman** | Les 2 cibles | `drunk` (l'ivre) / `good_time` (l'autre) |
+| **Croque-mitaine** | L'épargné | `boogey_breath` — « Tu as senti son souffle… » |
+| **Entremetteur** | Les 2 liés | `linked_partner` — « Ton âme sœur : X. Si l'un meurt, l'autre suit. » |
+| **Parieur tricheur** | Les 2 joueurs | `dice_duel` — détail des dés + le perdant |
+| **Juge** | Prisonnier | `release_scheduled` — « Tu seras libre au prochain tour. » |
+| **Voleur** | Soi + cible | `steal_ok` / `stolen_from` — objet dérobé |
+| **Imitateur** | Soi | `imitate` — « Tu deviens {rôle}. » |
+| **Mouchard** | Soi | `mouchard_reveal` — rôle exact (aussi dans le bandeau) |
+| **Oracle** | Soi | `prophecy_set` — faction verrouillée |
+| **Veuve noire** | Soi | `veuve_pair` — cibles sous toile |
+| **Cleaner** | Soi | `clean_armed` — effaceur armé |
+| **Majordome · Ange · Paranoïaque · Barman** | MJ | `protected` / `shielded` — protection posée |
+
+### 7.c — Notifications de RÉSOLUTION (à l'Annonce)
+
+| Événement | Destinataire | Type |
+| --- | --- | --- |
+| **Mort** | TOUS (modale pour la victime) | `death` — faction seulement (masquée si Cleaner) |
+| **Autopsie** | Médecin légiste | `autopsy` — rôle exact du mort |
+| **Lien rompu** | Partenaire Entremetteur | `linked_death` → entraîne sa mort |
+| **Vengeance débloquée** | Vengeur | `vengeance` — couteau reçu (être cher mort) |
+| **Conversion vampire** | Nouveau vampire / le clan | `converted` / `vampire_clan` |
+| **Succession** | Acolyte promu | `succession` — devient le nouveau Tueur |
+| **Protections** | Concernés | `saved` / `shielded` / `saint_block` |
+| **Manipulation** | Marionnette | `manipulated` |
+| **Résultat du vote** | TOUS | `vote_result` |
+
+---
+
+## 8. Résumé décisionnel
+
+- **Migration RLS** : **déployée en prod le 2026-07-13** → §3/§4/§5 sont la réalité
+  pour tous les joueurs. _(Avant : bandeau bloqué sur `FAIT` pour les non-MJ, info
+  perdue dans le bandeau ET l'Historique.)_
 - **Point ouvert** : Parieur perdant (`ok:false`) ne persiste pas son résultat même
   côté MJ → bloc de dés visible seulement en cas de victoire.
 
-_Sources : `src/engine/actions.ts` (messages, effets) · `src/components/frames/screens/PA2Capability.tsx` (bandeau, `INFO_RESULT_EFFECTS`, `NO_LAST_RESULT_ROLES`) · `supabase/migrations/20260609…` (RLS) · `supabase/migrations/20260713120000_role_actions_update_actor.sql` (correctif)._
+_Sources : `src/engine/actions.ts` (messages, effets, `notify`/`notifyMJ`) · `src/components/frames/screens/PA2Capability.tsx` (bandeau, `INFO_RESULT_EFFECTS`, `NO_LAST_RESULT_ROLES`) · `src/components/PlayerEventModal.tsx` (modales d'événement) · `supabase/migrations/20260713120000_role_actions_update_actor.sql` (correctif RLS)._
