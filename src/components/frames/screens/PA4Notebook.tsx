@@ -587,7 +587,9 @@ function ItemLog({
     async function load() {
       const { data } = await supabase
         .from("role_actions")
-        .select("id,tour,phase,payload,result,created_at,target_player_id,target_player_id_2")
+        .select(
+          "id,tour,phase,payload,result,created_at,target_player_id,target_player_id_2,category",
+        )
         .eq("game_id", gameId)
         .eq("actor_player_id", meId)
         .order("created_at", { ascending: false })

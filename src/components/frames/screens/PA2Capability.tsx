@@ -2405,6 +2405,10 @@ export type ActionRow = {
   created_at: string;
   target_player_id: string | null;
   target_player_id_2: string | null;
+  // `category` non-nulle = ligne d'INTENTION technique (ATTACK/PROTECT/CURE/
+  // CASCADE/CONVERT) posée par submitIntent, doublon de la ligne-journal. On la
+  // masque dans l'historique (le dénouement est recopié sur le journal).
+  category: string | null;
 };
 
 export function CapabilityCard({
@@ -2555,7 +2559,9 @@ function HistoryTab({
     async function load() {
       const { data: a } = await supabase
         .from("role_actions")
-        .select("id,tour,phase,payload,result,created_at,target_player_id,target_player_id_2")
+        .select(
+          "id,tour,phase,payload,result,created_at,target_player_id,target_player_id_2,category",
+        )
         .eq("game_id", gameId)
         .eq("actor_player_id", meId)
         .order("created_at", { ascending: false })
@@ -2585,7 +2591,12 @@ function HistoryTab({
 
   // Les objets ont désormais leur propre historique dans l'onglet Inventaire —
   // ici on n'affiche que les capacités (plus de filtre « Objets »).
-  const visible = actions.filter((a) => !(a.payload as Record<string, unknown>)?.item);
+  // On masque aussi les lignes d'INTENTION technique (category non-nulle, posées
+  // par submitIntent) : elles doublonnent la ligne-journal (« Capacité utilisée. »
+  // fantôme) alors que le dénouement est déjà recopié sur le journal.
+  const visible = actions.filter(
+    (a) => !(a.payload as Record<string, unknown>)?.item && !a.category,
+  );
 
   // Group by tour (descending)
   const byTour = new Map<number, ActionRow[]>();
@@ -3505,10 +3516,16 @@ function GuetteurWatchPanel({
   const isLive = selectedTour === tour;
   const [actions, setActions] = useState<WatchAction[]>([]);
 
+  // À chaque NOUVEAU tour, le journal repasse « en direct » sur le tour courant :
+  // il ne reste plus figé sur le dernier tour surveillé. Les pastilles ci-dessous
+  // permettent de reconsulter manuellement un tour passé, jusqu'au tour suivant.
+  const prevTourRef = useRef(tour);
   useEffect(() => {
-    if (availableTours.includes(tour)) setSelectedTour(tour);
-    else if (!availableTours.includes(selectedTour)) setSelectedTour(availableTours[0] ?? tour);
-  }, [tour, selectedTour, availableTours]);
+    if (prevTourRef.current !== tour) {
+      prevTourRef.current = tour;
+      setSelectedTour(tour);
+    }
+  }, [tour]);
 
   useEffect(() => {
     async function load() {
