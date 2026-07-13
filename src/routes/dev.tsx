@@ -483,11 +483,10 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
 
   // ── Modales d'événement (fenêtres « dossier » The Board) — rendues `embedded`
   // pour tenir dans le cadre téléphone (en jeu elles s'affichent en plein écran).
-  const evt = (kind: EventKind, byRoleSlug?: string | null, body?: string): QueuedEvent => ({
+  const evt = (kind: EventKind, byRoleSlug?: string | null): QueuedEvent => ({
     id: uid(),
     kind,
     byRoleSlug,
-    body,
     createdAt: Date.now(),
   });
   const tueurRole = roles.get("tueur") ?? null;
@@ -542,21 +541,6 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     render: () =>
       modal(<EventCard embedded ev={evt("imprisoned")} role={null} onClose={() => {}} />),
   });
-  add({
-    id: "M-msg",
-    group: "Modales",
-    label: "Message du MJ",
-    render: () =>
-      modal(
-        <EventCard
-          embedded
-          ev={evt("mj_message", null, "Rejoins-moi près de la bibliothèque, discrètement.")}
-          role={null}
-          onClose={() => {}}
-        />,
-      ),
-  });
-
   // ── Capacité de chaque rôle : on incarne un joueur vivant à qui on assigne
   // le rôle, et on rend l'onglet Capacité réel. Groupé par faction.
   const factionRank = (f: string) =>

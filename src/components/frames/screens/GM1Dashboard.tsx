@@ -15,9 +15,6 @@ import {
   nextCycle,
   setPhase,
   setPaused,
-  killPlayer,
-  imprisonPlayer,
-  releasePlayer,
   type RoleRow,
 } from "@/engine/actions";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,9 +52,7 @@ import {
   History,
   ListChecks,
   Lock,
-  LockOpen,
   type LucideIcon,
-  Mail,
   Megaphone,
   Notebook,
   NotebookPen,
@@ -67,7 +62,6 @@ import {
   Radar,
   ScrollText,
   Search,
-  Send,
   Shield,
   SkipForward,
   Skull,
@@ -1817,24 +1811,21 @@ function ResultsFeed({
 }
 
 // ─── Compositeur de diffusion ──────────────────────────────────────────
-// Deux modes : « téléprompteur » (note privée que le MJ lira à voix haute,
-// type mj_announce, player_id null) et « diffusion » (push réel sur tous les
-// téléphones vivants, une notification mj_broadcast par joueur).
+// Téléprompteur du MJ : une note PRIVÉE que le MJ lira à voix haute (type
+// mj_announce, player_id null). Rien n'est poussé aux joueurs — le mode MJ
+// se limite à la narration + le temps, il n'empiète pas sur le mode joueur.
 function BroadcastComposer({
   gameId,
-  players,
   tour,
   phase,
 }: {
   gameId: string;
-  players: PlayerLite[];
   tour: number;
   phase: string;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const aliveTargets = players.filter((p) => p.is_alive);
 
   async function pushTeleprompter() {
     if (!text.trim() || busy) return;
@@ -1858,44 +1849,6 @@ function BroadcastComposer({
     }
   }
 
-  async function broadcast() {
-    if (!text.trim() || busy) return;
-    if (
-      !window.confirm(
-        `Diffuser ce message sur les téléphones de ${aliveTargets.length} joueur(s) vivant(s) ?`,
-      )
-    )
-      return;
-    setBusy(true);
-    try {
-      const rows = aliveTargets.map((p) => ({
-        game_id: gameId,
-        player_id: p.id,
-        type: "mj_broadcast",
-        title: "Annonce du Détective",
-        body: text.trim(),
-        payload: { tour, phase, broadcast: true } as never,
-      }));
-      // Ligne MJ pour archiver la diffusion dans le téléprompteur aussi.
-      rows.push({
-        game_id: gameId,
-        player_id: null as never,
-        type: "mj_announce",
-        title: "Diffusé aux joueurs",
-        body: text.trim(),
-        payload: { tour, phase, mj_view: true, broadcast: true } as never,
-      });
-      const { error } = await supabase.from("notifications").insert(rows);
-      if (error) throw error;
-      toast.success(`Diffusé à ${aliveTargets.length} joueur(s)`);
-      setText("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!open) {
     return (
       <button
@@ -1903,7 +1856,7 @@ function BroadcastComposer({
         className="w-full rounded-xl border border-dashed py-2.5 text-[11px] font-semibold text-gold/90 hover:bg-gold/10 transition flex items-center justify-center gap-1.5"
         style={{ borderColor: "oklch(0.65 0.18 75 / 0.4)" }}
       >
-        <PencilLine className="size-3.5" /> Composer une annonce / diffusion
+        <PencilLine className="size-3.5" /> Composer une annonce
       </button>
     );
   }
@@ -1939,29 +1892,16 @@ function BroadcastComposer({
         placeholder="« Un cri déchire le manoir… quelqu'un a disparu. »"
         className="w-full bg-background/60 border border-border/60 rounded-lg p-2.5 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
       />
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => void pushTeleprompter()}
-          disabled={busy || !text.trim()}
-          className="h-10 rounded-xl border border-border bg-card/60 text-[11px] font-semibold hover:bg-card transition active:scale-95 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
-        >
-          <Megaphone className="size-3.5" /> Téléprompteur
-        </button>
-        <button
-          onClick={() => void broadcast()}
-          disabled={busy || !text.trim()}
-          className="h-10 rounded-xl text-[11px] font-semibold text-primary-foreground transition active:scale-95 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
-          style={{
-            background: "linear-gradient(135deg, oklch(0.78 0.16 75), oklch(0.86 0.18 80))",
-          }}
-        >
-          <Send className="size-3.5" /> Diffuser ({aliveTargets.length})
-        </button>
-      </div>
+      <button
+        onClick={() => void pushTeleprompter()}
+        disabled={busy || !text.trim()}
+        className="w-full h-10 rounded-xl border border-border bg-card/60 text-[11px] font-semibold hover:bg-card transition active:scale-95 disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+      >
+        <Megaphone className="size-3.5" /> Ajouter au téléprompteur
+      </button>
       <p className="text-[10px] text-muted-foreground leading-snug">
         <strong className="text-foreground/80">Téléprompteur</strong> : note privée que tu liras à
-        voix haute. <strong className="text-foreground/80">Diffuser</strong> : pousse le message sur
-        les téléphones des joueurs vivants.
+        voix haute. Rien n'est envoyé sur les téléphones des joueurs.
       </p>
     </div>
   );
@@ -1991,12 +1931,7 @@ function RingTab({
 
   return (
     <div className="p-4 space-y-4">
-      <BroadcastComposer
-        gameId={gameId}
-        players={players}
-        tour={game.current_tour}
-        phase={game.current_phase}
-      />
+      <BroadcastComposer gameId={gameId} tour={game.current_tour} phase={game.current_phase} />
       <CalloutCard
         tone="gold"
         icon={<Megaphone className="size-3.5" />}
@@ -2750,55 +2685,6 @@ function PlayerSheet({
       result: Record<string, unknown> | null;
     }>
   >([]);
-  const [actBusy, setActBusy] = useState(false);
-  const [msgOpen, setMsgOpen] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  async function runAct(label: string, fn: () => Promise<unknown>) {
-    if (actBusy) return;
-    setActBusy(true);
-    try {
-      await fn();
-      toast.success(label);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setActBusy(false);
-    }
-  }
-  const doKill = () => {
-    if (!window.confirm(`Tuer ${player.pseudo} ? Action immédiate et visible côté joueur.`)) return;
-    void runAct(`${player.pseudo} éliminé`, () => killPlayer(gameId, player.id, "MJ"));
-  };
-  const doImprison = () => {
-    if (!window.confirm(`Emprisonner ${player.pseudo} ?`)) return;
-    void runAct(`${player.pseudo} emprisonné`, () => imprisonPlayer(gameId, player.id, "MJ"));
-  };
-  const doRelease = () =>
-    void runAct(`${player.pseudo} libéré`, () => releasePlayer(gameId, player.id));
-  async function sendMsg() {
-    if (!msg.trim() || actBusy) return;
-    setActBusy(true);
-    try {
-      const { error } = await supabase.from("notifications").insert({
-        game_id: gameId,
-        player_id: player.id,
-        type: "mj_message",
-        title: "Message du Détective",
-        body: msg.trim(),
-        payload: { tour, mj_message: true } as never,
-      });
-      if (error) throw error;
-      toast.success(`Envoyé à ${player.pseudo}`);
-      setMsg("");
-      setMsgOpen(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setActBusy(false);
-    }
-  }
-
   useEffect(() => {
     void (async () => {
       const [{ data: n }, { data: a }] = await Promise.all([
@@ -2891,77 +2777,6 @@ function PlayerSheet({
           >
             Fermer
           </button>
-        </div>
-
-        {/* Leviers MJ — actions live sur ce joueur */}
-        <div className="px-4 pt-3">
-          <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-1.5 flex items-center gap-1.5">
-            <SlidersHorizontal className="size-3.5" />
-            <span>Leviers du Détective</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {player.is_alive && !player.is_imprisoned && (
-              <LeverBtn tone="rose" disabled={actBusy} onClick={doKill}>
-                <Skull className="size-3.5" /> Tuer
-              </LeverBtn>
-            )}
-            {player.is_alive && !player.is_imprisoned && (
-              <LeverBtn tone="amber" disabled={actBusy} onClick={doImprison}>
-                <Lock className="size-3.5" /> Emprisonner
-              </LeverBtn>
-            )}
-            {player.is_alive && player.is_imprisoned && (
-              <>
-                <LeverBtn tone="emerald" disabled={actBusy} onClick={doRelease}>
-                  <LockOpen className="size-3.5" /> Libérer
-                </LeverBtn>
-                <LeverBtn tone="rose" disabled={actBusy} onClick={doKill}>
-                  <Skull className="size-3.5" /> Tuer
-                </LeverBtn>
-              </>
-            )}
-            {!player.is_alive && (
-              <span className="text-[10px] text-muted-foreground italic px-1 py-1">
-                Joueur mort — actions indisponibles.
-              </span>
-            )}
-            <LeverBtn tone="sky" disabled={actBusy} onClick={() => setMsgOpen((v) => !v)}>
-              <Mail className="size-3.5" /> Message privé
-            </LeverBtn>
-          </div>
-          {msgOpen && (
-            <div className="mt-2 space-y-1.5">
-              <textarea
-                value={msg}
-                onChange={(e) => setMsg(e.target.value)}
-                rows={2}
-                placeholder={`Mot secret pour ${player.pseudo}… (indice, ambiance, relance)`}
-                className="w-full bg-background/60 border border-border/60 rounded-lg p-2 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-sky-400/50 resize-none"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setMsgOpen(false);
-                    setMsg("");
-                  }}
-                  className="text-[10px] px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:bg-muted/40"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={() => void sendMsg()}
-                  disabled={actBusy || !msg.trim()}
-                  className="text-[10px] px-3 py-1 rounded-full font-semibold text-sky-950 disabled:opacity-40"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, oklch(0.78 0.14 230), oklch(0.85 0.14 220))",
-                  }}
-                >
-                  Envoyer
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Tabs */}
@@ -3432,51 +3247,6 @@ function BigBtn({
           {badge}
         </span>
       )}
-    </button>
-  );
-}
-
-function LeverBtn({
-  children,
-  onClick,
-  disabled,
-  tone,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  tone: "rose" | "amber" | "emerald" | "sky";
-}) {
-  const palette = {
-    rose: {
-      c: "oklch(0.78 0.20 22)",
-      b: "oklch(0.55 0.22 22 / 0.5)",
-      bg: "oklch(0.22 0.08 22 / 0.3)",
-    },
-    amber: {
-      c: "oklch(0.86 0.16 70)",
-      b: "oklch(0.65 0.18 60 / 0.5)",
-      bg: "oklch(0.22 0.08 60 / 0.3)",
-    },
-    emerald: {
-      c: "oklch(0.82 0.16 145)",
-      b: "oklch(0.55 0.18 145 / 0.5)",
-      bg: "oklch(0.20 0.08 145 / 0.3)",
-    },
-    sky: {
-      c: "oklch(0.80 0.14 230)",
-      b: "oklch(0.55 0.16 230 / 0.5)",
-      bg: "oklch(0.20 0.07 230 / 0.3)",
-    },
-  }[tone];
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition active:scale-95 disabled:opacity-40"
-      style={{ color: palette.c, borderColor: palette.b, background: palette.bg }}
-    >
-      {children}
     </button>
   );
 }

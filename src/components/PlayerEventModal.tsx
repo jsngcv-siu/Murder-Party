@@ -27,14 +27,7 @@ import {
   INK_BODY,
 } from "@/components/boardChrome";
 
-export type EventKind =
-  | "killed"
-  | "executed"
-  | "imprisoned"
-  | "released"
-  | "bitten"
-  | "mj_message"
-  | "mj_broadcast";
+export type EventKind = "killed" | "executed" | "imprisoned" | "released" | "bitten";
 
 export interface QueuedEvent {
   id: string;
@@ -43,8 +36,6 @@ export interface QueuedEvent {
   byRoleSlug?: string | null;
   /** Raison brute pour debug / sous-titre. */
   reason?: string | null;
-  /** Texte libre du MJ (mj_message / mj_broadcast). */
-  body?: string | null;
   createdAt: number;
 }
 
@@ -152,22 +143,6 @@ export function PlayerEventModal({
         createdAt: new Date(row.created_at).getTime(),
       };
     }
-    if (row.type === "mj_message") {
-      return {
-        id: row.id,
-        kind: "mj_message",
-        body: row.body,
-        createdAt: new Date(row.created_at).getTime(),
-      };
-    }
-    if (row.type === "mj_broadcast") {
-      return {
-        id: row.id,
-        kind: "mj_broadcast",
-        body: row.body,
-        createdAt: new Date(row.created_at).getTime(),
-      };
-    }
     return null;
   };
 
@@ -199,16 +174,7 @@ export function PlayerEventModal({
         .select("id, type, title, body, payload, created_at")
         .eq("game_id", game.id)
         .eq("player_id", me.id)
-        .in("type", [
-          "death",
-          "imprisoned",
-          "released",
-          "bitten",
-          "vampire_bite",
-          "mj_message",
-          "mj_broadcast",
-          "mj_nudge",
-        ])
+        .in("type", ["death", "imprisoned", "released", "bitten", "vampire_bite", "mj_nudge"])
         .order("created_at", { ascending: true });
       if (cancelled) return;
       const rows = (data ?? []) as NotificationRow[];
@@ -374,32 +340,6 @@ const BOARD_LOOK: Record<EventKind, BoardLook> = {
     btnLabel: "Compris",
     btnVariant: "fill",
   },
-  mj_message: {
-    header: "— PLI CACHETÉ —",
-    title: "Un mot du Détective",
-    body: "",
-    emoji: "✉️",
-    emojiBg: "radial-gradient(circle at 36% 30%,#8ab4dc,#2f5f86 72%)",
-    ink: "#2f5f86",
-    paper: PAPER,
-    border: PAPER_BORDER,
-    rotate: -1,
-    btnLabel: "J'ai compris",
-    btnVariant: "fill",
-  },
-  mj_broadcast: {
-    header: "— CHRONIQUE DU MANOIR —",
-    title: "Le Détective déclare",
-    body: "",
-    emoji: "📣",
-    emojiBg: "radial-gradient(circle at 36% 30%,#f0c46a,#a8772a 72%)",
-    ink: "#a8772a",
-    paper: PAPER,
-    border: PAPER_BORDER,
-    rotate: 1,
-    btnLabel: "J'ai compris",
-    btnVariant: "fill",
-  },
 };
 
 export function EventCard({
@@ -414,7 +354,6 @@ export function EventCard({
   embedded?: boolean;
 }) {
   const look = BOARD_LOOK[ev.kind];
-  const isMessage = ev.kind === "mj_message" || ev.kind === "mj_broadcast";
   const showRole = !!look.showRole && !!role;
 
   return (
@@ -522,61 +461,18 @@ export function EventCard({
           </div>
         )}
 
-        {/* Message libre du MJ — billet manuscrit */}
-        {isMessage ? (
-          <div
-            style={{
-              position: "relative",
-              marginTop: 14,
-              borderRadius: 3,
-              border: "1px solid #d8c8a8",
-              background: "#fbf6e9",
-              padding: "12px 13px",
-              textAlign: "left",
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                top: -8,
-                left: 12,
-                padding: "0 5px",
-                fontFamily: "var(--font-display)",
-                fontSize: 8,
-                letterSpacing: ".18em",
-                background: "#fbf6e9",
-                color: look.ink,
-              }}
-            >
-              {ev.kind === "mj_message" ? "POUR TOI SEUL" : "À TOUS"}
-            </span>
-            <p
-              style={{
-                fontFamily: "Caveat,cursive",
-                fontWeight: 700,
-                fontSize: 17,
-                color: INK_BODY,
-                lineHeight: 1.25,
-                margin: 0,
-              }}
-            >
-              « {ev.body?.trim() || "…"} »
-            </p>
-          </div>
-        ) : (
-          <p
-            style={{
-              fontFamily: "Caveat,cursive",
-              fontWeight: 700,
-              fontSize: 17,
-              color: INK_BODY,
-              lineHeight: 1.2,
-              margin: "12px 4px 0",
-            }}
-          >
-            {look.body}
-          </p>
-        )}
+        <p
+          style={{
+            fontFamily: "Caveat,cursive",
+            fontWeight: 700,
+            fontSize: 17,
+            color: INK_BODY,
+            lineHeight: 1.2,
+            margin: "12px 4px 0",
+          }}
+        >
+          {look.body}
+        </p>
 
         {/* Bouton */}
         <button
