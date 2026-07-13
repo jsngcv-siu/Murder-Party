@@ -18,7 +18,6 @@ import {
   SuspicionsIcon,
   TestamentIcon,
 } from "@/components/icons/tabIcons";
-import { useNavigate } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { StatusBandeau } from "@/components/StatusBandeau";
 import { useServerTimeOffset, serverNow } from "@/lib/serverTime";
@@ -113,14 +112,19 @@ export function PlayerShell({
   // (T1/T2/T3, durée INTRO_MS) se termine — pour différer les annonces volantes
   // tant que l'écran de phase est au premier plan.
   const [introEndTick, setIntroEndTick] = useState(0);
-  const navigate = useNavigate();
 
   // Handlers du menu Paramètres : disponibles uniquement hors démo.
+  // NB : le piège du bouton retour (plus bas) empile des entrées d'historique
+  // via `pushState`, ce qui désynchronise l'index interne de TanStack Router et
+  // fait avaler un `navigate({ to: "/" })` (seul `setHelpOpen(false)` reste
+  // visible). Comme quitter/sortir est une sortie franche, on force une vraie
+  // navigation plein-écran : elle contourne l'historique corrompu et démonte
+  // proprement tous les abonnements temps réel de la partie.
   const handleLeave = embedded
     ? undefined
     : () => {
         setHelpOpen(false);
-        void navigate({ to: "/" });
+        window.location.assign("/");
       };
   const handleQuit = embedded
     ? undefined
@@ -137,7 +141,7 @@ export function PlayerShell({
           /* noop */
         }
         setHelpOpen(false);
-        void navigate({ to: "/" });
+        window.location.assign("/");
       };
 
   const setTab = (t: Tab) => {
@@ -148,44 +152,50 @@ export function PlayerShell({
   useEffect(() => {
     tabRef.current = tab;
   }, [tab]);
+  // Miroir de `helpOpen` pour que le piège du bouton retour lise l'état courant
+  // sans avoir `helpOpen` dans ses dépendances (sinon l'effet se ré-exécute à
+  // chaque ouverture/fermeture des Paramètres et ré-empile des sentinelles).
+  const helpOpenRef = useRef(helpOpen);
+  useEffect(() => {
+    helpOpenRef.current = helpOpen;
+  }, [helpOpen]);
 
   // ─── Piège du bouton retour (Android / iOS) ───
   // Tant qu'on est en partie, le retour système ne doit JAMAIS faire quitter
-  // la partie — même après plusieurs pressions consécutives. On empile
-  // PLUSIEURS sentinelles au montage (buffer) et on en re-pousse une à chaque
-  // popstate. Si l'aide est ouverte → on la ferme. Sinon → on bascule sur
+  // la partie — même après plusieurs pressions consécutives. Invariant : on
+  // garde EXACTEMENT une sentinelle au sommet de l'historique. On en pousse une
+  // au montage, et à chaque popstate (= un retour l'a dépilée) on en re-pousse
+  // une seule. Si l'aide est ouverte → on la ferme. Sinon → on bascule sur
   // l'onglet « Annonces » (= journal). On reste piégé indéfiniment.
+  // NB : `helpOpen` est lu via `helpOpenRef` pour ne pas figurer dans les deps
+  // (sinon l'effet se ré-exécute et ré-empile à chaque toggle des Paramètres).
   useEffect(() => {
     if (embedded) return;
     if (game.status !== "in_progress" && game.status !== "awaiting_players") return;
     if (typeof window === "undefined") return;
-    const SENTINEL = { __mpGameTrap: true } as const;
     const pushTrap = () => {
       try {
-        window.history.pushState(SENTINEL, "");
+        window.history.pushState({ __mpGameTrap: true }, "");
       } catch {
         /* noop */
       }
     };
-    // Buffer initial : plusieurs entrées pour absorber un double-back rapide.
-    for (let i = 0; i < 3; i++) pushTrap();
+    pushTrap();
     const onPop = () => {
-      // Re-pousse IMMÉDIATEMENT pour ne jamais laisser l'historique se vider.
+      // Re-pousse aussitôt l'unique sentinelle dépilée par le retour.
       pushTrap();
-      if (helpOpen) {
+      if (helpOpenRef.current) {
         setHelpOpen(false);
         return;
       }
       if (tabRef.current !== "journal") {
         setTab("journal");
       }
-      // Double sécurité : repush après le tick courant.
-      setTimeout(pushTrap, 0);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embedded, game.status, helpOpen]);
+  }, [embedded, game.status]);
 
   // Pilote élu de la partie (avancement des phases + bots). Élection déterministe
   // parmi les clients présents (cf. usePhaseDriver) : un seul pilote à la fois,
