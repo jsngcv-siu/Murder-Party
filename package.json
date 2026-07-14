@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "audit:roles": "node scripts/role-static-audit.mjs",
-    "build:edge": "node scripts/build-phase-ticker.mjs"
+    "build:edge": "node scripts/build-phase-ticker.mjs",
+    "deploy:edge": "node scripts/build-phase-ticker.mjs && supabase functions deploy phase-ticker --project-ref eqcfagjvbiwhsofzmqtg --no-verify-jwt"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

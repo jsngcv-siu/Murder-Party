@@ -1856,6 +1856,17 @@ function allowedActivePhases(_role) {
 function isFalsified(m) {
   return m?.falsified === true;
 }
+function apparentSlug(slug, m) {
+  const cover = m?.cover_slug;
+  return typeof cover === "string" ? cover : slug ?? "";
+}
+function apparentFaction(slug, m, rolesBySlug) {
+  const cover = m?.cover_slug;
+  if (typeof cover === "string") return rolesBySlug.get(cover)?.faction;
+  const role = rolesBySlug.get(slug ?? "");
+  if (role && isKillerClass(role)) return "Civil";
+  return role?.faction;
+}
 function policierVerdict(role, override) {
   if (override) return override;
   if (!role) return "na";
@@ -3969,9 +3980,10 @@ async function executeCapability(opts) {
       // ── Investigations ──
       // Détective & Assistant : trio par TYPE inter-faction.
       // On révèle le vrai rôle + 2 leurres de type compatible (toutes factions
-      // confondues selon le mapping). Le Tueur n'est PAS masqué ici (il l'est
-      // seulement pour Suspicieux/Innocents/Boussole). L'Usurpateur (cover_slug)
-      // reste masqué. La Falsification garde son message dédié.
+      // confondues selon le mapping). L'Assistant du détective est le SEUL rôle à
+      // percer les déguisements : le Tueur ressort sous son VRAI rôle (pas de
+      // camouflage Citoyen) et l'Usurpateur sous son VRAI rôle (cover_slug ignorée).
+      // Seule la Falsification l'aveugle (message dédié).
       case "assistant_du_detective": {
         if (!t1) return { ok: false, message: "Cible requise" };
         const target = opts.allPlayers.find((p) => p.id === t1.id);
@@ -3980,8 +3992,7 @@ async function executeCapability(opts) {
           await used({ effect: "investigate_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        let trueSlug = target?.role_slug ?? "";
-        if (typeof tMeta.cover_slug === "string") trueSlug = tMeta.cover_slug;
+        const trueSlug = target?.role_slug ?? "";
         const trueRole = opts.rolesBySlug.get(trueSlug);
         const trueName = trueRole?.name_fr ?? "Citoyen";
         const compatible = (a, b) => {
@@ -4067,9 +4078,9 @@ async function executeCapability(opts) {
           await used({ effect: "compare_falsified", t1: t1.id, t2: t2.id });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        const r1 = opts.rolesBySlug.get(t1.role_slug ?? "");
-        const r2 = opts.rolesBySlug.get(t2.role_slug ?? "");
-        const same = r1?.faction === r2?.faction;
+        const f1 = apparentFaction(t1.role_slug, m1, opts.rolesBySlug);
+        const f2 = apparentFaction(t2.role_slug, m2, opts.rolesBySlug);
+        const same = f1 === f2;
         await used({ effect: "compare", same });
         return { ok: true, message: same ? "M\xEAme camp" : "Camps oppos\xE9s", reveal: { same } };
       }
@@ -4445,8 +4456,8 @@ async function executeCapability(opts) {
           return { ok: true, message: FALSIFIED_MSG };
         }
         const override = tMeta.police_verdict_override;
-        const r = opts.rolesBySlug.get(t1.role_slug ?? "");
-        const verdict = override ?? (t1.role_slug === "usurpateur" ? "suspicious" : r?.police_verdict ?? "na");
+        const r = opts.rolesBySlug.get(apparentSlug(t1.role_slug, tMeta));
+        const verdict = override ?? (r && isKillerClass(r) ? "innocent" : r?.police_verdict ?? "na");
         const isSuspect = verdict === "suspicious";
         await used({ effect: "heir_inquiry", target: t1.id, verdict });
         await notify({
@@ -4630,8 +4641,8 @@ async function executeCapability(opts) {
           return { ok: true, message: FALSIFIED_MSG };
         }
         const override = tMeta.police_verdict_override;
-        const trueRole = opts.rolesBySlug.get(t1.role_slug ?? "");
-        const verdict = policierVerdict(trueRole, override);
+        const seenRole = opts.rolesBySlug.get(apparentSlug(t1.role_slug, tMeta));
+        const verdict = policierVerdict(seenRole, override);
         await used({ effect: "police", verdict });
         return {
           ok: true,
@@ -4818,9 +4829,10 @@ async function executeCapability(opts) {
           });
           return { ok: true, message: FALSIFIED_MSG };
         }
-        const revealSlug = meta(t1).cover_slug ?? t1.role_slug ?? "";
+        const cover = meta(t1).cover_slug;
+        const revealSlug = cover ?? t1.role_slug ?? "";
         const r = opts.rolesBySlug.get(revealSlug);
-        const label = r ? `${r.icon} ${r.name_fr}` : "?";
+        const label = !cover && r && isKillerClass(r) ? "Citoyen" : r ? `${r.icon} ${r.name_fr}` : "?";
         await used({ effect: "mouchard_reveal", target: t1.id, slug: revealSlug });
         await notify({
           gameId: opts.gameId,

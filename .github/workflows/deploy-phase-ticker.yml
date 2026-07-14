@@ -1,0 +1,61 @@
+# Déploiement AUTOMATIQUE de l'Edge Function `phase-ticker` (l'arbitre serveur du
+# temps / fin de partie). Se déclenche à chaque push sur `main` qui touche le
+# moteur de jeu ou la fonction — comme Vercel redéploie le front. Plus besoin de
+# penser à `build:edge` + `functions deploy` à la main : le bundle est TOUJOURS
+# régénéré depuis la source avant déploiement, donc jamais périmé.
+#
+# ⚠️ SETUP UNIQUE (une seule fois) :
+#   1. Créer un access token Supabase depuis le compte qui possède le projet PROD
+#      `eqcfagjvbiwhsofzmqtg` : https://supabase.com/dashboard/account/tokens
+#   2. GitHub → repo → Settings → Secrets and variables → Actions → New secret :
+#        nom   = SUPABASE_ACCESS_TOKEN
+#        valeur = <le token>
+#   Le ref du projet est public (déjà dans le front), pas besoin de secret.
+
+name: Deploy phase-ticker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/engine/**"
+      - "src/lib/**"
+      - "src/integrations/supabase/**"
+      - "scripts/phase-ticker.src.ts"
+      - "scripts/build-phase-ticker.mjs"
+      - "supabase/functions/phase-ticker/**"
+      - ".github/workflows/deploy-phase-ticker.yml"
+  workflow_dispatch: {} # bouton « Run workflow » manuel dans l'onglet Actions
+
+concurrency:
+  group: deploy-phase-ticker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: eqcfagjvbiwhsofzmqtg
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps (esbuild pour le bundle)
+        run: npm ci
+
+      # Régénère le bundle depuis la source ACTUELLE (moteur inclus) : garantit
+      # que ce qui est déployé = ce qui est dans le repo, jamais un artefact périmé.
+      - name: Rebuild edge bundle
+        run: node scripts/build-phase-ticker.mjs
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy phase-ticker
+        run: supabase functions deploy phase-ticker --project-ref "$PROJECT_REF" --no-verify-jwt
