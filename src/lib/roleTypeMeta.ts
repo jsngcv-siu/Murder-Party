@@ -10,6 +10,7 @@ import {
   Skull,
   Flame,
   Smile,
+  Hand,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ export const ROLE_TYPE_META: Record<string, RoleTypeMeta> = {
   INVESTIGATION: { Icon: Search, color: "oklch(0.65 0.14 220)", label: "Investigation" },
   SUPPORT: { Icon: Heart, color: "oklch(0.75 0.12 20)", label: "Support" },
   TROMPERIE: { Icon: VenetianMask, color: "oklch(0.65 0.12 300)", label: "Tromperie" },
+  CONTRÔLE: { Icon: Hand, color: "oklch(0.66 0.13 195)", label: "Contrôle" },
   MAL: { Icon: Skull, color: "oklch(0.55 0.20 22)", label: "Mal" },
   CHAOS: { Icon: Flame, color: "oklch(0.75 0.18 50)", label: "Chaos" },
   BÉNIN: { Icon: Smile, color: "oklch(0.70 0.14 150)", label: "Bénin" },

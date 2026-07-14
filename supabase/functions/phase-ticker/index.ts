@@ -880,7 +880,8 @@ __export(constants_exports, {
 function bracket(n) {
   if (n <= 8) return "small";
   if (n <= 13) return "mid";
-  return "large";
+  if (n <= 17) return "large";
+  return "xl";
 }
 function acolyteQuotasFor(playerCount) {
   return ACOLYTE_QUOTAS[bracket(playerCount)];
@@ -891,11 +892,13 @@ function civilQuotasFor(playerCount) {
 function neutresCountFor(playerCount) {
   if (playerCount <= 7) return 0;
   if (playerCount <= 11) return 1;
-  return 2;
+  if (playerCount <= 17) return 2;
+  return 3;
 }
 function acolytesCountFor(playerCount) {
   if (playerCount <= 9) return 1;
-  return 2;
+  if (playerCount <= 17) return 2;
+  return 3;
 }
 var BOT_TICK_BASE_MS, ACOLYTE_QUOTAS, CIVIL_QUOTAS, NEUTRE_TYPE_WEIGHTS;
 var init_constants = __esm({
@@ -906,17 +909,22 @@ var init_constants = __esm({
       small: {
         INVESTIGATION: { min: 0, max: 1 },
         TROMPERIE: { min: 0, max: 1 },
-        SUPPORT: { min: 0, max: 1 }
+        CONTR\u00D4LE: { min: 0, max: 1 }
       },
       mid: {
         INVESTIGATION: { min: 1, max: 1 },
         TROMPERIE: { min: 0, max: 1 },
-        SUPPORT: { min: 0, max: 1 }
+        CONTR\u00D4LE: { min: 0, max: 1 }
       },
       large: {
         INVESTIGATION: { min: 1, max: 1 },
         TROMPERIE: { min: 1, max: 2 },
-        SUPPORT: { min: 0, max: 1 }
+        CONTR\u00D4LE: { min: 0, max: 2 }
+      },
+      xl: {
+        INVESTIGATION: { min: 1, max: 2 },
+        TROMPERIE: { min: 1, max: 2 },
+        CONTR\u00D4LE: { min: 1, max: 2 }
       }
     };
     CIVIL_QUOTAS = {
@@ -928,15 +936,21 @@ var init_constants = __esm({
       },
       mid: {
         INVESTIGATION: { min: 2, max: 2 },
-        PROTECTEUR: { min: 1, max: 1 },
+        PROTECTEUR: { min: 1, max: 2 },
         TUEUR: { min: 1, max: 1 },
         SUPPORT: { min: 1, max: 2 }
       },
       large: {
         INVESTIGATION: { min: 2, max: 3 },
-        PROTECTEUR: { min: 1, max: 2 },
-        TUEUR: { min: 1, max: 1 },
-        SUPPORT: { min: 2, max: 2 }
+        PROTECTEUR: { min: 2, max: 2 },
+        TUEUR: { min: 1, max: 2 },
+        SUPPORT: { min: 2, max: 3 }
+      },
+      xl: {
+        INVESTIGATION: { min: 3, max: 4 },
+        PROTECTEUR: { min: 2, max: 3 },
+        TUEUR: { min: 1, max: 2 },
+        SUPPORT: { min: 2, max: 3 }
       }
     };
     NEUTRE_TYPE_WEIGHTS = {
@@ -1020,22 +1034,31 @@ var init_poolConfig = __esm({
   "src/lib/poolConfig.ts"() {
     "use strict";
     init_constants();
-    ACOLYTE_FILL = ["INVESTIGATION", "TROMPERIE/SUPPORT", "TROMPERIE/SUPPORT"];
+    ACOLYTE_FILL = [
+      "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
+      "INVESTIGATION",
+      "TROMPERIE/CONTR\xD4LE",
+      "TROMPERIE/CONTR\xD4LE"
+    ];
     NEUTRE_FILL = [
-      // 1er neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
+      // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
+      // Le moteur force un type différent d'un neutre à l'autre. Un CHAOS reste possible
+      // dès le 1er neutre (rare), plus de chances au 2e/3e (cf. plan §4).
       "MAL/B\xC9NIN/CHAOS",
-      // 2ème neutre : tous types possibles aussi, MAIS le moteur force un type différent du 1er.
+      "MAL/B\xC9NIN/CHAOS",
       "MAL/B\xC9NIN/CHAOS"
     ];
     CIVIL_FILL = [
-      "PROTECTEUR",
-      "INVESTIGATION",
       "TUEUR",
       "SUPPORT",
-      "INVESTIGATION/SUPPORT",
+      "INVESTIGATION",
       "PROTECTEUR",
+      "SUPPORT",
+      "INVESTIGATION",
       "TUEUR",
-      "INVESTIGATION/SUPPORT"
+      "PROTECTEUR",
+      "SUPPORT",
+      "INVESTIGATION"
     ];
   }
 });
@@ -3925,7 +3948,7 @@ async function executeCapability(opts) {
           if (a.faction === b.faction && a.type === b.type) return true;
           if (a.type === "INVESTIGATION" && b.type === "INVESTIGATION") return true;
           if (a.type === "SUPPORT") {
-            if (b.type === "SUPPORT") return true;
+            if (b.type === "SUPPORT" || b.type === "CONTR\xD4LE") return true;
             if (b.faction === "Neutre" && (b.type === "B\xC9NIN" || b.type === "CHAOS")) return true;
           }
           if (a.type === "PROTECTEUR") {
@@ -3937,12 +3960,18 @@ async function executeCapability(opts) {
             if (b.faction === "Neutre" && b.type === "MAL") return true;
           }
           if (a.type === "TROMPERIE") {
-            if (b.type === "TROMPERIE") return true;
+            if (b.type === "TROMPERIE" || b.type === "CONTR\xD4LE") return true;
+            if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
+          }
+          if (a.type === "CONTR\xD4LE") {
+            if (b.type === "CONTR\xD4LE" || b.type === "TROMPERIE" || b.type === "SUPPORT") return true;
             if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
           }
           if (a.faction === "Neutre") {
-            if (a.type === "MAL" && (b.type === "TUEUR" || b.type === "TROMPERIE")) return true;
-            if (a.type === "CHAOS" && (b.type === "TROMPERIE" || b.type === "SUPPORT")) return true;
+            if (a.type === "MAL" && (b.type === "TUEUR" || b.type === "TROMPERIE" || b.type === "CONTR\xD4LE"))
+              return true;
+            if (a.type === "CHAOS" && (b.type === "TROMPERIE" || b.type === "SUPPORT" || b.type === "CONTR\xD4LE"))
+              return true;
             if (a.type === "B\xC9NIN" && (b.type === "PROTECTEUR" || b.type === "SUPPORT"))
               return true;
           }

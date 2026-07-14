@@ -29,24 +29,38 @@ export function expandSlotTypes(t: string): string[] {
 }
 
 // Patterns de slots non-verrouillés à dérouler dans l'ordre selon la taille cible.
-const ACOLYTE_FILL: string[] = ["INVESTIGATION", "TROMPERIE/SUPPORT", "TROMPERIE/SUPPORT"];
+// Acolytes : Méchant/SUPPORT n'existe plus (migré vers CONTRÔLE). 1er slot = union
+// souple (petites tables), puis un enquêteur méchant garanti, puis TROMPERIE/CONTRÔLE.
+const ACOLYTE_FILL: string[] = [
+  "INVESTIGATION/TROMPERIE/CONTRÔLE",
+  "INVESTIGATION",
+  "TROMPERIE/CONTRÔLE",
+  "TROMPERIE/CONTRÔLE",
+];
 const NEUTRE_FILL: string[] = [
-  // 1er neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
+  // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
+  // Le moteur force un type différent d'un neutre à l'autre. Un CHAOS reste possible
+  // dès le 1er neutre (rare), plus de chances au 2e/3e (cf. plan §4).
   "MAL/BÉNIN/CHAOS",
-  // 2ème neutre : tous types possibles aussi, MAIS le moteur force un type différent du 1er.
+  "MAL/BÉNIN/CHAOS",
   "MAL/BÉNIN/CHAOS",
 ];
 
 // Civils non-verrouillés (les MUSTs majordome/assistant ne sont pas listés ici).
+// Ordre = séquence du plan §3 (chaque joueur civil ajouté impose ce type précis) :
+// à 20 j. → 2 TUEUR, 3 SUPPORT, 3 INVESTIGATION, 2 PROTECTEUR (+ les 2 MUST) =
+// 4 Investigation / 3 Protecteur / 3 Support / 2 Tueur. Enquêteurs présents sans envahir.
 const CIVIL_FILL: string[] = [
-  "PROTECTEUR",
-  "INVESTIGATION",
   "TUEUR",
   "SUPPORT",
-  "INVESTIGATION/SUPPORT",
+  "INVESTIGATION",
   "PROTECTEUR",
+  "SUPPORT",
+  "INVESTIGATION",
   "TUEUR",
-  "INVESTIGATION/SUPPORT",
+  "PROTECTEUR",
+  "SUPPORT",
+  "INVESTIGATION",
 ];
 
 /**

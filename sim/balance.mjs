@@ -79,14 +79,14 @@ const ROLES = [
   { slug: "croque_mitaine", faction: "Méchant", type: "TUEUR", dw: 0.4, min: 7 },
   { slug: "stratege", faction: "Méchant", type: "TUEUR", dw: 0.4, min: 8 },
   { slug: "usurpateur", faction: "Méchant", type: "TROMPERIE", dw: 0.7, min: 6, cover: true },
-  { slug: "marionnettiste", faction: "Méchant", type: "TROMPERIE", dw: 0.6, min: 9 },
-  { slug: "voleur", faction: "Méchant", type: "TROMPERIE", dw: 1.0, min: 7 },
+  { slug: "marionnettiste", faction: "Méchant", type: "CONTRÔLE", dw: 0.6, min: 9 },
+  { slug: "voleur", faction: "Méchant", type: "CONTRÔLE", dw: 1.0, min: 7 },
   { slug: "accusateur", faction: "Méchant", type: "TROMPERIE", dw: 1.0, min: 7, frame: true },
   { slug: "falsificateur", faction: "Méchant", type: "TROMPERIE", dw: 0.7, min: 7, cover: true },
   { slug: "cartomancien", faction: "Méchant", type: "INVESTIGATION", dw: 1.0, min: 7 },
   { slug: "mouchard", faction: "Méchant", type: "INVESTIGATION", dw: 1.0, min: 6 },
-  { slug: "cleaner", faction: "Méchant", type: "SUPPORT", dw: 1.0, min: 7 },
-  { slug: "maitre_chanteur", faction: "Méchant", type: "SUPPORT", dw: 1.0, min: 6, block: true },
+  { slug: "cleaner", faction: "Méchant", type: "CONTRÔLE", dw: 1.0, min: 7 },
+  { slug: "maitre_chanteur", faction: "Méchant", type: "CONTRÔLE", dw: 1.0, min: 6, block: true },
   // — CIVILS —
   { slug: "majordome", faction: "Civil", type: "PROTECTEUR", dw: 1.0, min: 6, guard: true },
   { slug: "ange_gardien", faction: "Civil", type: "PROTECTEUR", dw: 1.0, min: 7, shield: true },
@@ -112,7 +112,7 @@ const ROLES = [
     investDead: true,
   },
   { slug: "policier", faction: "Civil", type: "INVESTIGATION", dw: 1.0, min: 6, invest: true },
-  { slug: "apothicaire", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 8, fioles: true },
+  { slug: "apothicaire", faction: "Civil", type: "SUPPORT", dw: 0.4, min: 8, fioles: true },
   { slug: "facteur", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 8 },
   { slug: "medium", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 7 },
   { slug: "avocat", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 6 },
@@ -145,12 +145,13 @@ const CFG = {
 
 // ─────────── Quotas (constants.ts, copie exacte) ───────────
 function bracket(n) {
-  return n <= 8 ? "small" : n <= 13 ? "mid" : "large";
+  return n <= 8 ? "small" : n <= 13 ? "mid" : n <= 17 ? "large" : "xl";
 }
 const ACOLYTE_QUOTAS = {
-  small: { INVESTIGATION: [0, 1], TROMPERIE: [0, 1], SUPPORT: [0, 1] },
-  mid: { INVESTIGATION: [1, 1], TROMPERIE: [0, 1], SUPPORT: [0, 1] },
-  large: { INVESTIGATION: [1, 1], TROMPERIE: [1, 2], SUPPORT: [0, 1] },
+  small: { INVESTIGATION: [0, 1], TROMPERIE: [0, 1], CONTRÔLE: [0, 1] },
+  mid: { INVESTIGATION: [1, 1], TROMPERIE: [0, 1], CONTRÔLE: [0, 1] },
+  large: { INVESTIGATION: [1, 1], TROMPERIE: [1, 2], CONTRÔLE: [0, 2] },
+  xl: { INVESTIGATION: [1, 2], TROMPERIE: [1, 2], CONTRÔLE: [1, 2] },
 };
 const CIVIL_QUOTAS = {
   small: {
@@ -162,24 +163,31 @@ const CIVIL_QUOTAS = {
   },
   mid: {
     INVESTIGATION: [2, 2],
-    PROTECTEUR: [1, 1],
+    PROTECTEUR: [1, 2],
     TUEUR: [1, 1],
     SUPPORT: [1, 2],
     BOULET: [0, 1],
   },
   large: {
     INVESTIGATION: [2, 3],
-    PROTECTEUR: [1, 2],
-    TUEUR: [1, 1],
-    SUPPORT: [2, 2],
+    PROTECTEUR: [2, 2],
+    TUEUR: [1, 2],
+    SUPPORT: [2, 3],
+    BOULET: [0, 1],
+  },
+  xl: {
+    INVESTIGATION: [3, 4],
+    PROTECTEUR: [2, 3],
+    TUEUR: [1, 2],
+    SUPPORT: [2, 3],
     BOULET: [0, 1],
   },
 };
 function acolytesCountFor(n) {
-  return n <= 9 ? 1 : 2;
-} // RÈGLE LIVRÉE : plafond 2 acolytes (3 méchants max)
+  return n <= 9 ? 1 : n <= 17 ? 2 : 3; // aligné constants.ts : 3 méchants ≤17, 4 à 18-20
+}
 function neutresCountFor(n) {
-  return n <= 7 ? 0 : n <= 11 ? 1 : 2;
+  return n <= 7 ? 0 : n <= 11 ? 1 : n <= 17 ? 2 : 3;
 }
 const NEUTRE_TYPE_WEIGHTS = { BÉNIN: 1.0, MAL: 0.45, CHAOS: 0.2 };
 
@@ -233,7 +241,8 @@ function drawRoles(n) {
   // MUSTs civils
   take(BY_SLUG.assistant_du_detective);
   take(BY_SLUG.majordome);
-  take(BY_SLUG.executeur); // RÈGLE LIVRÉE : MUST dès 6 joueurs
+  // Exécuteur : PLUS MUST (aligné sur src/engine/actions.ts). Il concourt désormais
+  // pour le slot Civil/TUEUR via les quotas (avec Cuisinier/Vengeur).
 
   // Acolytes
   const nAco = Math.min(acolytesCountFor(n), Math.max(0, CFG.mechantCap - 1));
@@ -807,7 +816,7 @@ if (!_isMain) {
 
 // ─────────── Main ───────────
 const GAMES = Number(process.argv[2] || 20000);
-const SIZES = [6, 8, 10, 12, 14, 15];
+const SIZES = [6, 8, 10, 12, 14, 16, 18, 20];
 if (_isMain) {
   console.log(`\n=== SIMULATION D'ÉQUILIBRAGE — ${GAMES} parties / taille ===\n`);
   console.log("Paramètres comportementaux:", JSON.stringify(P));

@@ -3304,9 +3304,9 @@ export async function executeCapability(opts: {
           if (a.faction === b.faction && a.type === b.type) return true;
           // INVESTIGATION : toutes factions confondues.
           if (a.type === "INVESTIGATION" && b.type === "INVESTIGATION") return true;
-          // SUPPORT : Civil/Méchant + Neutre BÉNIN/CHAOS.
+          // SUPPORT : Civil/Méchant + CONTRÔLE (menaces non-létales) + Neutre BÉNIN/CHAOS.
           if (a.type === "SUPPORT") {
-            if (b.type === "SUPPORT") return true;
+            if (b.type === "SUPPORT" || b.type === "CONTRÔLE") return true;
             if (b.faction === "Neutre" && (b.type === "BÉNIN" || b.type === "CHAOS")) return true;
           }
           // PROTECTEUR : Civil + Neutre BÉNIN.
@@ -3319,15 +3319,26 @@ export async function executeCapability(opts: {
             if (b.type === "TUEUR") return true;
             if (b.faction === "Neutre" && b.type === "MAL") return true;
           }
-          // TROMPERIE : Méchant + Neutre MAL/CHAOS.
+          // TROMPERIE : Méchant + CONTRÔLE (même famille de menace) + Neutre MAL/CHAOS.
           if (a.type === "TROMPERIE") {
-            if (b.type === "TROMPERIE") return true;
+            if (b.type === "TROMPERIE" || b.type === "CONTRÔLE") return true;
+            if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
+          }
+          // CONTRÔLE : Méchant (bloque/vole/détourne). Interchangeable avec TROMPERIE et
+          // SUPPORT (menaces non-létales) + Neutre MAL/CHAOS.
+          if (a.type === "CONTRÔLE") {
+            if (b.type === "CONTRÔLE" || b.type === "TROMPERIE" || b.type === "SUPPORT") return true;
             if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
           }
           // Neutres : mapping inverse vers types similaires des autres factions.
           if (a.faction === "Neutre") {
-            if (a.type === "MAL" && (b.type === "TUEUR" || b.type === "TROMPERIE")) return true;
-            if (a.type === "CHAOS" && (b.type === "TROMPERIE" || b.type === "SUPPORT")) return true;
+            if (a.type === "MAL" && (b.type === "TUEUR" || b.type === "TROMPERIE" || b.type === "CONTRÔLE"))
+              return true;
+            if (
+              a.type === "CHAOS" &&
+              (b.type === "TROMPERIE" || b.type === "SUPPORT" || b.type === "CONTRÔLE")
+            )
+              return true;
             if (a.type === "BÉNIN" && (b.type === "PROTECTEUR" || b.type === "SUPPORT"))
               return true;
           }
