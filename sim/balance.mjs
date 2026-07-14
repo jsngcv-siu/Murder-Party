@@ -414,9 +414,10 @@ function runInvestigations(players, cycle) {
     let reliability =
       (typeof inv.role.invest === "number" ? inv.role.invest : 1) * P.investigatorReliability;
     // couverture méchante : usurpateur/falsificateur/tueur camouflé réduisent la fiabilité
-    // RÈGLE LIVRÉE : le Policier PERCE les couvertures (verdict binaire sur le vrai rôle).
+    // RÈGLE LIVRÉE : seul l'Assistant du détective PERCE les couvertures ; tout autre
+    // enquêteur (Policier compris) est trompé par la couverture de l'Usurpateur.
     if (
-      inv.slug !== "policier" &&
+      inv.slug !== "assistant_du_detective" &&
       isMechantRole(t) &&
       (t.role.cover ||
         t.isTueur ||

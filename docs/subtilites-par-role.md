@@ -30,8 +30,8 @@
 ## 🔍 L'Assistant du détective
 - ✍️ Capacité (page 1) : 1×/tour. Désigne 1 joueur : le manoir te renvoie un trio de rôles — le vrai, plus 2 leurres. À toi de deviner lequel est réel.
 - 【 Un vrai, deux faux 】 Le trio mêle le vrai rôle et 2 leurres tirés au hasard. Rien n'indique lequel est le bon.
-- 【 Le Tueur se cache 】 Un Tueur t'apparaît camouflé en Citoyen. Un « Citoyen » dans ton trio n'est donc jamais une preuve d'innocence.
-- 【 L'Usurpateur ment 】 L'Usurpateur ressort sous sa fausse couverture, jamais sous son vrai rôle.
+- 【 Tu perces les masques 】 Seul enquêteur à démasquer le Tueur ET l'Usurpateur : ils figurent sous leur VRAI rôle dans ton trio, là où les autres enquêtes les prennent pour des Civils.
+- 【 Seule la falsification t'aveugle 】 Une cible falsifiée ne renvoie rien, même pour toi.
 
 ## ⚖️ L'Avocat
 - 【 Uniquement la prison 】 Tu vois la faction des joueurs actuellement emprisonnés — et de personne d'autre.
@@ -91,7 +91,7 @@
 - ✍️ Capacité (page 1) : 1×/tour. Désigne 1 joueur : verdict binaire, suspect ou non.
 - 【 Un Suspect, c'est quoi ? 】 Un Suspect est un joueur que ton contrôle signale comme suspect. Ce n'est pas une preuve : tous les Neutres ressortent Suspects, et certains tueurs camouflés passent pour non-suspects.
 - 【 Le Tueur passe blanc 】 Un Tueur te ressort « pas suspect ». Un verdict « pas suspect » n'écarte donc jamais le Tueur.
-- 【 L'Usurpateur démasqué 】 Contrairement aux autres enquêtes, tu vois l'Usurpateur sous son vrai jour, sans sa couverture.
+- 【 L'Usurpateur te berne 】 L'Usurpateur ressort sous sa couverture Civil : tu le vois « pas suspect ». Seul l'Assistant du détective le démasque.
 - 【 Un verdict, pas un rôle 】 Tu n'obtiens qu'un « suspect : oui/non » — jamais le rôle précis de la cible.
 
 ## 😇 Le Saint
@@ -150,7 +150,7 @@
 ## 🎭 L'Usurpateur
 - 【 Fausse identité fixe 】 Au setup, tu choisis 1 couverture parmi 3 rôles absents. Elle est verrouillée pour toute la partie.
 - 【 Trompe les enquêtes 】 Toutes les enquêtes sur toi renvoient ce faux rôle — parfait pour te faire passer pour un Civil.
-- 【 Faille : le Policier 】 Le Policier, lui, te voit sous ton vrai jour. Méfie-toi de qui pourrait l'être.
+- 【 Faille : l'Assistant 】 L'Assistant du détective, lui, te voit sous ton vrai rôle — « L'Usurpateur » figure dans son trio. Méfie-toi de qui pourrait l'être.
 
 ---
 
