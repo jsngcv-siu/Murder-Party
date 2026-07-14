@@ -263,6 +263,15 @@ function buildExtra(role: RoleRow, _bot: PlayerRow): Record<string, unknown> | u
     const mode = modes[Math.floor(Math.random() * modes.length)];
     return { fiole, mode };
   }
+  if (role.slug === "stratege") {
+    // Refonte : 3 modes, jamais le même 2 tours de suite. Le bot alterne entre
+    // Discrétion (tue 1) et Sabotage (bloque 1) — tous deux à 1 cible ; il évite
+    // le Bain de sang (2 cibles) pour rester simple.
+    const m = (_bot.role_meta ?? {}) as Record<string, unknown>;
+    const last = m.stratege_last_mode as string | undefined;
+    const mode = last === "discretion" ? "sabotage" : "discretion";
+    return { mode };
+  }
   return undefined;
 }
 

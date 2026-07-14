@@ -800,6 +800,10 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
   // Apothicaire refonte : mode d'emploi de la fiole choisie — l'utiliser soi-même
   // sur une cible, ou l'offrir à un joueur. Budgets séparés (1 usage, 1 don).
   const [apoMode, setApoMode] = useState<"use" | "gift">("gift");
+  // Stratège refonte : 3 modes d'action, jamais le même deux tours de suite.
+  const [strategeMode, setStrategeMode] = useState<"discretion" | "bain_de_sang" | "sabotage">(
+    "discretion",
+  );
 
   // Le texte de capacité déborde-t-il (clampé à 4 lignes) ? → indicateur « voir plus ».
   // ≤ 4 lignes : tout tient, pas de « voir plus ». > 4 lignes : repli + bouton.
@@ -808,12 +812,27 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
     setCapMore(!!el && el.scrollHeight - el.clientHeight > 2);
   }, [myRole?.capacite_full_text, capOpen]);
 
-  const mode = (myRole?.target_mode ?? "single") as
-    | "none"
-    | "single"
-    | "double"
-    | "multi"
-    | "self_or_other";
+  // Stratège : le mode choisi impose le nombre de cibles (Bain de sang = 2) et la
+  // contrainte « pas deux tours de suite » désactive le mode joué au tour précédent.
+  const isStratege = myRole?.slug === "stratege";
+  const STRATEGE_MODES = ["discretion", "bain_de_sang", "sabotage"] as const;
+  const strategeLastMode = meMeta.stratege_last_mode as string | undefined;
+  const strategeLastModeTour = meMeta.stratege_last_mode_tour as number | undefined;
+  const strategeBlockedMode =
+    strategeLastModeTour === game.current_tour - 1 ? strategeLastMode : undefined;
+  const strategeModeEff: "discretion" | "bain_de_sang" | "sabotage" = isStratege
+    ? strategeMode === strategeBlockedMode
+      ? ((STRATEGE_MODES.find((x) => x !== strategeBlockedMode) ?? "discretion") as "discretion")
+      : strategeMode
+    : "discretion";
+
+  const mode = (
+    isStratege
+      ? strategeModeEff === "bain_de_sang"
+        ? "double"
+        : "single"
+      : (myRole?.target_mode ?? "single")
+  ) as "none" | "single" | "double" | "multi" | "self_or_other";
   const needed = mode === "double" ? 2 : mode === "multi" ? 3 : mode === "none" ? 0 : 1;
   const minTargets = mode === "double" ? 2 : needed;
   const aliveOthers = players.filter(
@@ -926,7 +945,12 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       .map((id) => players.find((p) => p.id === id))
       .filter((p): p is NonNullable<typeof p> => !!p);
     const baseExtra: Record<string, unknown> | undefined =
-      overrides?.extra ?? (isApothicaire ? { fiole, mode: apoModeEff } : undefined);
+      overrides?.extra ??
+      (isApothicaire
+        ? { fiole, mode: apoModeEff }
+        : isStratege
+          ? { mode: strategeModeEff }
+          : undefined);
     const extra: Record<string, unknown> | undefined = puppeteerOverride
       ? { ...(baseExtra ?? {}), __puppet_call: true, __puppeteer_id: puppeteerOverride.puppeteerId }
       : baseExtra;
@@ -1695,6 +1719,51 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
           );
         })()}
 
+      {isStratege && (
+        <div className="mt-3 space-y-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Choisis ton mode{strategeBlockedMode ? " · 1 mode bloqué (joué au tour dernier)" : ""}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { id: "discretion", label: "Discrétion", sub: "tue 1 cible", Icon: Skull },
+                { id: "bain_de_sang", label: "Bain de sang", sub: "tue 2 cibles", Icon: Swords },
+                { id: "sabotage", label: "Sabotage", sub: "bloque 1 cible", Icon: Ban },
+              ] as const
+            ).map((mdef) => {
+              const blocked = strategeBlockedMode === mdef.id;
+              const active = strategeModeEff === mdef.id;
+              return (
+                <button
+                  key={mdef.id}
+                  onClick={() => {
+                    setStrategeMode(mdef.id);
+                    setTargets([]);
+                  }}
+                  disabled={blocked}
+                  className={`h-16 rounded-lg text-xs transition inline-flex flex-col items-center justify-center gap-0.5 border px-1 disabled:opacity-40 disabled:cursor-not-allowed ${active ? "bg-rose-500/20 text-rose-100 border-rose-400/60 ring-1 ring-rose-400/50" : "bg-card/60 hover:bg-card border-border"}`}
+                >
+                  <mdef.Icon className="size-4" aria-hidden />
+                  <span className="font-semibold">{mdef.label}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {blocked ? "joué au tour dernier" : mdef.sub}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-100/90">
+            {strategeModeEff === "discretion" &&
+              "Tu tues 1 cible à la prochaine Annonce, discrètement."}
+            {strategeModeEff === "bain_de_sang" &&
+              "Tu tues 2 cibles distinctes — mais un Civil au hasard recevra un indice révélant ton identité."}
+            {strategeModeEff === "sabotage" &&
+              "Tu ne tues personne : la cible aura sa capacité totalement bloquée au prochain tour."}
+          </div>
+        </div>
+      )}
+
       {myRole?.slug === "cuisinier" && (
         <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-start gap-1.5">
           <ChefHat className="size-4 shrink-0 mt-0.5" aria-hidden />{" "}
@@ -1888,7 +1957,13 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                   ? apoModeEff === "use"
                     ? `Utiliser la fiole${targets.length > 0 ? ` sur 1 joueur` : ""}`
                     : `Offrir la fiole${targets.length > 0 ? ` à 1 joueur` : ""}`
-                  : `Utiliser${targets.length > 0 ? ` (${targets.length}/${needed})` : ""}`}
+                  : isStratege
+                    ? strategeModeEff === "discretion"
+                      ? `Frapper${targets.length > 0 ? ` 1 cible` : ""}`
+                      : strategeModeEff === "bain_de_sang"
+                        ? `Bain de sang (${targets.length}/2)`
+                        : `Saboter${targets.length > 0 ? ` 1 cible` : ""}`
+                    : `Utiliser${targets.length > 0 ? ` (${targets.length}/${needed})` : ""}`}
             </button>
           )}
           {showAngeGardienBtn && (
@@ -2169,7 +2244,7 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   parieur_tricheur: () => `Tu as placé ton pari.`,
   policier: (t) => `Tu as arrêté ${t ?? "un joueur"}.`,
   saint: (t) => `Tu as béni ${t ?? "un joueur"}.`,
-  stratege: (t) => `Tu as marqué ${t ?? "une cible"} pour ton embuscade.`,
+  stratege: (t) => `Tu as frappé ${t ?? "une cible"}.`,
   temoin: (t) => `Tu as observé ${t ?? "un joueur"}.`,
   tueur: (t) => `Tu as tenté de tuer ${t ?? "un joueur"}.`,
   usurpateur: (t) => `Tu as usurpé ${t ?? "un joueur"}.`,
@@ -2224,6 +2299,14 @@ function describeActionFromRow(
     const fioleName = FIOLE_LABELS[(p.fiole as string | undefined) ?? ""] ?? "une fiole";
     return t1 ? `Tu as utilisé ${fioleName} sur ${t1}.` : `Tu as utilisé ${fioleName}.`;
   }
+  if (effect === "stratege_kill") return t1 ? `Tu as frappé ${t1}.` : "Tu as frappé une cible.";
+  if (effect === "stratege_bloodbath")
+    return t1 && t2
+      ? `Bain de sang : ${t1} et ${t2}.`
+      : t1
+        ? `Bain de sang : ${t1} et 1 autre.`
+        : "Bain de sang : 2 cibles.";
+  if (effect === "stratege_sabotage") return t1 ? `Tu as saboté ${t1}.` : "Tu as saboté une cible.";
   // 3) Repli : libellé par rôle (slug stocké dans le payload de capacité).
   return describeAction(p.role as string | undefined, t1, t2);
 }

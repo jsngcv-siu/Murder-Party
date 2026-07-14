@@ -566,16 +566,20 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Mort annoncée",
-            body: "Ta cible marquée est prévenue qu'elle est visée — et le message révèle qu'un Stratège la traque. Elle meurt à l'Annonce du tour suivant.",
+            tag: "Trois modes, jamais deux fois de suite",
+            body: "Chaque Enquête, choisis Discrétion, Bain de sang ou Sabotage. Tu ne peux pas rejouer le même mode deux tours de suite.",
           },
           {
-            tag: "Fenêtre de contre",
-            body: "Une protection peut la sauver, ou toi être neutralisé avant : la marque n'est pas garantie.",
+            tag: "Discrétion",
+            body: "Tu tues 1 cible, silencieusement — mort résolue à la prochaine Annonce, comme un Tueur.",
           },
           {
-            tag: "Couteau de secours",
-            body: "Tu as aussi un couteau pour frapper immédiatement, sans délai ni avertissement.",
+            tag: "Bain de sang",
+            body: "Tu tues 2 cibles distinctes, mais un Civil au hasard reçoit un indice révélant ton identité. Puissant mais risqué.",
+          },
+          {
+            tag: "Sabotage",
+            body: "Tu ne tues personne : la capacité d'1 cible est totalement bloquée au prochain tour.",
           },
           {
             tag: "Blanchi au contrôle",

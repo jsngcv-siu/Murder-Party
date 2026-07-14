@@ -181,7 +181,9 @@ message d'Historique devient « Capacité utilisée. ».
 | --------------------------- | ---------------------------------- | -------------- | ----------------------------------------------------- |
 | **Tueur**                   | Tu as tenté de tuer X.             | ⏳ En cours    | Dénouement à l'Annonce.                               |
 | **Majordome**               | Tu as servi X.                     | ⏳ En cours    | X : protection — à l'Annonce                          |
-| **Stratège**                | Tu as marqué X pour ton embuscade. | ⏳ En cours    | 🎯 X marqué — il mourra à l'Annonce du prochain tour. |
+| **Stratège · Discrétion**   | Tu as frappé X.                    | ⏳ En cours    | Dénouement à l'Annonce.                               |
+| **Stratège · Bain de sang** | Bain de sang : X et Y.             | ⏳ En cours    | Bain de sang — dénouement à l'Annonce. (+ 1 Civil reçoit un indice) |
+| **Stratège · Sabotage**     | Tu as saboté X.                    | ✓ Fait         | X : capacité sabotée au prochain tour.                |
 | **Apothicaire · offrir**    | Tu as offert une Fiole de … à X.   | ✓ Fait         | Fiole offerte à X.                                    |
 | **Apothicaire · utiliser**  | Tu as utilisé une Fiole de … sur X.| ⏳/✓           | X : intention de mort / soin — à l'Annonce · X = faction … |
 | **Armurier**                | Tu as armé X.                      | ✓ Fait         | Un couteau a été remis anonymement à X.               |
@@ -193,7 +195,7 @@ message d'Historique devient « Capacité utilisée. ».
 Erreurs / cas spécifiques :
 
 - **Majordome** protection déjà posée ce tour : « X : protection déjà en place — à l'Annonce »
-- **Stratège** : « Tu ne peux pas te désigner toi-même. »
+- **Stratège** : « Tu ne peux pas rejouer le même mode deux tours de suite. » / « Deux cibles requises. » / « Choisis 2 cibles distinctes. » / « Tu ne peux pas te saboter toi-même. »
 - **Apothicaire** : « Tu as déjà agi ce tour-ci. » / « Tu as déjà joué tes fioles. » /
   « Tu as déjà offert une fiole (1 don par partie). » / « Tu as déjà utilisé une fiole
   toi-même (1 par partie). » / « Choisis un autre joueur à qui offrir la fiole. »
@@ -281,7 +283,7 @@ le **MJ** (chaque notif porte un `mjBody` → c'est ce qui alimente le récit MJ
 | **Mouchard** | `mouchard_setup` | « Désigne 1 joueur : tu apprendras son rôle exact. » |
 | **Oracle** | `oracle_setup` | « Prédis la faction gagnante. » |
 | **Veuve noire** | `veuve_setup` | « Choisis 2 cibles à chaque Enquête. » |
-| **Stratège** | `stratege_setup` | « Marque une cible ou frappe au couteau. » (+ reçoit un couteau) |
+| **Stratège** | _(refonte : plus de setup ni de couteau)_ | agit chaque Enquête via ses 3 modes |
 | **Conservateur** | `conservateur_setup` | « Distribue des reliques ; gagne si Le Cœur du Manoir sort. » |
 | **Indices** | `indice_setup` | « Tu as reçu un indice. » (dans l'inventaire) |
 | **Cuisinier** | _(objet, pas de notif texte)_ | reçoit un couteau en inventaire au setup |

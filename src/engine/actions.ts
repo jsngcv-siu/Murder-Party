@@ -1118,34 +1118,9 @@ async function applySetupEffects(gameId: string) {
     );
   }
 
-  // Stratège → tueur « embuscade » : reçoit un couteau (kill immédiat) + marque
-  // ses cibles via sa capacité (kill télégraphié résolu un tour plus tard).
-  const stratege = ofSlug("stratege");
-  if (stratege) {
-    await grantItem(
-      stratege.id,
-      buildItem("couteau", {
-        from: "Stratège",
-        originFaction: "Méchant",
-        nameOverride: "Couteau du Stratège",
-        descriptionOverride:
-          "Ton arme. Frappe immédiatement une cible, ou utilise ta capacité pour la marquer (mort différée d'un tour).",
-        payload: { mechant_origin: true },
-      }),
-    );
-    const body =
-      "Tu es le Stratège. Chaque Enquête, marque une cible (elle sera prévenue et mourra à l'Annonce du tour suivant), ou frappe immédiatement avec ton couteau.";
-    await notify({
-      gameId,
-      playerId: stratege.id,
-      type: "stratege_setup",
-      title: "♟️ Stratège — éveillé",
-      body,
-      mjTitle: "♟️ Stratège",
-      mjBody: `${stratege.pseudo} (Stratège) reçoit un couteau et peut marquer ses cibles.`,
-    });
-    await logSetup(stratege.id, body, { effect: "stratege_setup" });
-  }
+  // Stratège → refonte : ne reçoit RIEN au setup (plus de couteau, plus de marque
+  // « embuscade »). Il agit chaque Enquête via sa capacité à 3 modes
+  // (Discrétion / Bain de sang / Sabotage). Voir `case "stratege"`.
 
   // Apothicaire → ne reçoit RIEN au setup (refonte). Elle dispose d'un répertoire
   // virtuel de 3 fioles (Vie / Mort / Clairvoyance) qu'elle joue via sa capacité :
@@ -1717,63 +1692,10 @@ export async function ringGathering(
   // (resolvePhaseIntents legacy supprimé — tout passe par resolver v2)
   await flushPendingDeaths(gameId);
 
-  // Stratège — embuscade : 2 passes lues sur le flag `targeted_by_stratege`.
-  await deliverStrategeMarks(gameId, tour);
-
   // Mouchard : capacité désormais active (révélation 1×/partie). Aucun scan automatique à l'Annonce.
 
   emit("gather", `📯 Annonce — ${reason}`, { gameId, gatheringId: (gc as { id: string }).id });
   return (gc as { id: string }).id;
-}
-
-/**
- * Stratège « embuscade » — 2 passes lues sur le flag `targeted_by_stratege`,
- * appelées dans ringGathering APRÈS le resolver (current_tour = `tour`) :
- *   1. Livraison du statut « ciblé » aux cibles marquées CE tour (from_tour===tour)
- *      → la victime sait qu'elle mourra à l'annonce du tour suivant.
- *   2. Survie / nettoyage : les marques arrivées à échéance (resolves_tour===tour)
- *      viennent d'être résolues par le resolver. Si la cible est toujours vivante,
- *      l'embuscade a échoué (protection / Stratège mort) → on la prévient. Dans
- *      tous les cas on efface le flag.
- */
-async function deliverStrategeMarks(gameId: string, tour: number): Promise<void> {
-  const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
-  for (const p of (ps ?? []) as PlayerRow[]) {
-    const m = (p.role_meta ?? {}) as Record<string, unknown>;
-    const mark = m.targeted_by_stratege as
-      | { from_tour?: number; resolves_tour?: number }
-      | undefined;
-    if (!mark) continue;
-
-    // Passe 1 — marque fraîche : prévient la cible.
-    if (mark.from_tour === tour && p.is_alive) {
-      await notify({
-        gameId,
-        playerId: p.id,
-        type: "stratege_marked",
-        title: "🎯 Tu es ciblé",
-        body: `Le Tueur Stratège t'a marqué. Tu mourras à l'annonce du tour ${mark.resolves_tour ?? tour + 1} si rien ne te protège.`,
-        mjTitle: "🎯 Stratège — cible prévenue",
-        mjBody: `${p.pseudo} a été prévenu qu'il est ciblé par le Stratège (mort prévue tour ${mark.resolves_tour ?? tour + 1}).`,
-      });
-    }
-
-    // Passe 2 — échéance : l'intention vient d'être résolue ce tour.
-    if ((mark.resolves_tour ?? -1) <= tour && mark.from_tour !== tour) {
-      if (p.is_alive) {
-        await notify({
-          gameId,
-          playerId: p.id,
-          type: "stratege_survived",
-          title: "🛡️ Embuscade déjouée",
-          body: "Tu étais ciblé par le Stratège, mais tu as survécu.",
-          mjTitle: "🛡️ Stratège — échec",
-          mjBody: `${p.pseudo} survit à l'embuscade du Stratège (protégé ou Stratège neutralisé).`,
-        });
-      }
-      await patchMeta(p.id, { targeted_by_stratege: null });
-    }
-  }
 }
 
 /**
@@ -2145,7 +2067,8 @@ export async function killPlayer(
     }
     // Majordome trade : si attaque issue d'une mécanique méchante (tueur,
     // croque_mitaine, couteau d'origine méchante) et protecteur=majordome via `guarded_by`
-    const isMechantReason = reason === "tueur" || reason === "croque_mitaine";
+    const isMechantReason =
+      reason === "tueur" || reason === "croque_mitaine" || reason === "stratege";
     if (isMechantReason && typeof m.guarded_by === "string") {
       const guard = m.guarded_by as string;
       // Le Majordome meurt en héros — même règle de différé pendant l'Enquête.
@@ -2753,7 +2676,7 @@ async function applyVampireConversion(
   return true;
 }
 
-/** Promote a random alive non-promoted Acolyte to Stratège, transferring stratège state (Fidèles, ordre, kills_done). */
+/** Promote a random alive non-promoted Acolyte to Stratège (reprise du rôle refondu à 3 modes). */
 async function promoteAcolyteToStratege(
   gameId: string,
   temporary: boolean,
@@ -2793,15 +2716,14 @@ async function promoteAcolyteToStratege(
   if (!heir) return;
   const originalSlug = heir.role_slug;
   await supabase.from("players").update({ role_slug: "stratege" }).eq("id", heir.id);
-  // Transfert intégral de l'état stratège : Fidèles, ordre, kills_done, compteurs d'usage.
+  // Reprise de l'état pertinent au rôle refondu : le suivi du dernier mode joué
+  // (pour que le successeur respecte la contrainte « pas 2× le même mode de suite »).
   const heirMetaPatch: Meta = {
     promoted_from_acolyte: true,
     original_slug: originalSlug,
     temp_promotion: temporary,
-    fideles: (sourceMeta.fideles as string[] | undefined) ?? [],
-    fideles_ordered: (sourceMeta.fideles_ordered as string[] | undefined) ?? [],
-    stratege_pending_order: (sourceMeta.stratege_pending_order as boolean | undefined) ?? false,
-    stratege_kills_done: (sourceMeta.stratege_kills_done as number | undefined) ?? 0,
+    stratege_last_mode: (sourceMeta.stratege_last_mode as string | undefined) ?? null,
+    stratege_last_mode_tour: (sourceMeta.stratege_last_mode_tour as number | undefined) ?? null,
   };
   await patchMeta(heir.id, heirMetaPatch);
   await notify({
@@ -2810,8 +2732,8 @@ async function promoteAcolyteToStratege(
     type: "succession_stratege",
     title: temporary ? "♟️ Tu deviens le Stratège (temporaire)" : "♟️ Tu es le nouveau Stratège",
     body: temporary
-      ? "Le Stratège est en prison, tu prends le relais et tu reprends son ordre de bataille."
-      : "Le Stratège est tombé. Tu reprends exactement son plan : Fidèles et ordre en cours sont à toi.",
+      ? "Le Stratège est en prison, tu prends le relais : chaque Enquête, choisis 1 de ses 3 modes."
+      : "Le Stratège est tombé. Tu reprends son rôle : chaque Enquête, choisis 1 de ses 3 modes (Discrétion, Bain de sang, Sabotage).",
     mjTitle: "♟️ Succession Stratège",
     mjBody: `${heir.pseudo} devient ${temporary ? "Stratège temporaire" : "le nouveau Stratège"} (succession Acolyte).`,
   });
@@ -2828,16 +2750,15 @@ async function revertTempStrategePromotion(gameId: string): Promise<void> {
     const mp = meta(p);
     if (mp.temp_promotion === true && typeof mp.original_slug === "string") {
       const original = mp.original_slug as string;
-      // On laisse fideles_ordered / kills_done sur le joueur de retour : c'est le Stratège original qui reprend (son meta a été préservé).
+      // Le Stratège original reprend (son meta a été préservé) ; on nettoie l'état
+      // temporaire de l'Acolyte promu, y compris le suivi de mode.
       await supabase.from("players").update({ role_slug: original }).eq("id", p.id);
       await patchMeta(p.id, {
         promoted_from_acolyte: null,
         original_slug: null,
         temp_promotion: null,
-        fideles: null,
-        fideles_ordered: null,
-        stratege_pending_order: null,
-        stratege_kills_done: null,
+        stratege_last_mode: null,
+        stratege_last_mode_tour: null,
       });
       await notify({
         gameId,
@@ -4413,65 +4334,145 @@ export async function executeCapability(opts: {
         return { ok: true, message: `${t1.pseudo} = ${label}` };
       }
 
-      // ── Stratège : tueur « embuscade ». Marque une cible (kill télégraphié) ──
-      // L'intention d'attaque est posée pour le TOUR SUIVANT : la cible est
-      // prévenue (cf. ringGathering) et meurt à l'Annonce du tour
-      // suivant — sauf protection, ou si le Stratège est mort entre-temps.
+      // ── Stratège (refonte) : 3 modes, jamais le même deux tours de suite ──
+      //   • discretion   → tue 1 cible (kill différé à l'Annonce, mécanique méchante) ;
+      //   • bain_de_sang → tue 2 cibles distinctes MAIS un Civil au hasard reçoit un
+      //     indice révélant l'identité du Stratège ;
+      //   • sabotage     → ne tue personne, bloque totalement la capacité d'1 cible
+      //     au tour suivant (blocked_*_cycle = tour+1).
       case "stratege": {
-        if (!t1) return { ok: false, message: "Cible requise" };
-        if (t1.id === actor.id)
-          return { ok: false, message: "Tu ne peux pas te désigner toi-même." };
-        await submitIntent({
-          gameId: opts.gameId,
-          tour: opts.tour + 1,
-          phase: opts.phase,
-          actorId: actor.id,
-          targetId: t1.id,
-          category: "ATTACK",
-          timing: "DEFERRED",
-          source: "role:stratege",
-          payload: {
-            kill_reason: "stratege_embuscade",
-            target_pseudo: t1.pseudo,
-            mechant_mechanic: true,
-          },
-        });
-        await patchMeta(t1.id, {
-          targeted_by_stratege: {
-            from_tour: opts.tour,
-            resolves_tour: opts.tour + 1,
-            stratege_id: actor.id,
-          },
-        });
-        // Prévient l'équipe Méchants (comme le Tueur).
-        const { data: team } = await supabase
-          .from("players")
-          .select("id, role_slug")
-          .eq("game_id", opts.gameId)
-          .eq("is_alive", true);
-        const teammates = ((team ?? []) as Array<{ id: string; role_slug: string | null }>).filter(
-          (p) =>
-            p.id !== actor.id && opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "Méchant",
-        );
-        for (const tm of teammates) {
+        const smode =
+          (opts.extra?.mode as "discretion" | "bain_de_sang" | "sabotage" | undefined) ??
+          "discretion";
+        // Contrainte : pas le même mode deux tours de suite.
+        const lastMode = m.stratege_last_mode as string | undefined;
+        const lastModeTour = m.stratege_last_mode_tour as number | undefined;
+        if (lastMode === smode && lastModeTour === opts.tour - 1)
+          return {
+            ok: false,
+            message: "Tu ne peux pas rejouer le même mode deux tours de suite.",
+          };
+
+        const markMode = () =>
+          patchMeta(actor.id, { stratege_last_mode: smode, stratege_last_mode_tour: opts.tour });
+
+        // Prévient l'équipe Méchants qu'une attaque est lancée (comme le Tueur).
+        const warnTeam = async (label: string) => {
+          const { data: team } = await supabase
+            .from("players")
+            .select("id, role_slug")
+            .eq("game_id", opts.gameId)
+            .eq("is_alive", true);
+          const teammates = (
+            (team ?? []) as Array<{ id: string; role_slug: string | null }>
+          ).filter(
+            (p) =>
+              p.id !== actor.id && opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "Méchant",
+          );
+          for (const tm of teammates)
+            await notify({
+              gameId: opts.gameId,
+              playerId: tm.id,
+              type: "killer_targeted",
+              title: "🎯 Le Stratège frappe",
+              body: label,
+            });
+        };
+
+        if (smode === "sabotage") {
+          if (!t1) return { ok: false, message: "Cible requise" };
+          if (t1.id === actor.id)
+            return { ok: false, message: "Tu ne peux pas te saboter toi-même." };
+          await patchMeta(t1.id, {
+            blocked_from_cycle: opts.tour + 1,
+            blocked_until_cycle: opts.tour + 1,
+          });
           await notify({
             gameId: opts.gameId,
-            playerId: tm.id,
-            type: "killer_targeted",
-            title: "🎯 Le Stratège a marqué",
-            body: `${t1.pseudo} mourra à la prochaine annonce.`,
+            playerId: t1.id,
+            type: "sabotaged",
+            title: "🛠️ Capacité sabotée",
+            body: "Au prochain tour, ta capacité sera totalement bloquée.",
+            mjTitle: "🛠️ Stratège — sabotage",
+            mjBody: `${actor.pseudo} (Stratège) sabote ${t1.pseudo} : capacité bloquée au tour ${opts.tour + 1}.`,
           });
+          await markMode();
+          await used({ effect: "stratege_sabotage", mode: smode, target: t1.id });
+          return { ok: true, message: `${t1.pseudo} : capacité sabotée au prochain tour.` };
         }
-        await used({ effect: "stratege_mark", target: t1.id });
-        await notifyMJ({
-          gameId: opts.gameId,
-          type: "mj_announce",
-          title: "♟️ Stratège — marque",
-          body: `${actor.pseudo} (Stratège) marque ${t1.pseudo} — mort prévue à l'annonce du tour ${opts.tour + 1}.`,
+
+        // Modes létaux : discretion (1 cible) / bain_de_sang (2 cibles distinctes).
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (smode === "bain_de_sang" && !t2) return { ok: false, message: "Deux cibles requises." };
+        if (smode === "bain_de_sang" && t1.id === t2!.id)
+          return { ok: false, message: "Choisis 2 cibles distinctes." };
+        const victims = smode === "bain_de_sang" ? [t1, t2!] : [t1];
+        if (victims.some((v) => v.id === actor.id))
+          return { ok: false, message: "Tu ne peux pas te cibler toi-même." };
+
+        for (const v of victims)
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: v.id,
+            category: "ATTACK",
+            timing: "DEFERRED",
+            source: "role:stratege",
+            payload: { kill_reason: "stratege", target_pseudo: v.pseudo, mechant_mechanic: true },
+          });
+
+        if (smode === "bain_de_sang") {
+          // Un Civil vivant au hasard reçoit un indice révélant l'identité du Stratège.
+          const civils = opts.allPlayers.filter(
+            (p) =>
+              p.is_alive &&
+              !p.is_mj &&
+              p.id !== actor.id &&
+              opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "Civil",
+          );
+          if (civils.length > 0) {
+            const witness = civils[Math.floor(Math.random() * civils.length)];
+            const { grantItem, buildItem } = await import("./items");
+            await grantItem(
+              witness.id,
+              buildItem("indice", {
+                from: "Manoir",
+                originFaction: "Système",
+                nameOverride: "Indice — le Tueur démasqué",
+                descriptionOverride: `Dans le chaos du bain de sang, tu as reconnu le Tueur : c'est ${actor.pseudo}.`,
+              }),
+            );
+            await notify({
+              gameId: opts.gameId,
+              playerId: witness.id,
+              type: "indice_recu",
+              title: "🧩 Un indice t'est parvenu",
+              body: "Tu as reconnu le Tueur dans la confusion — consulte ton Carnet.",
+              mjTitle: "🧩 Stratège — identité fuitée",
+              mjBody: `${witness.pseudo} (Civil) reçoit un indice nommant ${actor.pseudo} (Stratège) après son bain de sang.`,
+            });
+          }
+          await warnTeam(`${t1.pseudo} et ${t2!.pseudo} ne verront pas l'aube.`);
+        } else {
+          await warnTeam(`${t1.pseudo} est la cible de cette nuit.`);
+        }
+
+        await markMode();
+        await used({
+          effect: smode === "bain_de_sang" ? "stratege_bloodbath" : "stratege_kill",
+          mode: smode,
+          target: t1.id,
+          ...(smode === "bain_de_sang" ? { target2: t2!.id } : {}),
         });
         return {
           ok: true,
-          message: `🎯 ${t1.pseudo} marqué — il mourra à l'Annonce du prochain tour.`,
+          pending: true,
+          message:
+            smode === "bain_de_sang"
+              ? "Bain de sang — dénouement à l'Annonce."
+              : "Dénouement à l'Annonce.",
         };
       }
 

@@ -191,10 +191,6 @@ export function StatusBandeau({
   if (blessed && blessed >= tour) pushDef("blessed", STATUS_BADGE.blessed);
   const forcedCycle = meta.forced_action_cycle as number | undefined;
   if (forcedCycle && forcedCycle >= tour) pushDef("manipulated", STATUS_BADGE.manipulated);
-  // 🎯 Ciblé par le Stratège : embuscade télégraphiée, mort à l'annonce du tour `resolves_tour`.
-  const strategeMark = meta.targeted_by_stratege as { resolves_tour?: number } | undefined;
-  if (strategeMark && (strategeMark.resolves_tour ?? -1) >= tour)
-    pushDef("cible", STATUS_BADGE.cible);
 
   // ─── Source 2 : lignes player_statuses (resolver v2) ───
   for (const s of statuses) {

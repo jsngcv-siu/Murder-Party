@@ -102,7 +102,7 @@ résultat toujours stocké (rejouable dans l'onglet Historique).
 | ------------------------------- | ---------------------------------- | ----------- | ----------------------------------------------------- |
 | **Tueur**                       | Tu as tenté de tuer X.             | ⏳ En cours | Dénouement à l'Annonce.                               |
 | **Majordome**                   | Tu as servi X.                     | ⏳ En cours | X : protection — à l'Annonce                          |
-| **Stratège**                    | Tu as marqué X pour ton embuscade. | ⏳ En cours | 🎯 X marqué — il mourra à l'Annonce du prochain tour. |
+| **Stratège** (3 modes)          | Tu as frappé X / Bain de sang : X et Y / Tu as saboté X. | ⏳/✓ | Dénouement à l'Annonce · X : capacité sabotée au prochain tour. |
 | **Apothicaire — Fiole de mort** | Tu as utilisé Fiole de mort sur X. | ⏳ En cours | X : intention de mort — à l'Annonce.                  |
 | **Apothicaire — Fiole de vie**  | Tu as utilisé Fiole de vie sur X.  | ⏳ En cours | X : soin — à l'Annonce.                               |
 | **Apothicaire — offrir**        | Tu as offert une Fiole de … à X.   | ✓ Fait      | Fiole offerte à X.                                    |

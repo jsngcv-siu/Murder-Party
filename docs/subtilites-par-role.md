@@ -138,9 +138,11 @@
 - 【 Avantage d'ouverture 】 Cette info précoce oriente ton camp : partage-la aux Méchants pour cibler ou éviter les bons joueurs.
 
 ## ♟️ Le Stratège
-- 【 Mort annoncée 】 Ta cible marquée est prévenue qu'elle est visée et meurt à l'Annonce du tour suivant.
-- 【 Fenêtre de contre 】 Une protection peut la sauver, ou toi être neutralisé avant : la marque n'est pas garantie.
-- 【 Couteau de secours 】 Tu as aussi un couteau pour frapper immédiatement, sans délai ni avertissement.
+- 【 Trois modes, jamais deux fois de suite 】 Chaque Enquête, choisis Discrétion, Bain de sang ou Sabotage. Tu ne peux pas rejouer le même mode deux tours de suite.
+- 【 Discrétion 】 Tu tues 1 cible, silencieusement — mort résolue à la prochaine Annonce.
+- 【 Bain de sang 】 Tu tues 2 cibles distinctes, mais un Civil au hasard reçoit un indice révélant ton identité. Puissant mais risqué.
+- 【 Sabotage 】 Tu ne tues personne : la capacité d'1 cible est totalement bloquée au prochain tour.
+- 【 Blanchi au contrôle 】 Comme les autres tueurs, tu ressors « pas suspect » au contrôle du Policier.
 
 ## 🔪 Le Tueur
 - 【 Camouflage total 】 Tu apparais en Citoyen à l'Assistant et « pas suspect » au Policier : les enquêtes te blanchissent.

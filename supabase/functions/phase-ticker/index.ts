@@ -2463,30 +2463,6 @@ async function applySetupEffects(gameId) {
       })
     );
   }
-  const stratege = ofSlug("stratege");
-  if (stratege) {
-    await grantItem2(
-      stratege.id,
-      buildItem2("couteau", {
-        from: "Strat\xE8ge",
-        originFaction: "M\xE9chant",
-        nameOverride: "Couteau du Strat\xE8ge",
-        descriptionOverride: "Ton arme. Frappe imm\xE9diatement une cible, ou utilise ta capacit\xE9 pour la marquer (mort diff\xE9r\xE9e d'un tour).",
-        payload: { mechant_origin: true }
-      })
-    );
-    const body = "Tu es le Strat\xE8ge. Chaque Enqu\xEAte, marque une cible (elle sera pr\xE9venue et mourra \xE0 l'Annonce du tour suivant), ou frappe imm\xE9diatement avec ton couteau.";
-    await notify({
-      gameId,
-      playerId: stratege.id,
-      type: "stratege_setup",
-      title: "\u265F\uFE0F Strat\xE8ge \u2014 \xE9veill\xE9",
-      body,
-      mjTitle: "\u265F\uFE0F Strat\xE8ge",
-      mjBody: `${stratege.pseudo} (Strat\xE8ge) re\xE7oit un couteau et peut marquer ses cibles.`
-    });
-    await logSetup(stratege.id, body, { effect: "stratege_setup" });
-  }
   const conserv = ofSlug("conservateur");
   if (conserv) {
     const body = "Deux fois par Enqu\xEAte, d\xE9signe un joueur : il recevra une relique maudite au hasard. Tu gagnes si Le C\u0153ur du Manoir est distribu\xE9.";
@@ -2882,42 +2858,8 @@ async function ringGathering(gameId, reason = "MJ", phaseStartedAt) {
   if (error) throw error;
   await resolveDeferredIntents(gameId, tour, killPlayer, applyVampireConversion);
   await flushPendingDeaths(gameId);
-  await deliverStrategeMarks(gameId, tour);
   emit("gather", `\u{1F4EF} Annonce \u2014 ${reason}`, { gameId, gatheringId: gc.id });
   return gc.id;
-}
-async function deliverStrategeMarks(gameId, tour) {
-  const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
-  for (const p of ps ?? []) {
-    const m = p.role_meta ?? {};
-    const mark = m.targeted_by_stratege;
-    if (!mark) continue;
-    if (mark.from_tour === tour && p.is_alive) {
-      await notify({
-        gameId,
-        playerId: p.id,
-        type: "stratege_marked",
-        title: "\u{1F3AF} Tu es cibl\xE9",
-        body: `Le Tueur Strat\xE8ge t'a marqu\xE9. Tu mourras \xE0 l'annonce du tour ${mark.resolves_tour ?? tour + 1} si rien ne te prot\xE8ge.`,
-        mjTitle: "\u{1F3AF} Strat\xE8ge \u2014 cible pr\xE9venue",
-        mjBody: `${p.pseudo} a \xE9t\xE9 pr\xE9venu qu'il est cibl\xE9 par le Strat\xE8ge (mort pr\xE9vue tour ${mark.resolves_tour ?? tour + 1}).`
-      });
-    }
-    if ((mark.resolves_tour ?? -1) <= tour && mark.from_tour !== tour) {
-      if (p.is_alive) {
-        await notify({
-          gameId,
-          playerId: p.id,
-          type: "stratege_survived",
-          title: "\u{1F6E1}\uFE0F Embuscade d\xE9jou\xE9e",
-          body: "Tu \xE9tais cibl\xE9 par le Strat\xE8ge, mais tu as surv\xE9cu.",
-          mjTitle: "\u{1F6E1}\uFE0F Strat\xE8ge \u2014 \xE9chec",
-          mjBody: `${p.pseudo} survit \xE0 l'embuscade du Strat\xE8ge (prot\xE9g\xE9 ou Strat\xE8ge neutralis\xE9).`
-        });
-      }
-      await patchMeta(p.id, { targeted_by_stratege: null });
-    }
-  }
 }
 async function openGathering(gameId, phaseStartedAt) {
   await setPhase(gameId, "gathering", phaseStartedAt);
@@ -3137,7 +3079,7 @@ async function killPlayer(gameId, playerId, reason = "engine", attackerId, extra
         body: "Cette cible est b\xE9nite, votre action ne fonctionne pas."
       });
     }
-    const isMechantReason = reason === "tueur" || reason === "croque_mitaine";
+    const isMechantReason = reason === "tueur" || reason === "croque_mitaine" || reason === "stratege";
     if (isMechantReason && typeof m.guarded_by === "string") {
       const guard = m.guarded_by;
       await killPlayer(gameId, guard, "majordome_trade");
@@ -3566,10 +3508,8 @@ async function promoteAcolyteToStratege(gameId, temporary, sourceMeta) {
     promoted_from_acolyte: true,
     original_slug: originalSlug,
     temp_promotion: temporary,
-    fideles: sourceMeta.fideles ?? [],
-    fideles_ordered: sourceMeta.fideles_ordered ?? [],
-    stratege_pending_order: sourceMeta.stratege_pending_order ?? false,
-    stratege_kills_done: sourceMeta.stratege_kills_done ?? 0
+    stratege_last_mode: sourceMeta.stratege_last_mode ?? null,
+    stratege_last_mode_tour: sourceMeta.stratege_last_mode_tour ?? null
   };
   await patchMeta(heir.id, heirMetaPatch);
   await notify({
@@ -3577,7 +3517,7 @@ async function promoteAcolyteToStratege(gameId, temporary, sourceMeta) {
     playerId: heir.id,
     type: "succession_stratege",
     title: temporary ? "\u265F\uFE0F Tu deviens le Strat\xE8ge (temporaire)" : "\u265F\uFE0F Tu es le nouveau Strat\xE8ge",
-    body: temporary ? "Le Strat\xE8ge est en prison, tu prends le relais et tu reprends son ordre de bataille." : "Le Strat\xE8ge est tomb\xE9. Tu reprends exactement son plan : Fid\xE8les et ordre en cours sont \xE0 toi.",
+    body: temporary ? "Le Strat\xE8ge est en prison, tu prends le relais : chaque Enqu\xEAte, choisis 1 de ses 3 modes." : "Le Strat\xE8ge est tomb\xE9. Tu reprends son r\xF4le : chaque Enqu\xEAte, choisis 1 de ses 3 modes (Discr\xE9tion, Bain de sang, Sabotage).",
     mjTitle: "\u265F\uFE0F Succession Strat\xE8ge",
     mjBody: `${heir.pseudo} devient ${temporary ? "Strat\xE8ge temporaire" : "le nouveau Strat\xE8ge"} (succession Acolyte).`
   });
@@ -3593,10 +3533,8 @@ async function revertTempStrategePromotion(gameId) {
         promoted_from_acolyte: null,
         original_slug: null,
         temp_promotion: null,
-        fideles: null,
-        fideles_ordered: null,
-        stratege_pending_order: null,
-        stratege_kills_done: null
+        stratege_last_mode: null,
+        stratege_last_mode_tour: null
       });
       await notify({
         gameId,
@@ -4875,59 +4813,117 @@ async function executeCapability(opts) {
         });
         return { ok: true, message: `${t1.pseudo} = ${label}` };
       }
-      // ── Stratège : tueur « embuscade ». Marque une cible (kill télégraphié) ──
-      // L'intention d'attaque est posée pour le TOUR SUIVANT : la cible est
-      // prévenue (cf. ringGathering) et meurt à l'Annonce du tour
-      // suivant — sauf protection, ou si le Stratège est mort entre-temps.
+      // ── Stratège (refonte) : 3 modes, jamais le même deux tours de suite ──
+      //   • discretion   → tue 1 cible (kill différé à l'Annonce, mécanique méchante) ;
+      //   • bain_de_sang → tue 2 cibles distinctes MAIS un Civil au hasard reçoit un
+      //     indice révélant l'identité du Stratège ;
+      //   • sabotage     → ne tue personne, bloque totalement la capacité d'1 cible
+      //     au tour suivant (blocked_*_cycle = tour+1).
       case "stratege": {
-        if (!t1) return { ok: false, message: "Cible requise" };
-        if (t1.id === actor.id)
-          return { ok: false, message: "Tu ne peux pas te d\xE9signer toi-m\xEAme." };
-        await submitIntent({
-          gameId: opts.gameId,
-          tour: opts.tour + 1,
-          phase: opts.phase,
-          actorId: actor.id,
-          targetId: t1.id,
-          category: "ATTACK",
-          timing: "DEFERRED",
-          source: "role:stratege",
-          payload: {
-            kill_reason: "stratege_embuscade",
-            target_pseudo: t1.pseudo,
-            mechant_mechanic: true
-          }
-        });
-        await patchMeta(t1.id, {
-          targeted_by_stratege: {
-            from_tour: opts.tour,
-            resolves_tour: opts.tour + 1,
-            stratege_id: actor.id
-          }
-        });
-        const { data: team } = await supabase.from("players").select("id, role_slug").eq("game_id", opts.gameId).eq("is_alive", true);
-        const teammates = (team ?? []).filter(
-          (p) => p.id !== actor.id && opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "M\xE9chant"
-        );
-        for (const tm of teammates) {
+        const smode = opts.extra?.mode ?? "discretion";
+        const lastMode = m.stratege_last_mode;
+        const lastModeTour = m.stratege_last_mode_tour;
+        if (lastMode === smode && lastModeTour === opts.tour - 1)
+          return {
+            ok: false,
+            message: "Tu ne peux pas rejouer le m\xEAme mode deux tours de suite."
+          };
+        const markMode = () => patchMeta(actor.id, { stratege_last_mode: smode, stratege_last_mode_tour: opts.tour });
+        const warnTeam = async (label) => {
+          const { data: team } = await supabase.from("players").select("id, role_slug").eq("game_id", opts.gameId).eq("is_alive", true);
+          const teammates = (team ?? []).filter(
+            (p) => p.id !== actor.id && opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "M\xE9chant"
+          );
+          for (const tm of teammates)
+            await notify({
+              gameId: opts.gameId,
+              playerId: tm.id,
+              type: "killer_targeted",
+              title: "\u{1F3AF} Le Strat\xE8ge frappe",
+              body: label
+            });
+        };
+        if (smode === "sabotage") {
+          if (!t1) return { ok: false, message: "Cible requise" };
+          if (t1.id === actor.id)
+            return { ok: false, message: "Tu ne peux pas te saboter toi-m\xEAme." };
+          await patchMeta(t1.id, {
+            blocked_from_cycle: opts.tour + 1,
+            blocked_until_cycle: opts.tour + 1
+          });
           await notify({
             gameId: opts.gameId,
-            playerId: tm.id,
-            type: "killer_targeted",
-            title: "\u{1F3AF} Le Strat\xE8ge a marqu\xE9",
-            body: `${t1.pseudo} mourra \xE0 la prochaine annonce.`
+            playerId: t1.id,
+            type: "sabotaged",
+            title: "\u{1F6E0}\uFE0F Capacit\xE9 sabot\xE9e",
+            body: "Au prochain tour, ta capacit\xE9 sera totalement bloqu\xE9e.",
+            mjTitle: "\u{1F6E0}\uFE0F Strat\xE8ge \u2014 sabotage",
+            mjBody: `${actor.pseudo} (Strat\xE8ge) sabote ${t1.pseudo} : capacit\xE9 bloqu\xE9e au tour ${opts.tour + 1}.`
           });
+          await markMode();
+          await used({ effect: "stratege_sabotage", mode: smode, target: t1.id });
+          return { ok: true, message: `${t1.pseudo} : capacit\xE9 sabot\xE9e au prochain tour.` };
         }
-        await used({ effect: "stratege_mark", target: t1.id });
-        await notifyMJ({
-          gameId: opts.gameId,
-          type: "mj_announce",
-          title: "\u265F\uFE0F Strat\xE8ge \u2014 marque",
-          body: `${actor.pseudo} (Strat\xE8ge) marque ${t1.pseudo} \u2014 mort pr\xE9vue \xE0 l'annonce du tour ${opts.tour + 1}.`
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (smode === "bain_de_sang" && !t2) return { ok: false, message: "Deux cibles requises." };
+        if (smode === "bain_de_sang" && t1.id === t2.id)
+          return { ok: false, message: "Choisis 2 cibles distinctes." };
+        const victims = smode === "bain_de_sang" ? [t1, t2] : [t1];
+        if (victims.some((v) => v.id === actor.id))
+          return { ok: false, message: "Tu ne peux pas te cibler toi-m\xEAme." };
+        for (const v of victims)
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: v.id,
+            category: "ATTACK",
+            timing: "DEFERRED",
+            source: "role:stratege",
+            payload: { kill_reason: "stratege", target_pseudo: v.pseudo, mechant_mechanic: true }
+          });
+        if (smode === "bain_de_sang") {
+          const civils = opts.allPlayers.filter(
+            (p) => p.is_alive && !p.is_mj && p.id !== actor.id && opts.rolesBySlug.get(p.role_slug ?? "")?.faction === "Civil"
+          );
+          if (civils.length > 0) {
+            const witness = civils[Math.floor(Math.random() * civils.length)];
+            const { grantItem: grantItem2, buildItem: buildItem2 } = await Promise.resolve().then(() => (init_items(), items_exports));
+            await grantItem2(
+              witness.id,
+              buildItem2("indice", {
+                from: "Manoir",
+                originFaction: "Syst\xE8me",
+                nameOverride: "Indice \u2014 le Tueur d\xE9masqu\xE9",
+                descriptionOverride: `Dans le chaos du bain de sang, tu as reconnu le Tueur : c'est ${actor.pseudo}.`
+              })
+            );
+            await notify({
+              gameId: opts.gameId,
+              playerId: witness.id,
+              type: "indice_recu",
+              title: "\u{1F9E9} Un indice t'est parvenu",
+              body: "Tu as reconnu le Tueur dans la confusion \u2014 consulte ton Carnet.",
+              mjTitle: "\u{1F9E9} Strat\xE8ge \u2014 identit\xE9 fuit\xE9e",
+              mjBody: `${witness.pseudo} (Civil) re\xE7oit un indice nommant ${actor.pseudo} (Strat\xE8ge) apr\xE8s son bain de sang.`
+            });
+          }
+          await warnTeam(`${t1.pseudo} et ${t2.pseudo} ne verront pas l'aube.`);
+        } else {
+          await warnTeam(`${t1.pseudo} est la cible de cette nuit.`);
+        }
+        await markMode();
+        await used({
+          effect: smode === "bain_de_sang" ? "stratege_bloodbath" : "stratege_kill",
+          mode: smode,
+          target: t1.id,
+          ...smode === "bain_de_sang" ? { target2: t2.id } : {}
         });
         return {
           ok: true,
-          message: `\u{1F3AF} ${t1.pseudo} marqu\xE9 \u2014 il mourra \xE0 l'Annonce du prochain tour.`
+          pending: true,
+          message: smode === "bain_de_sang" ? "Bain de sang \u2014 d\xE9nouement \xE0 l'Annonce." : "D\xE9nouement \xE0 l'Annonce."
         };
       }
       // ── Voleur : vole l'objet le plus récent d'une cible (vivante ou morte) ──
