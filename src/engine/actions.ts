@@ -3955,14 +3955,14 @@ export async function executeCapability(opts: {
           type: "heir_inquiry",
           title: "👑 Héritier — Enquête",
           body: isSuspect
-            ? `🟠 ${t1.pseudo} éveille les soupçons.`
-            : `🟢 Rien à signaler sur ${t1.pseudo}.`,
+            ? `🟠 ${t1.pseudo} ressort suspect.`
+            : `🟢 ${t1.pseudo} : pas suspect.`,
           mjTitle: "👑 Héritier déchu",
           mjBody: `${actor.pseudo} (Héritier déchu) enquête sur ${t1.pseudo} → ${verdict}.`,
         });
         return {
           ok: true,
-          message: isSuspect ? `🟠 ${t1.pseudo} : soupçons` : `🟢 ${t1.pseudo} : rien à signaler`,
+          message: isSuspect ? `🟠 ${t1.pseudo} : suspect` : `🟢 ${t1.pseudo} : pas suspect`,
         };
       }
       case "parieur_tricheur": {
@@ -4176,8 +4176,8 @@ export async function executeCapability(opts: {
           ok: true,
           message:
             verdict === "suspicious"
-              ? `🟠 ${t1.pseudo} : soupçons`
-              : `🟢 ${t1.pseudo} : rien à signaler`,
+              ? `🟠 ${t1.pseudo} : suspect`
+              : `🟢 ${t1.pseudo} : pas suspect`,
         };
       }
 
@@ -4596,7 +4596,7 @@ export async function executeCapability(opts: {
           playerId: t1.id,
           type: "accused",
           title: "🔖 Accusation contre toi",
-          body: `Un Accusateur a jeté la suspicion sur toi (1 tour).`,
+          body: `Un Accusateur t'a marqué Suspect (1 tour).`,
           mjTitle: "🔖 Accusateur",
           mjBody: `${actor.pseudo} (Accusateur) accuse ${t1.pseudo} — suspect pour 1 tour.`,
         });
@@ -4605,7 +4605,7 @@ export async function executeCapability(opts: {
           playerId: actor.id,
           type: "accuse_ok",
           title: "🔖 Accusation lancée",
-          body: `Suspicion jetée sur ${t1.pseudo} (1 tour).`,
+          body: `${t1.pseudo} marqué Suspect (1 tour).`,
         });
         return { ok: true, message: `${t1.pseudo} suspect (1 tour)` };
       }

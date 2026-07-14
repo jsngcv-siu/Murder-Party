@@ -96,7 +96,7 @@ const INFO: Scenario[] = [
   {
     label: "Policier",
     note: "Verdict d'enquête — l'info reste en avant.",
-    d: mkInfo("Tu as arrêté Léo.", "🟠 Léo : soupçons", "info"),
+    d: mkInfo("Tu as arrêté Léo.", "🟠 Léo : suspect", "info"),
   },
   {
     label: "Chasseur de vampire",

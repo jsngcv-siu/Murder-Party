@@ -85,7 +85,7 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       icon: Flag,
       label: "Suspect",
       tone: "orange",
-      desc: "Un accusateur a jeté la suspicion sur toi en public. Cela peut influencer les votes.",
+      desc: "Un Accusateur t'a marqué Suspect en public. Cela peut influencer les votes.",
     },
     manipulated: {
       icon: Drama,

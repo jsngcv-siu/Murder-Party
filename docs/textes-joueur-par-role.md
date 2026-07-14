@@ -106,7 +106,7 @@ est déjà visible en dev.
 - ⚙️ Capacité : « Capacité passive — voir notifications »
 
 ### 👮 Policier
-- 🖥️ Bandeau : « 🟠 X : soupçons » / « 🟢 X : rien à signaler » · falsifié : « Le joueur a été falsifié »
+- 🖥️ Bandeau : « 🟠 X : suspect » / « 🟢 X : pas suspect » · falsifié : « Le joueur a été falsifié »
 - ⚙️ Erreur : « Cible requise »
 
 ### 😇 Saint

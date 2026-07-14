@@ -88,14 +88,15 @@
 - 【 Lecture seule 】 Tu ne peux jamais y écrire : impossible de répondre aux défunts ni de te trahir par ce canal.
 
 ## 🚓 Le Policier
-- ✍️ Capacité (page 1) : 1×/tour. Désigne 1 joueur : verdict binaire, Méchant ou non.
-- 【 Le Tueur passe blanc 】 Un Tueur t'apparaît « non-Méchant ». Un verdict innocent n'écarte donc jamais le Tueur.
+- ✍️ Capacité (page 1) : 1×/tour. Désigne 1 joueur : verdict binaire, suspect ou non.
+- 【 Un Suspect, c'est quoi ? 】 Un Suspect est un joueur que ton contrôle signale comme suspect. Ce n'est pas une preuve : tous les Neutres ressortent Suspects, et certains tueurs camouflés passent pour non-suspects.
+- 【 Le Tueur passe blanc 】 Un Tueur te ressort « pas suspect ». Un verdict « pas suspect » n'écarte donc jamais le Tueur.
 - 【 L'Usurpateur démasqué 】 Contrairement aux autres enquêtes, tu vois l'Usurpateur sous son vrai jour, sans sa couverture.
-- 【 Faction, pas rôle 】 Tu n'obtiens qu'un « Méchant : oui/non » — jamais le rôle précis de la cible.
+- 【 Un verdict, pas un rôle 】 Tu n'obtiens qu'un « suspect : oui/non » — jamais le rôle précis de la cible.
 
 ## 😇 Le Saint
 - 【 Immunité totale 】 Ta bénédiction rend un joueur (toi compris) intouchable pendant 2 tours complets.
-- 【 Piège mortel 】 Si le Saint est emprisonné par un vote, les Civils perdent immédiatement. Reste hors de soupçon.
+- 【 Piège mortel 】 Si le Saint est emprisonné par un vote, les Civils perdent immédiatement. Ne te fais jamais suspecter.
 - 【 Un seul usage 】 1×/partie : choisis avec soin qui vaut la bénédiction.
 
 ## 👁️ Le Témoin
@@ -111,7 +112,7 @@
 # 🟥 MÉCHANTS (9)
 
 ## 🃏 Le Cartomancien
-- 【 Lis les soupçons 】 Tu vois le tableau de suspicion d'une cible : ses anneaux et couleurs, pour ton camp.
+- 【 Lis les suspicions 】 Tu vois le tableau de suspicions d'une cible : ses anneaux et couleurs, pour ton camp.
 - 【 Jamais les notes 】 Le texte écrit à la main reste privé : tu n'obtiens que les marquages colorés.
 
 ## 🧹 Le Cleaner
@@ -142,7 +143,7 @@
 - 【 Couteau de secours 】 Tu as aussi un couteau pour frapper immédiatement, sans délai ni avertissement.
 
 ## 🔪 Le Tueur
-- 【 Camouflage total 】 Tu apparais en Citoyen à l'Assistant et « non-Méchant » au Policier : les enquêtes te blanchissent.
+- 【 Camouflage total 】 Tu apparais en Citoyen à l'Assistant et « pas suspect » au Policier : les enquêtes te blanchissent.
 - 【 La lame se transmet 】 Si tu es emprisonné ou tué, un Acolyte vivant et libre devient Tueur au hasard. Le crime survit.
 - 【 Une frappe par Enquête 】 La mort n'est révélée qu'à l'Annonce suivante : soigne tes alibis d'ici là.
 
@@ -170,7 +171,8 @@
 - 【 Protège le couple 】 Tu gagnes si les deux liés survivent jusqu'à la fin : veille discrètement sur eux.
 
 ## 👑 L'Héritier Déchu
-- 【 Faux Civil 】 Tu enquêtes (« Méchant ou non ») sous des airs honnêtes, mais tu joues pour les Méchants.
+- 【 Faux Civil 】 Tu enquêtes (« suspect ou non ») sous des airs honnêtes, mais tu joues pour les Méchants.
+- 【 Un Suspect, c'est quoi ? 】 Un Suspect est un joueur que le contrôle du Policier signale comme suspect. Ce n'est pas une preuve : tous les Neutres ressortent Suspects, et certains tueurs camouflés passent pour non-suspects.
 - 【 Condition de victoire 】 Tu gagnes avec les Méchants si un Tueur est encore en vie à la fin de la partie.
 - 【 Double jeu 】 Rends-toi utile aux Civils pour gagner leur confiance, tout en protégeant le Tueur.
 
@@ -230,8 +232,9 @@
 - 【 Deux dons par tour 】 Tu distribues jusqu'à 2 reliques par Enquête.
 
 ## 👉 L'Accusateur
-- 【 Marque suspecte 】 Tu désignes un joueur : il apparaît suspect à toute la table pendant 1 tour.
-- 【 Pression sur le vote 】 La marque oriente les soupçons — pratique pour pousser un lynchage.
+- 【 Un Suspect, c'est quoi ? 】 Un Suspect est un joueur que le contrôle du Policier signale comme suspect. Ta marque impose cette étiquette publiquement, qu'il le soit vraiment ou non.
+- 【 Marque suspecte 】 Tu désignes un joueur : il apparaît Suspect aux yeux de toute la table pendant 1 tour.
+- 【 Pression sur le vote 】 La marque désigne un Suspect à la table — pratique pour pousser un lynchage.
 - 【 Bloqué par la bénédiction 】 Un joueur béni par le Saint échappe à ton accusation.
 
 ## 🎨 Le Falsificateur

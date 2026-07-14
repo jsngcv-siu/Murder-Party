@@ -94,14 +94,14 @@ Format visé : **ligne d'action** (petit) + **bloc résultat** (en avant).
 ### Policier — `police` · ton `info`
 
 - **Action** : « Tu as arrêté X. »
-- **Résultat** : « 🟠 X : soupçons » / « 🟢 X : rien à signaler »
+- **Résultat** : « 🟠 X : suspect » / « 🟢 X : pas suspect »
 - **Cible falsifiée** : « Le joueur a été falsifié »
 - **Erreur** : « Cible requise »
 
 ### Héritier déchu — `heir_inquiry` · ton `info`
 
 - **Action** : « Tu as enquêté sur X. »
-- **Résultat** : « 🟠 X : soupçons » / « 🟢 X : rien à signaler »
+- **Résultat** : « 🟠 X : suspect » / « 🟢 X : pas suspect »
 - **Cible falsifiée** : « Le joueur a été falsifié »
 - **Erreur** : « Cible requise »
 
@@ -295,7 +295,7 @@ le **MJ** (chaque notif porte un `mjBody` → c'est ce qui alimente le récit MJ
 | **Apothicaire** | Cible | `fiole_offerte` — « Une fiole t'est offerte. » |
 | **Conservateur** | Cible | `relique_received` — « Tu reçois {relique}. » |
 | **Maître chanteur** | Cible | `blackmail` — « Demain, tu ne pourras pas agir. » |
-| **Accusateur** | Cible (+ soi) | `accused` / `accuse_ok` — « Suspicion jetée sur toi. » |
+| **Accusateur** | Cible (+ soi) | `accused` / `accuse_ok` — « Tu as été marqué Suspect. » |
 | **Falsificateur** | Cible | `falsified` — « Toute enquête sur toi renverra une piste brouillée. » |
 | **Babysitter** | Cible | `babysat` — « À l'abri demain, mais capacité bloquée. » |
 | **Barman** | Les 2 cibles | `drunk` (l'ivre) / `good_time` (l'autre) |

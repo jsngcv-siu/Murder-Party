@@ -1322,8 +1322,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "heritier_dechu" && (
         <PanelCard tone="yellow" icon={Crown} label="Héritier déchu">
           À chaque Enquête, désigne une cible : tu apprends si elle{" "}
-          <span className="font-semibold">éveille les soupçons</span> ou non. Tu gagnes en vie avec
-          les Méchants à la fin de la partie.
+          <span className="font-semibold">ressort suspecte</span> ou non. Tu gagnes en vie avec les
+          Méchants à la fin de la partie.
         </PanelCard>
       )}
 

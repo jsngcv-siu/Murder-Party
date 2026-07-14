@@ -356,26 +356,30 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
     ],
   },
   policier: {
-    cleanCapacity: "1×/tour. Désigne 1 joueur : verdict binaire, Méchant ou non.",
+    cleanCapacity: "1×/tour. Désigne 1 joueur : verdict binaire, suspect ou non.",
     pages: [
       {
         title: "Subtilités",
         notes: [
           {
+            tag: "Un Suspect, c'est quoi ?",
+            body: "Un Suspect est un joueur que ton contrôle signale comme suspect. Ce n'est pas une preuve : tous les Neutres ressortent Suspects, et certains tueurs camouflés passent pour non-suspects.",
+          },
+          {
             tag: "Trois lames passent blanches",
-            body: "Le Tueur, le Croque-mitaine et le Stratège t'apparaissent « non-Méchant ». Un verdict innocent n'écarte jamais ces trois-là.",
+            body: "Le Tueur, le Croque-mitaine et le Stratège te ressortent « pas suspect ». Un verdict « pas suspect » n'écarte jamais ces trois-là.",
           },
           {
             tag: "Tout Neutre est suspect",
-            body: "Chaque Neutre ressort « soupçons », même un rôle inoffensif (Oracle, Empoisonneur…). Suspect n'est pas Méchant.",
+            body: "Chaque Neutre ressort « suspect », même un rôle inoffensif (Oracle, Empoisonneur…). Suspect ne veut pas dire Méchant.",
           },
           {
             tag: "L'Usurpateur te berne",
-            body: "L'Usurpateur ressort sous sa couverture Civil : tu le vois « non-Méchant ». Seul l'Assistant du détective le démasque.",
+            body: "L'Usurpateur ressort sous sa couverture Civil : tu le vois « pas suspect ». Seul l'Assistant du détective le démasque.",
           },
           {
-            tag: "Faction, pas rôle",
-            body: "Tu n'obtiens qu'un « Méchant : oui/non » — jamais le rôle précis.",
+            tag: "Un verdict, pas un rôle",
+            body: "Tu n'obtiens qu'un « suspect : oui/non » — jamais le rôle précis, ni même la faction.",
           },
         ],
       },
@@ -392,7 +396,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           },
           {
             tag: "Piège mortel",
-            body: "Si le Saint est emprisonné par un vote, les Civils perdent immédiatement. Reste hors de soupçon.",
+            body: "Si le Saint est emprisonné par un vote, les Civils perdent immédiatement. Ne te fais jamais suspecter.",
           },
           {
             tag: "Un seul usage",
@@ -448,8 +452,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Lis les soupçons",
-            body: "Tu vois le tableau de suspicion d'une cible : ses anneaux et couleurs, pour ton camp.",
+            tag: "Lis les suspicions",
+            body: "Tu vois le tableau de suspicions d'une cible : ses anneaux et couleurs, pour ton camp.",
           },
           {
             tag: "Jamais les notes",
@@ -494,8 +498,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "L'autre cible reçoit « Vous avez survécu à un danger » : elle sait qu'on l'a visée.",
           },
           {
-            tag: "Insoupçonné",
-            body: "Tu ressors « non-Méchant » à la police : un contrôle ne te trahit pas.",
+            tag: "Jamais suspect",
+            body: "Tu ressors « pas suspect » au contrôle du Policier : il ne te trahit pas.",
           },
         ],
       },
@@ -574,8 +578,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Tu as aussi un couteau pour frapper immédiatement, sans délai ni avertissement.",
           },
           {
-            tag: "Blanchi par la police",
-            body: "Comme les autres tueurs, tu ressors « non-Méchant » à la police.",
+            tag: "Blanchi au contrôle",
+            body: "Comme les autres tueurs, tu ressors « pas suspect » au contrôle du Policier.",
           },
         ],
       },
@@ -588,7 +592,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Camouflé en Citoyen",
-            body: "Toutes les enquêtes te prennent pour un Civil : Policier « non-Méchant », Boussole « même camp », Mouchard « Citoyen ». Seul l'Assistant du détective te voit sous ton vrai rôle.",
+            body: "Toutes les enquêtes te prennent pour un Civil : Policier « pas suspect », Boussole « même camp », Mouchard « Citoyen ». Seul l'Assistant du détective te voit sous ton vrai rôle.",
           },
           {
             tag: "La lame se transmet",
@@ -695,7 +699,11 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Faux Civil",
-            body: "Tu enquêtes (« Méchant ou non ») sous des airs honnêtes, mais tu joues pour les Méchants.",
+            body: "Tu enquêtes (« suspect ou non ») sous des airs honnêtes, mais tu joues pour les Méchants.",
+          },
+          {
+            tag: "Un Suspect, c'est quoi ?",
+            body: "Un Suspect est un joueur que le contrôle du Policier signale comme suspect. Ce n'est pas une preuve : tous les Neutres ressortent Suspects, et certains tueurs camouflés passent pour non-suspects.",
           },
           {
             tag: "Condition de victoire",
@@ -917,12 +925,16 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
+            tag: "Un Suspect, c'est quoi ?",
+            body: "Un Suspect est un joueur que le contrôle du Policier signale comme suspect. Ta marque impose cette étiquette publiquement, qu'il le soit vraiment ou non.",
+          },
+          {
             tag: "Marque suspecte",
-            body: "Tu désignes un joueur : il apparaît suspect à toute la table pendant 1 tour.",
+            body: "Tu désignes un joueur : il apparaît Suspect aux yeux de toute la table pendant 1 tour.",
           },
           {
             tag: "Pression sur le vote",
-            body: "La marque oriente les soupçons — pratique pour pousser un lynchage.",
+            body: "La marque désigne un Suspect à la table — pratique pour pousser un lynchage.",
           },
           {
             tag: "Bloqué par la bénédiction",

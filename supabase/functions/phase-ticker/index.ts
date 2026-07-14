@@ -4480,13 +4480,13 @@ async function executeCapability(opts) {
           playerId: actor.id,
           type: "heir_inquiry",
           title: "\u{1F451} H\xE9ritier \u2014 Enqu\xEAte",
-          body: isSuspect ? `\u{1F7E0} ${t1.pseudo} \xE9veille les soup\xE7ons.` : `\u{1F7E2} Rien \xE0 signaler sur ${t1.pseudo}.`,
+          body: isSuspect ? `\u{1F7E0} ${t1.pseudo} ressort suspect.` : `\u{1F7E2} ${t1.pseudo} : pas suspect.`,
           mjTitle: "\u{1F451} H\xE9ritier d\xE9chu",
           mjBody: `${actor.pseudo} (H\xE9ritier d\xE9chu) enqu\xEAte sur ${t1.pseudo} \u2192 ${verdict}.`
         });
         return {
           ok: true,
-          message: isSuspect ? `\u{1F7E0} ${t1.pseudo} : soup\xE7ons` : `\u{1F7E2} ${t1.pseudo} : rien \xE0 signaler`
+          message: isSuspect ? `\u{1F7E0} ${t1.pseudo} : suspect` : `\u{1F7E2} ${t1.pseudo} : pas suspect`
         };
       }
       case "parieur_tricheur": {
@@ -4661,7 +4661,7 @@ async function executeCapability(opts) {
         await used({ effect: "police", verdict });
         return {
           ok: true,
-          message: verdict === "suspicious" ? `\u{1F7E0} ${t1.pseudo} : soup\xE7ons` : `\u{1F7E2} ${t1.pseudo} : rien \xE0 signaler`
+          message: verdict === "suspicious" ? `\u{1F7E0} ${t1.pseudo} : suspect` : `\u{1F7E2} ${t1.pseudo} : pas suspect`
         };
       }
       case "cartomancien":
@@ -5041,7 +5041,7 @@ async function executeCapability(opts) {
           playerId: t1.id,
           type: "accused",
           title: "\u{1F516} Accusation contre toi",
-          body: `Un Accusateur a jet\xE9 la suspicion sur toi (1 tour).`,
+          body: `Un Accusateur t'a marqu\xE9 Suspect (1 tour).`,
           mjTitle: "\u{1F516} Accusateur",
           mjBody: `${actor.pseudo} (Accusateur) accuse ${t1.pseudo} \u2014 suspect pour 1 tour.`
         });
@@ -5050,7 +5050,7 @@ async function executeCapability(opts) {
           playerId: actor.id,
           type: "accuse_ok",
           title: "\u{1F516} Accusation lanc\xE9e",
-          body: `Suspicion jet\xE9e sur ${t1.pseudo} (1 tour).`
+          body: `${t1.pseudo} marqu\xE9 Suspect (1 tour).`
         });
         return { ok: true, message: `${t1.pseudo} suspect (1 tour)` };
       }

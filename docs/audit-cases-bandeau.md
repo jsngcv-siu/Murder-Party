@@ -29,13 +29,13 @@ Format : **ligne d'action** (en petit) puis **bloc résultat** (en avant).
 **Policier**
 
 - Action : « Tu as arrêté X. »
-- Résultat : « 🟠 X : soupçons » / « 🟢 X : rien à signaler »
+- Résultat : « 🟠 X : suspect » / « 🟢 X : pas suspect »
 - Cible falsifiée : « Le joueur a été falsifié »
 
 **Héritier déchu**
 
 - Action : « Tu as enquêté sur X. »
-- Résultat : « 🟠 X : soupçons » / « 🟢 X : rien à signaler »
+- Résultat : « 🟠 X : suspect » / « 🟢 X : pas suspect »
 - Cible falsifiée : « Le joueur a été falsifié »
 
 **Détective / Assistant du détective**
