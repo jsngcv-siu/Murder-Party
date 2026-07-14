@@ -7,7 +7,7 @@ ce fichier décrit la STRUCTURE et pointe vers les sources de vérité.
 ## 1. Nature du produit
 
 Assistant **compagnon** de Murder Party à rôles cachés (famille Loup-Garou/Mafia),
-**6–15 joueurs + 1 MJ**, joué **en présentiel** (le vrai jeu est autour de la table ;
+**6–20 joueurs + 1 MJ**, joué **en présentiel** (le vrai jeu est autour de la table ;
 l'app synchronise l'état entre téléphones). Stack **web** : TanStack Start (React 19) +
 Supabase (Postgres/RLS/Realtime/Storage). **Pas** un jeu vidéo — pas de moteur graphique.
 
@@ -19,7 +19,9 @@ doivent en tenir compte (un joueur ne peut écrire que ses propres `role_actions
 
 - **Civil** (la ville) — gagne quand tous les ennemis sont éliminés.
 - **Méchant** — gagne à la **majorité stricte** (surpasse en nombre tous les autres camps réunis ; à égalité 2v2, la ville garde sa chance).
-- **Neutre** — objectifs **solo** variés (Empoisonneur, Veuve noire, Parieur, Vampire, Entremetteur/Amoureux, Conservateur…). Certains neutres **BÉNINS** (Oracle) peuvent gagner avec n'importe quel camp ; d'autres **bloquent** la victoire des Civils.
+- **Neutre** — objectifs **solo** variés (Empoisonneur, Veuve noire, Parieur, Vampire, Entremetteur/Amoureux, Conservateur…). Certains neutres **BÉNINS** (Oracle) peuvent gagner avec n'importe quel camp ; d'autres **bloquent** la victoire des Civils (flag `is_hostile`).
+
+> **Faction Méchant — 4 types** depuis 2026-07-15 : TUEUR, INVESTIGATION, TROMPERIE, **CONTRÔLE** (Cleaner, Maître chanteur, Marionnettiste, Voleur). Méchant/SUPPORT n'existe plus.
 
 Détails et cas limites (Héritier déchu allié Méchant, Vampire conversion, couple
 Entremetteur) → source de vérité : `src/engine/winConditions.ts` (`evaluateWin`).
@@ -76,7 +78,7 @@ Re-check LIVE des préconditions ; symétrie « acteur tué ce tour → effet an
 - **`node sim/balance.mjs`** — simulation Monte-Carlo (20k parties/taille par défaut). Sort les win-rates par faction et par taille + win-rate des neutres. ⚠️ **Modèle comportemental séparé** du vrai moteur (params `P` en tête de fichier) → chiffres **indicatifs**, pas une preuve.
 - **`node sim/sweep.mjs [N]`** — balaye précision d'enquête × létalité Tueur pour trouver le calibrage. **Cible de design : Civils 55 % / Méchants 45 %** (parmi les parties tranchées).
 - **`node sim/scenarios.mjs [N]`** — impact quantifié de chaque levier de rééquilibrage.
-- **`node scripts/role-static-audit.mjs`** — audit **texte carte ↔ moteur** (phase/quota/passif) sur les 45 rôles, headless (fetch live). Limite connue : ne détecte pas le cas « autorisé dans TOUTES les phases » (jamais en contradiction avec le texte).
+- **`node scripts/role-static-audit.mjs`** — audit **texte carte ↔ moteur** (phase/quota/passif) sur les **44 rôles** actifs, headless (fetch live). Limite connue : ne détecte pas le cas « autorisé dans TOUTES les phases » (jamais en contradiction avec le texte).
 
 ## 8. Cible d'équilibrage & état connu
 

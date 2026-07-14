@@ -5,7 +5,7 @@
 // Les rôles bannis sont retirés des candidats du pool en direct.
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { GameRow } from "@/lib/game";
+import { type GameRow, MIN_PLAYERS, MAX_PLAYERS } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import {
   asPoolConfig,
@@ -97,7 +97,7 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
   }
 
   function setTarget(n: number) {
-    const target = Math.max(6, Math.min(15, n));
+    const target = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n));
     // Préserve les slugs choisis là où la nouvelle forme est compatible.
     const fresh = buildDefaultPool(target);
     const oldBySig = new Map<string, string>();
@@ -228,7 +228,7 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={config.targetPlayers <= 6}
+                  disabled={config.targetPlayers <= MIN_PLAYERS}
                   onClick={() => setTarget(config.targetPlayers - 1)}
                 >
                   −
@@ -238,7 +238,7 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={config.targetPlayers >= 15}
+                  disabled={config.targetPlayers >= MAX_PLAYERS}
                   onClick={() => setTarget(config.targetPlayers + 1)}
                 >
                   +

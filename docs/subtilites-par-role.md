@@ -15,7 +15,13 @@
 
 ---
 
-# 🟦 CIVILS (19)
+> **⚠️ Mise à jour 2026-07-15** — Le set actif compte désormais **44 rôles**
+> (**Civil 21 / Méchant 13 / Neutre 10**). Le **Voisin a été supprimé**. Les 7 rôles
+> autrefois « hors set » (Journaliste, Paranoïaque, Armurier, Accusateur, Falsificateur,
+> Voleur, Conservateur) sont **réintégrés et actifs** — voir leur faction/type réel en bas.
+> Nouveau type Méchant **CONTRÔLE** (Cleaner, Maître chanteur, Marionnettiste, Voleur).
+
+# 🟦 CIVILS (21)
 
 ## 👼 L'Ange Gardien
 - 【 Cible imposée 】 Tu ne choisis pas qui tu protèges : le manoir te confie une cible au hasard dès le départ.
@@ -109,7 +115,10 @@
 
 ---
 
-# 🟥 MÉCHANTS (9)
+# 🟥 MÉCHANTS (13)
+
+> Types : TUEUR · INVESTIGATION · TROMPERIE · **CONTRÔLE** (Cleaner, Maître chanteur,
+> Marionnettiste, Voleur). Méchant/SUPPORT n'existe plus.
 
 ## 🃏 Le Cartomancien
 - 【 Lis les suspicions 】 Tu vois le tableau de suspicions d'une cible : ses anneaux et couleurs, pour ton camp.
@@ -156,7 +165,7 @@
 
 ---
 
-# 🟨 NEUTRES (9)
+# 🟨 NEUTRES (10)
 
 ## 🏹 Le Chasseur de Vampire _(émergent)_
 - 【 Éveillé par le sang 】 Tu n'apparais qu'après la 1re morsure du Vampire : avant, ta chasse n'a pas commencé.
@@ -203,10 +212,15 @@
 
 ---
 
-# ⬜ RÔLES HORS SET ACTIF (8)
+# ⬜ RÔLES RÉINTÉGRÉS AU SET (2026-07-15)
 
-> Présents dans `roleExtraInfo.ts` mais **pas** dans les 37 rôles du set `set1` en base.
-> À corriger aussi si tu comptes les réactiver — sinon on peut les ignorer / supprimer.
+> ✅ Ces rôles sont désormais **actifs dans `set1`** (ils ne sont plus « hors set »).
+> Faction/type réel indiqué pour chacun — à reclasser dans les sections ci-dessus.
+> _(Le Voisin, lui, a été définitivement supprimé.)_
+>
+> - **Armurier** → 🟥 Méchant / TUEUR · **Accusateur**, **Falsificateur** → 🟥 Méchant / TROMPERIE
+> - **Voleur** → 🟥 Méchant / **CONTRÔLE** · **Journaliste** → 🟦 Civil / INVESTIGATION
+> - **Paranoïaque** → 🟦 Civil / SUPPORT · **Conservateur** → 🟨 Neutre / CHAOS
 
 ## 🔫 L'Armurier
 - 【 Don anonyme 】 Tu remets un couteau à un joueur vivant : il ignore que l'arme vient de toi.

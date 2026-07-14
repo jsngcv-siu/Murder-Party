@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Application compagnon pour parties Murder Party à rôles cachés. 6 à 15 joueurs + 1 Maître du Jeu.",
+          "Application compagnon pour parties Murder Party à rôles cachés. 6 à 20 joueurs + 1 Maître du Jeu.",
       },
     ],
   }),
@@ -330,7 +330,7 @@ function CreateForm() {
           Continuer →
         </Button>
         <p className="text-xs text-muted-foreground text-center">
-          6 à 15 joueurs. Code à 6 caractères généré automatiquement.
+          6 à 20 joueurs. Code à 6 caractères généré automatiquement.
         </p>
       </form>
     </Card>

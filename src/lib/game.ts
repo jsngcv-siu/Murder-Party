@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureAuth, getSessionId } from "./session";
 
 export const MIN_PLAYERS = 6;
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 20;
 
 function generateGameCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
