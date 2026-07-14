@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
 import { frequencyChips } from "@/lib/roleUsageChips";
-import { CapacityChargeChip } from "./PA2Capability";
+import { CapacityChargeChip, TypeStamp, FactionBadge } from "./PA2Capability";
 import { Sparkles } from "lucide-react";
 
 gsap.registerPlugin(SplitText);
@@ -178,19 +178,6 @@ export function O5Reveal({
     );
   }
 
-  // Teinte de la pastille de faction (post-it).
-  const factionTone = ((): { bg: string; fg: string } => {
-    switch (role.faction) {
-      case "Civil":
-        return { bg: "var(--citoyens)", fg: "oklch(0.16 0.02 250)" };
-      case "Méchant":
-        return { bg: "var(--mechants)", fg: "oklch(0.98 0.02 20)" };
-      case "Neutre":
-        return { bg: "var(--neutres)", fg: "oklch(0.18 0.03 300)" };
-      default:
-        return { bg: "var(--muted)", fg: "var(--foreground)" };
-    }
-  })();
   const dossierNo =
     (Math.abs([...role.slug].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % 89) + 10;
   const freqs = frequencyChips(role);
@@ -293,33 +280,12 @@ export function O5Reveal({
                     <RoleIcon role={role} size={84} className="w-full h-full object-cover" />
                   </div>
                 </div>
-                <div className="flex flex-col items-start gap-1.5 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="text-[11px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded-md"
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        background: factionTone.bg,
-                        color: factionTone.fg,
-                      }}
-                    >
-                      {role.faction}
-                    </span>
-                    {freqs.map((f, i) => (
-                      <CapacityChargeChip key={i} label={f} state="green" />
-                    ))}
-                  </div>
-                  <span
-                    className="text-2xl uppercase leading-tight pr-2"
-                    style={{
-                      fontFamily: "var(--font-hand)",
-                      fontWeight: 600,
-                      color: "var(--paper-ink-soft)",
-                      overflow: "visible",
-                    }}
-                  >
-                    {role.type}
-                  </span>
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <FactionBadge faction={role.faction} />
+                  <TypeStamp type={role.type} />
+                  {freqs.map((f, i) => (
+                    <CapacityChargeChip key={i} label={f} state="green" />
+                  ))}
                 </div>
               </div>
             </div>

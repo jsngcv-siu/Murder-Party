@@ -194,7 +194,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Un Civil qui tue",
-            body: "Tu reçois un couteau au départ : tu peux éliminer une personne. Un rare Civil offensif.",
+            body: "Tu reçois un couteau au départ : tu peux éliminer une personne. Un rôle rare et important pour les civils.",
           },
           {
             tag: "Arme à protéger",
@@ -202,11 +202,11 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           },
           {
             tag: "Tuer un Civil te trahit",
-            body: "Si ta lame frappe un Civil, tu ressors « suspect » à la police : ne te trompe pas de cible.",
+            body: "Si ta lame frappe un Civil, tu ressors « suspect » à la police : attention à la cible que tu choisis.",
           },
           {
             tag: "Frappe à froid",
-            body: "Sers-toi de ton coup au bon moment : une fois le couteau utilisé, tu redeviens un Civil sans capacité.",
+            body: "Sers-toi de ton coup au bon moment : une fois le couteau utilisé, tu es un Civil sans capacité.",
           },
         ],
       },
@@ -245,6 +245,14 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Lettre anonyme",
             body: "Ta cible reçoit une « lettre » dans son inventaire, sans savoir qu'elle vient de toi.",
+          },
+          {
+            tag: "Un relais de message",
+            body: "Le joueur que tu vises peut à son tour écrire un texte de 80 caractères et l'adresser au joueur de son choix.",
+          },
+          {
+            tag: "Signé, jamais par toi",
+            body: "Ce message part signé du nom de son expéditeur : le destinataire sait de qui il vient, mais toi, le Facteur, restes dans l'ombre.",
           },
           {
             tag: "Outil social",

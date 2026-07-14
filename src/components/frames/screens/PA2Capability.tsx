@@ -345,9 +345,9 @@ function chargeState(blockedReason: string | null, mode: string): "green" | "ora
   return "orange";
 }
 
-// Tampon de type (remplace l'ancien tag de faction : la couleur du nom + de
-// l'anneau de l'avatar dit déjà la faction).
-function TypeStamp({ type }: { type: string | null | undefined }) {
+// Tampon de type (cadre teinté selon le type). Exporté : réutilisé tel quel sur
+// l'écran de révélation (O5Reveal) pour un rendu identique aux deux dossiers.
+export function TypeStamp({ type }: { type: string | null | undefined }) {
   const m = roleTypeMeta(type);
   return (
     <span
@@ -359,6 +359,35 @@ function TypeStamp({ type }: { type: string | null | undefined }) {
       }}
     >
       {m.label}
+    </span>
+  );
+}
+
+// Teinte d'une pastille de faction (fond plein + texte contrasté).
+export function factionTone(faction: string | null | undefined): { bg: string; fg: string } {
+  switch (faction) {
+    case "Civil":
+      return { bg: "var(--citoyens)", fg: "oklch(0.16 0.02 250)" };
+    case "Méchant":
+      return { bg: "var(--mechants)", fg: "oklch(0.98 0.02 20)" };
+    case "Neutre":
+      return { bg: "var(--neutres)", fg: "oklch(0.18 0.03 300)" };
+    default:
+      return { bg: "var(--muted)", fg: "var(--foreground)" };
+  }
+}
+
+// Pastille de faction. Exportée : partagée entre l'onglet Capacité et l'écran de
+// révélation (O5Reveal) pour un rendu identique.
+export function FactionBadge({ faction }: { faction: string | null | undefined }) {
+  if (!faction) return null;
+  const tone = factionTone(faction);
+  return (
+    <span
+      className="font-display text-[11px] font-bold uppercase tracking-[0.1em] rounded-md px-2.5 py-1"
+      style={{ background: tone.bg, color: tone.fg }}
+    >
+      {faction}
     </span>
   );
 }
@@ -575,6 +604,9 @@ function RoleSubtletyPage({
   accent: string;
   roles: Map<string, RoleRow>;
 }) {
+  // Couleur d'accent lisible sur papier (identique au liseré) — sert au trait ET
+  // à l'en-tête de chaque note, pour un meilleur contraste et une cohérence visuelle.
+  const accentInk = `color-mix(in oklab, ${accent} 60%, var(--paper-ink))`;
   return (
     <div className="px-8 pb-4 pt-5">
       <div className="mb-3 font-display text-[9px] uppercase tracking-[0.16em] text-[color:var(--paper-ink-soft)]">
@@ -586,9 +618,12 @@ function RoleSubtletyPage({
             <span
               aria-hidden
               className="absolute bottom-1 left-0 top-1 w-[2px] rounded-full"
-              style={{ background: `color-mix(in oklab, ${accent} 60%, var(--paper-ink))` }}
+              style={{ background: accentInk }}
             />
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[color:var(--paper-ink-soft)]">
+            <div
+              className="text-[10px] font-semibold uppercase tracking-[0.1em]"
+              style={{ color: accentInk }}
+            >
               {n.tag}
             </div>
             {/* Rendu composé : les noms de rôles/factions prennent leur couleur de
@@ -763,7 +798,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
   const [capMore, setCapMore] = useState(false);
   const [fiole, setFiole] = useState<"heal" | "poison" | "reveal">("heal");
 
-  // Le texte de capacité déborde-t-il (clampé à 3 lignes) ? → indicateur « voir plus ».
+  // Le texte de capacité déborde-t-il (clampé à 4 lignes) ? → indicateur « voir plus ».
+  // ≤ 4 lignes : tout tient, pas de « voir plus ». > 4 lignes : repli + bouton.
   useEffect(() => {
     const el = capRef.current;
     setCapMore(!!el && el.scrollHeight - el.clientHeight > 2);
@@ -1011,9 +1047,10 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                   boxShadow: `0 0 0 1.5px color-mix(in oklab, ${factionColor} 55%, transparent), 0 0 18px -6px ${factionColor}`,
                 }}
               >
-                <RoleIcon role={myRole} size={48} />
+                <RoleIcon role={myRole} size={60} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {myRole && <FactionBadge faction={myRole.faction} />}
                 {myRole && <TypeStamp type={myRole.type} />}
                 {freqs.map((lbl, i) => (
                   <CapacityChargeChip
@@ -1035,7 +1072,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                   ref={capRef}
                   onClick={() => setCapOpen((v) => !v)}
                   title={capOpen ? "Réduire" : "Voir toute la capacité"}
-                  className={`text-xs leading-relaxed cursor-pointer text-[color:var(--paper-ink)] ${capOpen ? "" : "line-clamp-3"}`}
+                  className={`text-xs leading-relaxed cursor-pointer text-[color:var(--paper-ink)] ${capOpen ? "" : "line-clamp-4"}`}
                 >
                   {highlightCapacity(capacityText, "paper")}
                 </p>
