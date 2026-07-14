@@ -310,15 +310,24 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        const payload = (data as { payload?: { winner?: string } } | null)?.payload;
-        if (payload?.winner) {
+        // Annonce de fin présente → on l'utilise telle quelle, MÊME si le camp
+        // gagnant est nul (fin sans survivant) : la partie EST terminée, l'écran
+        // ne doit pas repartir en calcul.
+        if (data) {
+          const payload = (data as { payload?: { winner?: string | null } }).payload;
           setResult({
-            winner: payload.winner,
-            reason: (data as { body?: string } | null)?.body ?? "",
+            winner: payload?.winner ?? null,
+            reason: (data as { body?: string | null }).body ?? "",
           });
-        } else {
-          void evaluateWin(gameId).then(setResult);
+          return;
         }
+        // Aucune annonce de fin en base (cf. bug QA « game_end » manquant) : on
+        // recalcule. evaluateWin peut renvoyer null (aucun vainqueur déterminable) ;
+        // dans ce cas on FIGE un résultat terminal plutôt que de laisser l'écran
+        // bloqué indéfiniment sur « Calcul… » (l'écran vide de victoire).
+        void evaluateWin(gameId).then((r) =>
+          setResult(r ?? { winner: null, reason: "La partie est terminée." }),
+        );
       });
   }, [gameId, devWinner]);
 
@@ -520,6 +529,28 @@ export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
           >
             Calcul…
           </h1>
+        ) : !winner ? (
+          // Fin SANS vainqueur (aucun survivant / partie close sans camp gagnant) :
+          // pas d'emblème vide ni de « VICTOIRE » trompeur — un écran de clôture net.
+          <div className="mt-6">
+            <div
+              className="text-lg"
+              style={{ fontFamily: "var(--font-hand)", color: theme.titleColor }}
+            >
+              Aucun camp ne l'emporte
+            </div>
+            <h1
+              ref={titleRef}
+              className="text-4xl font-bold mt-1 tracking-[0.1em]"
+              style={{
+                fontFamily: "var(--font-display)",
+                color: theme.titleColor,
+                textShadow: `0 0 30px ${theme.accentSoft}`,
+              }}
+            >
+              PARTIE TERMINÉE
+            </h1>
+          </div>
         ) : (
           <>
             {/* Emblème dans un cercle nimbé de la couleur du camp */}
