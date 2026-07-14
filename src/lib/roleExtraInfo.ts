@@ -950,16 +950,16 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Piste brouillée",
-            body: "Tu maquilles un joueur : toute enquête sur lui renvoie « falsifié » et ne révèle rien.",
+            tag: "Fais porter le chapeau",
+            body: "Tu falsifies un joueur contre son gré : toute enquête sur lui renvoie « falsifié », impossible de le blanchir. Un innocent peut ainsi porter le chapeau.",
           },
           {
             tag: "Effet permanent",
-            body: "La falsification dure jusqu'à la fin de la partie — un seul geste, protection durable.",
+            body: "La falsification dure jusqu'à la fin de la partie : un seul geste, effet définitif.",
           },
           {
-            tag: "Couvre un allié",
-            body: "Parfait pour cacher un Méchant des Policiers, Détectives et autres fouineurs.",
+            tag: "Aussi pour couvrir",
+            body: "À l'inverse, falsifie un allié Méchant pour le soustraire aux Policiers et autres fouineurs.",
           },
         ],
       },

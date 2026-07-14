@@ -238,6 +238,6 @@
 - 【 Bloqué par la bénédiction 】 Un joueur béni par le Saint échappe à ton accusation.
 
 ## 🎨 Le Falsificateur
-- 【 Piste brouillée 】 Tu maquilles un joueur : toute enquête sur lui renvoie « falsifié » et ne révèle rien.
-- 【 Effet permanent 】 La falsification dure jusqu'à la fin de la partie — un seul geste, protection durable.
-- 【 Couvre un allié 】 Parfait pour cacher un Méchant des Policiers, Détectives et autres fouineurs.
+- 【 Fais porter le chapeau 】 Tu falsifies un joueur contre son gré : toute enquête sur lui renvoie « falsifié », impossible de le blanchir. Un innocent peut ainsi porter le chapeau.
+- 【 Effet permanent 】 La falsification dure jusqu'à la fin de la partie : un seul geste, effet définitif.
+- 【 Aussi pour couvrir 】 À l'inverse, falsifie un allié Méchant pour le soustraire aux Policiers et autres fouineurs.
