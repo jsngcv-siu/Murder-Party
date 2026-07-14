@@ -92,6 +92,8 @@ export type Database = {
           started_at: string | null;
           status: string;
           variant: string | null;
+          win_reason: string | null;
+          winner: string | null;
         };
         Insert: {
           banned_roles?: string[];
@@ -116,6 +118,8 @@ export type Database = {
           started_at?: string | null;
           status?: string;
           variant?: string | null;
+          win_reason?: string | null;
+          winner?: string | null;
         };
         Update: {
           banned_roles?: string[];
@@ -140,6 +144,8 @@ export type Database = {
           started_at?: string | null;
           status?: string;
           variant?: string | null;
+          win_reason?: string | null;
+          winner?: string | null;
         };
         Relationships: [];
       };

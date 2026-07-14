@@ -1396,9 +1396,16 @@ export async function endGameWithWinner(
     payload: { winner, special: true } as never,
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  // Lever A : vainqueur écrit sur la ligne games (même update que `ended`) → écran
+  // de fin instantané côté joueurs via le payload realtime.
   await supabase
     .from("games")
-    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .update({
+      status: "ended",
+      ended_at: new Date().toISOString(),
+      winner,
+      win_reason: reason,
+    })
     .eq("id", gameId);
   emit("game_end", `🏆 ${winner} — ${reason}`, { winner });
 }
@@ -2039,9 +2046,15 @@ export async function closeVote(gameId: string) {
         payload: { winner: "Méchants" } as never,
       }));
       if (rows.length) await supabase.from("notifications").insert(rows);
+      // Lever A : vainqueur écrit sur la ligne games (même update que `ended`).
       await supabase
         .from("games")
-        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .update({
+          status: "ended",
+          ended_at: new Date().toISOString(),
+          winner: "Méchants",
+          win_reason: "Défaite des Citoyens.",
+        })
         .eq("id", gameId);
       emit("saint_lost", "🕯️ Saint condamné — Citoyens perdent");
       return;

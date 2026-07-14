@@ -290,7 +290,12 @@ async function checkAndEndGame(gameId) {
     payload: { winner: r.winner }
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
-  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
+  await supabase.from("games").update({
+    status: "ended",
+    ended_at: (/* @__PURE__ */ new Date()).toISOString(),
+    winner: r.winner ?? null,
+    win_reason: r.reason
+  }).eq("id", gameId);
   return r;
 }
 var LONE_WINNER_LABEL;
@@ -2637,7 +2642,12 @@ async function endGameWithWinner(gameId, winner, reason) {
     payload: { winner, special: true }
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
-  await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
+  await supabase.from("games").update({
+    status: "ended",
+    ended_at: (/* @__PURE__ */ new Date()).toISOString(),
+    winner,
+    win_reason: reason
+  }).eq("id", gameId);
   emit("game_end", `\u{1F3C6} ${winner} \u2014 ${reason}`, { winner });
 }
 async function resolveCycleTransition(gameId) {
@@ -3079,7 +3089,12 @@ async function closeVote(gameId) {
         payload: { winner: "M\xE9chants" }
       }));
       if (rows.length) await supabase.from("notifications").insert(rows);
-      await supabase.from("games").update({ status: "ended", ended_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", gameId);
+      await supabase.from("games").update({
+        status: "ended",
+        ended_at: (/* @__PURE__ */ new Date()).toISOString(),
+        winner: "M\xE9chants",
+        win_reason: "D\xE9faite des Citoyens."
+      }).eq("id", gameId);
       emit("saint_lost", "\u{1F56F}\uFE0F Saint condamn\xE9 \u2014 Citoyens perdent");
       return;
     }

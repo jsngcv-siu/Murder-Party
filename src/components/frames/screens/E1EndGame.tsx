@@ -292,15 +292,25 @@ function computeGroups(
   return { groups, tone: mainTone };
 }
 
-export function E1EndGame({ gameId, players, roles, devWinner }: FrameContext) {
-  const [result, setResult] = useState<WinResult | null>(null);
+export function E1EndGame({ game, gameId, players, roles, devWinner }: FrameContext) {
+  // Lever A : le vainqueur est écrit sur la ligne `games` dans le MÊME update que
+  // `status = ended` → présent dès la 1ʳᵉ frame via le payload realtime. Un
+  // `win_reason` non-vide signale que la ligne porte un résultat terminal résolu
+  // (le `winner` peut être NULL = « aucun camp ne l'emporte »). On peuple alors
+  // l'écran sans aucune requête → plus de flash « Calcul… ». Le fallback requête
+  // ci-dessous ne sert que pour les parties terminées AVANT cette migration.
+  const rowReason = game?.win_reason ?? null;
+  const rowHasResult = typeof rowReason === "string" && rowReason.length > 0;
+
+  const [result, setResult] = useState<WinResult | null>(() => {
+    if (devWinner) return { winner: devWinner, reason: "Aperçu sandbox — camp gagnant forcé." };
+    if (rowHasResult) return { winner: game?.winner ?? null, reason: rowReason };
+    return null;
+  });
 
   useEffect(() => {
-    // Sandbox /dev : camp gagnant forcé, aucune requête base.
-    if (devWinner) {
-      setResult({ winner: devWinner, reason: "Aperçu sandbox — camp gagnant forcé." });
-      return;
-    }
+    // Déjà peuplé (sandbox /dev, ou ligne games via lever A) → aucune requête.
+    if (devWinner || rowHasResult) return;
     void supabase
       .from("notifications")
       .select("title, body, payload")

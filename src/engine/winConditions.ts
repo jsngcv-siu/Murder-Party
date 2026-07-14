@@ -286,9 +286,16 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
     payload: { winner: r!.winner } as never,
   }));
   if (rows.length) await supabase.from("notifications").insert(rows);
+  // Lever A : le vainqueur voyage avec le passage à `ended` (même update, donc même
+  // payload realtime) → l'écran de fin se peuple sans re-requête (fin du « Calcul… »).
   await supabase
     .from("games")
-    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .update({
+      status: "ended",
+      ended_at: new Date().toISOString(),
+      winner: r!.winner ?? null,
+      win_reason: r!.reason,
+    })
     .eq("id", gameId);
   return r;
 }

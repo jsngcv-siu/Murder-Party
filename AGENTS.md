@@ -30,3 +30,17 @@ Le PDF décide du style. Le code existant décide du comportement et des donnée
 - Glassmorphism décoratif, gradient de texte, néons futuristes ou violet gaming par défaut.
 - Matière vintage sans fonction, accumulation de cadres imbriqués ou sceau de cire sur une nouvelle ordinaire.
 - Animation purement décorative ou action inventée sur un écran informatif.
+
+## Déploiement & migrations (l'agent peut le faire lui-même)
+
+Le CLI Supabase est **lié au projet prod** `eqcfagjvbiwhsofzmqtg` (org `buenckmwhbleofjvhona`) avec des identifiants stockés fonctionnels. Inutile de demander à l'utilisateur de préparer/coller le SQL : appliquer les migrations directement.
+
+- **Appliquer les migrations en attente sur prod** : `npx supabase db push --linked < /dev/null`
+  (le `< /dev/null` auto-confirme le prompt `[Y/n]`). Ne nécessite PAS `SUPABASE_DB_PASSWORD` — les identifiants du CLI suffisent. Note réseau : l'hôte DB direct `db.<ref>.supabase.co` (IPv6) time out depuis cet environnement, mais le CLI bascule sur le pooler IPv4 `aws-0-eu-west-1.pooler.supabase.com:5432` qui est joignable.
+- **Vérifier l'état distant** : `npx supabase migration list --linked < /dev/null` (la migration doit apparaître avec `local` == `remote`).
+- **Déployer l'Edge Function** `phase-ticker` : `npm run deploy:edge` (build esbuild + `supabase functions deploy`). Une GitHub Action la déploie aussi au push.
+- **Frontend** : déployé par Vercel au push sur `main`.
+
+**Garde-fou d'ordre** : si une migration ajoute des colonnes qu'un code (client OU edge) va écrire dans le même `update` que `status='ended'`, appliquer la migration AVANT de déployer ce code — sinon l'`update` échoue (colonne inconnue) et les parties gèlent en fin de partie.
+
+Ces actions touchent la prod : les mener quand la tâche les implique clairement, et rapporter précisément ce qui a été appliqué/déployé. Ne pas `git push` sans accord explicite.
