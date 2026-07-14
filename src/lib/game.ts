@@ -102,11 +102,9 @@ export async function joinGame(opts: {
   const sessionId = getSessionId();
   const code = opts.code.toUpperCase().trim();
 
-  // Lookup via la vue publique (les non-participants n'ont pas accès à la table games).
+  // Lookup via la RPC SECURITY DEFINER (les non-participants n'ont pas accès à la table games).
   const { data: gPub, error: gErr } = await supabase
-    .from("games_public" as never)
-    .select("id,code,status,mode_detective_player")
-    .eq("code", code)
+    .rpc("lookup_game_by_code" as never, { _code: code } as never)
     .maybeSingle();
   if (gErr) throw gErr;
   if (!gPub) throw new Error("Aucune partie trouvée avec ce code.");

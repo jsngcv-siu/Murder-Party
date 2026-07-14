@@ -79,11 +79,9 @@ function GamePage() {
       userIdRef.current = uid;
       setUserId(uid);
 
-      // Lookup via la vue publique (anon-safe) pour récupérer l'id.
+      // Lookup via la RPC SECURITY DEFINER (anon-safe) pour récupérer l'id.
       const { data: pub } = await supabase
-        .from("games_public" as never)
-        .select("id")
-        .eq("code", code.toUpperCase())
+        .rpc("lookup_game_by_code" as never, { _code: code.toUpperCase() } as never)
         .maybeSingle();
       if (cancelled) return;
       const gameId = (pub as { id?: string } | null)?.id;
