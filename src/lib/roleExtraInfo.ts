@@ -932,27 +932,6 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
-  voisin: {
-    pages: [
-      {
-        title: "Subtilités",
-        notes: [
-          {
-            tag: "Surveille une porte",
-            body: "Tu observes un joueur : tu apprends le rôle de tous ceux qui viennent le cibler.",
-          },
-          {
-            tag: "Repère les rôdeurs",
-            body: "Idéal pour démasquer un tueur ou un manipulateur qui s'en prend à ton voisin.",
-          },
-          {
-            tag: "Aveuglé par la falsification",
-            body: "Si ta cible a été falsifiée, tes observations ne révèlent rien.",
-          },
-        ],
-      },
-    ],
-  },
   falsificateur: {
     pages: [
       {

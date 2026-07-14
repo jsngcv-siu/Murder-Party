@@ -125,10 +125,6 @@ est déjà visible en dev.
 - ⚙️ Capacité (tant que verrouillée) : « Capacité passive — si ton être cher meurt, un couteau apparaît dans ton inventaire. » · une fois débloquée : « Vengeance débloquée — utilise ton couteau depuis l'inventaire. »
 - _(usage du couteau de vengeance → §Objets)_
 
-### 🏠 Voisin
-- 🖥️ Bandeau : « Tu surveilles X » · falsifié : « Le joueur a été falsifié »
-- Vue passive : voit qui rend visite à sa cible (panneau).
-
 ---
 
 _À suivre : **Méchants**, **Neutres**, **Spéciaux/émergents** (Vampire, Chasseur, Acolyte, Mort-vivant, Rêveur) + **§Objets** (fioles, couteaux, lettre, reliques) + **§Événements communs** (mort, prison, morsure, vote)._

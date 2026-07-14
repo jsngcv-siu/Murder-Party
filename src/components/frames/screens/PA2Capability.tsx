@@ -48,7 +48,6 @@ import {
   Network,
   NotebookPen,
   Orbit,
-  Radar,
   Scale,
   Search,
   Shield,
@@ -1197,16 +1196,6 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "temoin" && (
         <WitnessRevealPanel meId={me.id} gameId={gameId} players={players} roles={roles} />
       )}
-      {myRole?.slug === "voisin" && (
-        <NeighborWatchPanel
-          gameId={gameId}
-          watchTargetId={(meMeta.watch_target as string | undefined) ?? null}
-          watchSetCycle={(meMeta.watch_set_cycle as number | undefined) ?? null}
-          players={players}
-          roles={roles}
-          tour={game.current_tour}
-        />
-      )}
       {(myRole?.slug === "cartomancien" || myRole?.slug === "journaliste") && (
         <CartomancienBoardPanel
           targetId={(meMeta.card_target_id as string | undefined) ?? null}
@@ -2031,7 +2020,6 @@ function FalsificateurPanel({
 // (panneau dédié, action purement passive, ou setup unique avec affichage propre)
 const NO_LAST_RESULT_ROLES = new Set<string>([
   "temoin",
-  "voisin",
   "usurpateur",
   "avocat",
   "guetteur",
@@ -2118,7 +2106,6 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   vampire: (t) => `Tu as mordu ${t ?? "un joueur"}.`,
   vengeur: (t) => `Tu as ciblé ${t ?? "un joueur"} pour ta vengeance.`,
   veuve_noire: (t) => `Tu as séduit ${t ?? "un joueur"}.`,
-  voisin: (t) => `Tu as rendu visite à ${t ?? "un joueur"}.`,
   voleur: (t) => `Tu as volé ${t ?? "un joueur"}.`,
 };
 
@@ -2868,105 +2855,6 @@ function WitnessRevealPanel({
             Civil
           </div>
         </div>
-      )}
-    </PanelCard>
-  );
-}
-
-// ───────── Panneau passif Voisin : actions vues sur la cible surveillée
-function NeighborWatchPanel({
-  gameId,
-  watchTargetId,
-  watchSetCycle,
-  players,
-  roles,
-  tour,
-}: {
-  gameId: string;
-  watchTargetId: string | null;
-  watchSetCycle: number | null;
-  players: import("@/engine/actions").PlayerRow[];
-  roles: Map<string, RoleRow>;
-  tour: number;
-}) {
-  const [actors, setActors] = useState<Array<{ actor_player_id: string; tour: number }>>([]);
-  useEffect(() => {
-    if (!watchTargetId) {
-      setActors([]);
-      return;
-    }
-    async function load() {
-      let q = supabase
-        .from("role_actions")
-        .select("actor_player_id,tour")
-        .eq("game_id", gameId)
-        .or(`target_player_id.eq.${watchTargetId},target_player_id_2.eq.${watchTargetId}`);
-      if (typeof watchSetCycle === "number") q = q.gte("tour", watchSetCycle);
-      const { data } = await q.order("created_at", { ascending: false }).limit(40);
-      // Dédup : un même acteur ne compte qu'une fois par tour, même s'il a effectué plusieurs actions.
-      const seen = new Set<string>();
-      const unique: typeof actors = [];
-      for (const row of (data ?? []) as typeof actors) {
-        const key = `${row.actor_player_id}:${row.tour}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        unique.push(row);
-      }
-      setActors(unique);
-    }
-    void load();
-    const ch = supabase
-      .channel(`voisin-${watchTargetId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "role_actions" },
-        () => void load(),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
-  }, [gameId, watchTargetId, watchSetCycle]);
-
-  const targetName = watchTargetId
-    ? (players.find((p) => p.id === watchTargetId)?.pseudo ?? "?")
-    : null;
-  return (
-    <PanelCard tone="indigo" icon={Radar} label="Surveillance">
-      {!watchTargetId && (
-        <div className="mt-1 text-muted-foreground italic">Désigne quelqu'un à surveiller.</div>
-      )}
-      {watchTargetId && (
-        <>
-          <div className="mt-1 text-foreground/90">
-            Cible : <span className="font-semibold">{targetName}</span> · {actors.length}{" "}
-            visiteur(s)
-          </div>
-          {actors.length > 0 && (
-            <ul className="mt-1 space-y-0.5">
-              {actors.map((a, i) => {
-                const p = players.find((pp) => pp.id === a.actor_player_id);
-                const pm = (p?.role_meta ?? {}) as Record<string, unknown>;
-                // Le Voisin apprend le RÔLE du visiteur. On respecte la couverture
-                // de l'Usurpateur (cover_slug) comme les autres enquêtes.
-                const slug =
-                  (typeof pm.cover_slug === "string" ? pm.cover_slug : p?.role_slug) ?? "";
-                const r = slug ? roles.get(slug) : null;
-                return (
-                  <li key={i} className="text-foreground/80 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-muted-foreground">Tour {a.tour} ·</span>
-                    <span className="font-semibold">{p?.pseudo ?? "Joueur inconnu"}</span>
-                    {r && (
-                      <span className="inline-flex items-center gap-1 text-foreground/70">
-                        — <RoleIcon role={r} size={14} /> {r.name_fr}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
       )}
     </PanelCard>
   );

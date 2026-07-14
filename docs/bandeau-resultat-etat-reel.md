@@ -209,7 +209,6 @@ les non-MJ** (même cause RLS).
 | Rôle                           | Ligne d'action                            | Message réel du moteur                                                     |
 | ------------------------------ | ----------------------------------------- | -------------------------------------------------------------------------- |
 | **Guetteur**                   | Tu as surveillé X.                        | Tu surveilles X pour ce tour. _(err : « Tu dois surveiller un autre joueur. »)_ |
-| **Voisin**                     | Tu as rendu visite à X.                   | Tu surveilles X                                                            |
 | **Cartomancien / Journaliste** | Tu as tiré les cartes / enquêté sur X.    | 🔮 Tu lis le tableau de X jusqu'au prochain tour                          |
 | **Médecin légiste**            | Tu as autopsié X.                         | Capacité passive — voir notifications                                      |
 | **Médium**                     | Tu as contacté les morts.                 | Capacité passive — voir notifications                                      |

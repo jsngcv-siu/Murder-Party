@@ -4610,18 +4610,6 @@ export async function executeCapability(opts: {
         return { ok: true, message: `${t1.pseudo} suspect (1 tour)` };
       }
 
-      case "voisin": {
-        if (!t1) return { ok: false, message: "Cible requise" };
-        if (isFalsified(meta(t1))) {
-          await used({ effect: "watch_falsified", target: t1.id });
-          return { ok: true, message: FALSIFIED_MSG };
-        }
-        // Mémorise la cible surveillée — la vue passive lit role_actions ciblant cette personne.
-        await patchMeta(actor.id, { watch_target: t1.id, watch_set_cycle: opts.tour });
-        await used({ effect: "watch", target: t1.id });
-        return { ok: true, message: `Tu surveilles ${t1.pseudo}` };
-      }
-
       // ── Falsificateur : pose un flag PERMANENT sur la cible. Tout investigateur
       //    ciblant cette personne reçoit "Le joueur a été falsifié" au lieu de l'info.
       case "falsificateur": {

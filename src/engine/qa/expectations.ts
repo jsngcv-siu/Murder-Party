@@ -37,7 +37,6 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   journaliste: "investigate",
   cartomancien: "investigate",
   mouchard: "investigate",
-  voisin: "investigate",
   boussole: "investigate",
   oracle: "investigate",
   medecin_legiste: "passive",

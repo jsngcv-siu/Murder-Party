@@ -339,8 +339,7 @@ function pickCapabilityTargets(
     case "heritier_dechu":
     case "journaliste":
     case "cartomancien":
-    case "mouchard":
-    case "voisin": {
+    case "mouchard": {
       return mostSuspect(others).slice(0, 1);
     }
     // ── Protecteurs / soin : favorisent les alliés

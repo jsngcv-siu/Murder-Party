@@ -234,11 +234,6 @@
 - 【 Pression sur le vote 】 La marque oriente les soupçons — pratique pour pousser un lynchage.
 - 【 Bloqué par la bénédiction 】 Un joueur béni par le Saint échappe à ton accusation.
 
-## 🏠 Le Voisin
-- 【 Surveille une porte 】 Tu observes un joueur : tu apprends le rôle de tous ceux qui viennent le cibler.
-- 【 Repère les rôdeurs 】 Idéal pour démasquer un tueur ou un manipulateur qui s'en prend à ton voisin.
-- 【 Aveuglé par la falsification 】 Si ta cible a été falsifiée, tes observations ne révèlent rien.
-
 ## 🎨 Le Falsificateur
 - 【 Piste brouillée 】 Tu maquilles un joueur : toute enquête sur lui renvoie « falsifié » et ne révèle rien.
 - 【 Effet permanent 】 La falsification dure jusqu'à la fin de la partie — un seul geste, protection durable.

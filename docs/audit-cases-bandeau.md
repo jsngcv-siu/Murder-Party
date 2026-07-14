@@ -124,7 +124,6 @@ Ces rôles ont leur propre encadré dans l'onglet Rôle ; le bandeau ne s'affich
 | Rôle                           | Ligne d'action                            | Message (en Historique)                                                                     |
 | ------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------- |
 | **Guetteur**                   | Tu as surveillé X.                        | Tu surveilles X pour ce tour.                                                               |
-| **Voisin**                     | Tu as rendu visite à X.                   | Tu surveilles X                                                                             |
 | **Cartomancien / Journaliste** | Tu as tiré les cartes / enquêté sur X.    | 🔮 Tu lis le tableau de X jusqu'au prochain tour                                            |
 | **Médecin légiste**            | Tu as autopsié X.                         | Capacité passive — voir notifications                                                       |
 | **Médium**                     | Tu as contacté les morts.                 | Capacité passive — voir notifications                                                       |
