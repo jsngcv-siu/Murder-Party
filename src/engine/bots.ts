@@ -247,8 +247,21 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
 // Extra payload optionnel selon le rôle (fiole apothicaire, etc.).
 function buildExtra(role: RoleRow, _bot: PlayerRow): Record<string, unknown> | undefined {
   if (role.slug === "apothicaire") {
-    const fiole = (["heal", "poison", "reveal"] as const)[Math.floor(Math.random() * 3)];
-    return { fiole };
+    // Refonte : la fiole n'est plus dans l'inventaire ; on choisit un TYPE encore
+    // disponible + un MODE encore autorisé (max 1 usage perso, max 1 don).
+    const m = (_bot.role_meta ?? {}) as Record<string, unknown>;
+    const used = (m.flasks_used as string[] | undefined) ?? [];
+    const avail = (["heal", "poison", "reveal"] as const).filter((f) => !used.includes(f));
+    if (avail.length === 0) return undefined;
+    const fiole = avail[Math.floor(Math.random() * avail.length)];
+    const selfUsed = (m.apo_self_used as number | undefined) ?? 0;
+    const given = (m.apo_given as number | undefined) ?? (m.fioles_given as number | undefined) ?? 0;
+    const modes: Array<"use" | "gift"> = [];
+    if (given < 1) modes.push("gift");
+    if (selfUsed < 1) modes.push("use");
+    if (modes.length === 0) return undefined;
+    const mode = modes[Math.floor(Math.random() * modes.length)];
+    return { fiole, mode };
   }
   return undefined;
 }

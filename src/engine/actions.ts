@@ -160,7 +160,8 @@ export function parseTotalLimit(role: RoleRow, playerCount: number): number {
   if (/1×\/partie/i.test(lbl)) return 1;
   const maxMatch = lbl.match(/max\s*(\d+)/i);
   if (maxMatch) return parseInt(maxMatch[1], 10);
-  if (role.slug === "apothicaire") return 3;
+  // Apothicaire refonte : 2 actions max sur la partie (1 usage perso + 1 don).
+  if (role.slug === "apothicaire") return 2;
   if (role.slug === "executeur" || role.slug === "juge") {
     if (playerCount <= 10) return 1;
     if (playerCount <= 13) return 2;
@@ -1146,37 +1147,11 @@ async function applySetupEffects(gameId: string) {
     await logSetup(stratege.id, body, { effect: "stratege_setup" });
   }
 
-  // Apothicaire → reçoit 3 fioles en inventaire, tagguées `apo_own` (les siennes).
-  // Elle peut soit les UTILISER elle-même depuis son Carnet (1 seule au maximum),
-  // soit les OFFRIR via sa capacité (≥ 2 doivent être offertes). Le tag distingue
-  // ses propres fioles des fioles qu'un joueur a reçues en cadeau (sans limite).
-  const apo = ofSlug("apothicaire");
-  if (apo) {
-    await grantItem(
-      apo.id,
-      buildItem("fiole_vie", {
-        from: "Apothicairerie",
-        originFaction: "Civil",
-        payload: { apo_own: true },
-      }),
-    );
-    await grantItem(
-      apo.id,
-      buildItem("fiole_mort", {
-        from: "Apothicairerie",
-        originFaction: "Civil",
-        payload: { apo_own: true },
-      }),
-    );
-    await grantItem(
-      apo.id,
-      buildItem("fiole_clairvoyance", {
-        from: "Apothicairerie",
-        originFaction: "Civil",
-        payload: { apo_own: true },
-      }),
-    );
-  }
+  // Apothicaire → ne reçoit RIEN au setup (refonte). Elle dispose d'un répertoire
+  // virtuel de 3 fioles (Vie / Mort / Clairvoyance) qu'elle joue via sa capacité :
+  // chaque Enquête, elle UTILISE une fiole elle-même (max 1 sur la partie) OU en
+  // OFFRE une à un joueur (max 1 sur la partie). Deux fioles au plus sont jouées ;
+  // la troisième ne sert jamais. Voir `case "apothicaire"`.
 
   // Conservateur → ne reçoit RIEN au setup. Il distribuera les reliques à d'autres
   // joueurs via sa capacité active (2×/Enquête). S'il distribue Le Cœur du
@@ -4063,97 +4038,137 @@ export async function executeCapability(opts: {
         };
       }
 
-      // ── Apothicaire — OFFRE une fiole à un joueur (sa capacité = le DON) ──
-      // Elle possède 3 fioles. Sa capacité sert à en OFFRIR une : la fiole est
-      // déposée telle quelle dans l'inventaire du receveur, SANS effet immédiat —
-      // c'est lui qui choisira quand et sur qui l'utiliser (depuis son Carnet).
-      // Pour utiliser une fiole elle-même, elle passe par son Carnet (1 max, cf.
-      // useItem). Verrou « 1 action/tour » partagé via `last_item_use_cycle`.
+      // ── Apothicaire — répertoire de 3 fioles (Vie/Mort/Clairvoyance) ──
+      // Refonte : aucune fiole au setup. Chaque Enquête, elle joue UNE fiole via sa
+      // capacité, en choisissant le mode :
+      //   • "use"  → elle l'utilise elle-même sur une cible (effet immédiat/différé) ;
+      //   • "gift" → elle l'offre à un joueur, qui la reçoit dans son Carnet.
+      // Budgets séparés sur toute la partie : max 1 usage perso ET max 1 don. Chaque
+      // type n'est jouable qu'une fois → 2 fioles au plus, la 3ᵉ ne sert jamais.
+      // Verrou « 1 action/tour » via `last_item_use_cycle`.
       case "apothicaire": {
         if (!t1) return { ok: false, message: "Cible requise" };
-        if (t1.id === actor.id)
-          return {
-            ok: false,
-            message:
-              "Offre la fiole à un autre joueur (pour l'utiliser toi-même, passe par ton Carnet).",
-          };
-        if (((m.last_item_use_cycle as number | undefined) ?? -1) === opts.tour) {
+        if (((m.last_item_use_cycle as number | undefined) ?? -1) === opts.tour)
           return { ok: false, message: "Tu as déjà agi ce tour-ci." };
-        }
+
+        const mode = (opts.extra?.mode as "use" | "gift" | undefined) ?? "gift";
         const flasksUsed = (m.flasks_used as string[] | undefined) ?? [];
         const requested = opts.extra?.fiole as "heal" | "poison" | "reveal" | undefined;
         const available: Array<"heal" | "poison" | "reveal"> = (
           ["heal", "poison", "reveal"] as const
         ).filter((f) => !flasksUsed.includes(f));
-        if (available.length === 0)
-          return { ok: false, message: "Toutes tes fioles ont déjà été utilisées." };
+        if (available.length === 0) return { ok: false, message: "Tu as déjà joué tes fioles." };
         const fiole = requested && available.includes(requested) ? requested : available[0];
-        const { grantItem, buildItem } = await import("./items");
+
+        const selfUsed = (m.apo_self_used as number | undefined) ?? 0;
+        const given =
+          (m.apo_given as number | undefined) ?? (m.fioles_given as number | undefined) ?? 0;
+
         const slugMap = {
           heal: "fiole_vie",
           poison: "fiole_mort",
           reveal: "fiole_clairvoyance",
         } as const;
         const targetSlug = slugMap[fiole];
-        // Textes du cadeau : nomment le RÔLE (« l'Apothicaire ») mais jamais le joueur.
         const fioleNames = {
           fiole_vie: "Fiole de vie",
           fiole_mort: "Fiole de mort",
           fiole_clairvoyance: "Fiole de clairvoyance",
         } as const;
-        const giftDesc = {
-          fiole_vie:
-            "💚 Tu as reçu une Fiole de vie de l'Apothicaire. Utilise-la depuis ton Carnet pour protéger un joueur jusqu'à la prochaine Annonce.",
-          fiole_mort:
-            "☠️ Tu as reçu une Fiole de mort de l'Apothicaire. Utilise-la depuis ton Carnet pour empoisonner une cible — elle mourra à la prochaine Annonce.",
-          fiole_clairvoyance:
-            "🔮 Tu as reçu une Fiole de clairvoyance de l'Apothicaire. Utilise-la depuis ton Carnet sur un joueur pour découvrir, toi seul, sa faction.",
-        } as const;
-        // Dépose la fiole (utilisable librement) dans l'inventaire du receveur.
-        await grantItem(
-          t1.id,
-          buildItem(targetSlug, {
-            from: "Apothicaire",
-            originFaction: "Civil",
-            descriptionOverride: giftDesc[targetSlug],
-          }),
-        );
-        await notify({
-          gameId: opts.gameId,
-          playerId: t1.id,
-          type: "fiole_offerte",
-          title: "🎁 Une fiole t'est offerte",
-          body: giftDesc[targetSlug],
-          mjTitle: "🎁 Apothicaire",
-          mjBody: `${actor.pseudo} (Apothicaire) offre une ${fioleNames[targetSlug]} à ${t1.pseudo}.`,
-        });
-        // Consomme la fiole correspondante dans l'inventaire de l'Apothicaire +
-        // compteurs (fioles_given) + verrou de tour, en une seule écriture.
-        const apoMetaRow = await supabase
-          .from("players")
-          .select("role_meta")
-          .eq("id", actor.id)
-          .maybeSingle();
-        const apoMeta = (apoMetaRow.data?.role_meta ?? {}) as Record<string, unknown>;
-        const apoInv = (
-          (apoMeta.inventory as Array<{ slug: string; consumed?: boolean }> | undefined) ?? []
-        ).slice();
-        const idx = apoInv.findIndex((it) => it.slug === targetSlug && !it.consumed);
-        if (idx >= 0) apoInv[idx] = { ...apoInv[idx], consumed: true };
-        await supabase
-          .from("players")
-          .update({
-            role_meta: {
-              ...apoMeta,
-              inventory: apoInv,
-              flasks_used: [...flasksUsed, fiole],
-              fioles_given: ((apoMeta.fioles_given as number | undefined) ?? 0) + 1,
-              last_item_use_cycle: opts.tour,
-            } as never,
-          })
-          .eq("id", actor.id);
-        await used({ effect: "offer_fiole", fiole, to: t1.id });
-        return { ok: true, message: `Fiole offerte à ${t1.pseudo}.` };
+
+        // Consomme le type de fiole + pose le verrou de tour, plus le patch de mode.
+        const commitMeta = (patch: Record<string, unknown>) =>
+          patchMeta(actor.id, {
+            flasks_used: [...flasksUsed, fiole],
+            last_item_use_cycle: opts.tour,
+            ...patch,
+          });
+
+        if (mode === "gift") {
+          if (given >= 1)
+            return { ok: false, message: "Tu as déjà offert une fiole (1 don par partie)." };
+          if (t1.id === actor.id)
+            return { ok: false, message: "Choisis un autre joueur à qui offrir la fiole." };
+          // Textes du cadeau : nomment le RÔLE (« l'Apothicaire ») mais jamais le joueur.
+          const giftDesc = {
+            fiole_vie:
+              "💚 Tu as reçu une Fiole de vie de l'Apothicaire. Utilise-la depuis ton Carnet pour protéger un joueur jusqu'à la prochaine Annonce.",
+            fiole_mort:
+              "☠️ Tu as reçu une Fiole de mort de l'Apothicaire. Utilise-la depuis ton Carnet pour empoisonner une cible — elle mourra à la prochaine Annonce.",
+            fiole_clairvoyance:
+              "🔮 Tu as reçu une Fiole de clairvoyance de l'Apothicaire. Utilise-la depuis ton Carnet sur un joueur pour découvrir, toi seul, sa faction.",
+          } as const;
+          const { grantItem, buildItem } = await import("./items");
+          await grantItem(
+            t1.id,
+            buildItem(targetSlug, {
+              from: "Apothicaire",
+              originFaction: "Civil",
+              descriptionOverride: giftDesc[targetSlug],
+            }),
+          );
+          await notify({
+            gameId: opts.gameId,
+            playerId: t1.id,
+            type: "fiole_offerte",
+            title: "🎁 Une fiole t'est offerte",
+            body: giftDesc[targetSlug],
+            mjTitle: "🎁 Apothicaire",
+            mjBody: `${actor.pseudo} (Apothicaire) offre une ${fioleNames[targetSlug]} à ${t1.pseudo}.`,
+          });
+          await commitMeta({ apo_given: given + 1, fioles_given: given + 1 });
+          await used({ effect: "offer_fiole", fiole, to: t1.id });
+          return { ok: true, message: `Fiole offerte à ${t1.pseudo}.` };
+        }
+
+        // mode === "use" : l'Apothicaire joue la fiole elle-même sur la cible.
+        if (selfUsed >= 1)
+          return { ok: false, message: "Tu as déjà utilisé une fiole toi-même (1 par partie)." };
+        const { submitIntent } = await import("./resolver");
+        let msg: string;
+        if (fiole === "poison") {
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: t1.id,
+            category: "ATTACK",
+            timing: "DEFERRED",
+            source: "role:apothicaire",
+            payload: { kill_reason: "fiole_mort", target_pseudo: t1.pseudo },
+          });
+          msg = `${t1.pseudo} : intention de mort — à l'Annonce.`;
+        } else if (fiole === "heal") {
+          await submitIntent({
+            gameId: opts.gameId,
+            tour: opts.tour,
+            phase: opts.phase,
+            actorId: actor.id,
+            targetId: t1.id,
+            category: "CURE",
+            timing: "DEFERRED",
+            source: "role:apothicaire",
+            payload: { target_pseudo: t1.pseudo },
+          });
+          await notify({
+            gameId: opts.gameId,
+            playerId: t1.id,
+            type: "cured",
+            title: "💚 Soigné",
+            body: "Une fiole de vie te protège pour la prochaine Annonce.",
+            mjTitle: "💚 Apothicaire",
+            mjBody: `${actor.pseudo} (Apothicaire) protège ${t1.pseudo} avec une Fiole de vie.`,
+          });
+          msg = `${t1.pseudo} : soin — à l'Annonce.`;
+        } else {
+          // reveal : faction réelle de la cible (comme la Fiole de clairvoyance).
+          const r = opts.rolesBySlug.get(t1.role_slug ?? "");
+          msg = r ? `${t1.pseudo} = faction ${r.faction}` : `${t1.pseudo} : faction inconnue`;
+        }
+        await commitMeta({ apo_self_used: selfUsed + 1 });
+        await used({ effect: "use_fiole", fiole, on: t1.id });
+        return { ok: true, message: msg };
       }
 
       // ── Investigations supplémentaires ──

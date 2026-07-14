@@ -23,9 +23,9 @@
 - 【 Sauve un inconnu 】 Ta cible ignore qu'elle est veillée. À toi de sentir le bon tour pour lever le bouclier.
 
 ## ⚗️ L'Apothicaire
-- 【 Trois fioles uniques 】 Poison (tue), Vie (protège), Clairvoyance (révèle la faction). Chacune ne sert qu'une fois.
-- 【 Une par tour 】 Tu ne peux utiliser qu'une seule fiole par tour. Garde ou offre les autres.
-- 【 Offrir une fiole 】 Tu peux confier une fiole à un autre joueur : c'est lui qui l'utilisera. Idéal pour armer un allié sûr.
+- 【 Trois fioles, aucune au départ 】 Vie (protège), Mort (tue), Clairvoyance (révèle la faction). Tu ne les as pas en inventaire : tu les joues via ta capacité.
+- 【 Utiliser ou offrir 】 Chaque Enquête, une action : soit tu utilises une fiole toi-même sur une cible, soit tu l'offres à un joueur qui la gardera pour plus tard.
+- 【 1 usage + 1 don 】 Sur toute la partie : au plus 1 fiole utilisée par toi ET 1 fiole offerte. Ta 3ᵉ fiole ne servira donc jamais — choisis bien.
 
 ## 🔍 L'Assistant du détective
 - ✍️ Capacité (page 1) : 1×/tour. Désigne 1 joueur : le manoir te renvoie un trio de rôles — le vrai, plus 2 leurres. À toi de deviner lequel est réel.

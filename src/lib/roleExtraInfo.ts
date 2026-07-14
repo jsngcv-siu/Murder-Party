@@ -65,16 +65,16 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Trois fioles uniques",
-            body: "Poison (tue), Vie (protège), Clairvoyance (révèle la faction). Chacune ne sert qu'une fois.",
+            tag: "Trois fioles, aucune au départ",
+            body: "Vie (protège), Mort (tue), Clairvoyance (révèle la faction). Tu ne les as pas en inventaire : tu les joues via ta capacité.",
           },
           {
-            tag: "Une par tour",
-            body: "Tu ne peux utiliser qu'une seule fiole par tour. Garde ou offre les autres.",
+            tag: "Utiliser ou offrir",
+            body: "Chaque Enquête, une action : soit tu utilises une fiole toi-même sur une cible, soit tu l'offres à un joueur qui la gardera pour plus tard.",
           },
           {
-            tag: "Offrir une fiole",
-            body: "Tu peux confier une fiole à un autre joueur : c'est lui qui l'utilisera. Idéal pour armer un allié sûr.",
+            tag: "1 usage + 1 don",
+            body: "Sur toute la partie : au plus 1 fiole utilisée par toi ET 1 fiole offerte. Ta 3ᵉ fiole ne servira donc jamais — choisis bien.",
           },
         ],
       },

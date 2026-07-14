@@ -34,9 +34,10 @@ est déjà visible en dev.
   - Vie : « 💚 Tu as reçu une Fiole de vie de l'Apothicaire. Utilise-la depuis ton Carnet pour protéger un joueur jusqu'à la prochaine Annonce. »
   - Mort : « ☠️ Tu as reçu une Fiole de mort de l'Apothicaire. Utilise-la depuis ton Carnet pour empoisonner une cible — elle mourra à la prochaine Annonce. »
   - Clairvoyance : « 🔮 Tu as reçu une Fiole de clairvoyance de l'Apothicaire. Utilise-la depuis ton Carnet sur un joueur pour découvrir, toi seul, sa faction. »
-- 🖥️ Bandeau : « Fiole offerte à X. »
-- ⚙️ Erreurs : « Offre la fiole à un autre joueur (pour l'utiliser toi-même, passe par ton Carnet). » · « Tu as déjà agi ce tour-ci. » · « Toutes tes fioles ont déjà été utilisées. »
-- _(usage d'une fiole par elle-même → voir §Objets)_
+- 🖥️ Bandeau (don) : « Fiole offerte à X. »
+- 🖥️ Bandeau (usage perso) : « X : intention de mort — à l'Annonce. » (Mort) · « X : soin — à l'Annonce. » (Vie) · « X = faction {faction} » (Clairvoyance)
+- ⚙️ Erreurs : « Tu as déjà agi ce tour-ci. » · « Tu as déjà joué tes fioles. » · « Tu as déjà offert une fiole (1 don par partie). » · « Tu as déjà utilisé une fiole toi-même (1 par partie). » · « Choisis un autre joueur à qui offrir la fiole. »
+- _(refonte : aucune fiole au setup ; usage perso ET don passent par la capacité, pas par le Carnet)_
 
 ### 🔍 Assistant du détective
 - 🖥️ Bandeau : « Trio : A · B · C » · falsifié : « Le joueur a été falsifié »

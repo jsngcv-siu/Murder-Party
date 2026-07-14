@@ -183,6 +183,7 @@ message d'Historique devient « Capacité utilisée. ».
 | **Majordome**               | Tu as servi X.                     | ⏳ En cours    | X : protection — à l'Annonce                          |
 | **Stratège**                | Tu as marqué X pour ton embuscade. | ⏳ En cours    | 🎯 X marqué — il mourra à l'Annonce du prochain tour. |
 | **Apothicaire · offrir**    | Tu as offert une Fiole de … à X.   | ✓ Fait         | Fiole offerte à X.                                    |
+| **Apothicaire · utiliser**  | Tu as utilisé une Fiole de … sur X.| ⏳/✓           | X : intention de mort / soin — à l'Annonce · X = faction … |
 | **Armurier**                | Tu as armé X.                      | ✓ Fait         | Un couteau a été remis anonymement à X.               |
 | **Facteur**                 | Tu as posté un message à X.        | ✓ Fait         | Lettre déposée à X                                    |
 | **Babysitter**              | Tu as veillé sur X.                | ✓ Fait         | X gardé au prochain tour                              |
@@ -193,8 +194,9 @@ Erreurs / cas spécifiques :
 
 - **Majordome** protection déjà posée ce tour : « X : protection déjà en place — à l'Annonce »
 - **Stratège** : « Tu ne peux pas te désigner toi-même. »
-- **Apothicaire** : « Offre la fiole à un autre joueur… » / « Tu as déjà agi ce
-  tour-ci. » / « Toutes tes fioles ont déjà été utilisées. »
+- **Apothicaire** : « Tu as déjà agi ce tour-ci. » / « Tu as déjà joué tes fioles. » /
+  « Tu as déjà offert une fiole (1 don par partie). » / « Tu as déjà utilisé une fiole
+  toi-même (1 par partie). » / « Choisis un autre joueur à qui offrir la fiole. »
 - **Armurier** : « Cible morte »
 - **Maître chanteur / Accusateur** cible bénie : « X est sous bénédiction — {action} annulé(e). »
 
@@ -282,7 +284,7 @@ le **MJ** (chaque notif porte un `mjBody` → c'est ce qui alimente le récit MJ
 | **Stratège** | `stratege_setup` | « Marque une cible ou frappe au couteau. » (+ reçoit un couteau) |
 | **Conservateur** | `conservateur_setup` | « Distribue des reliques ; gagne si Le Cœur du Manoir sort. » |
 | **Indices** | `indice_setup` | « Tu as reçu un indice. » (dans l'inventaire) |
-| **Cuisinier · Apothicaire** | _(objet, pas de notif texte)_ | reçoivent couteau / 3 fioles en inventaire |
+| **Cuisinier** | _(objet, pas de notif texte)_ | reçoit un couteau en inventaire au setup |
 
 ### 7.b — Notifications à l'USAGE d'une capacité
 

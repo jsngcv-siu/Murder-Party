@@ -38,6 +38,7 @@ import {
   Eraser,
   Eye,
   FlaskConical,
+  Gift,
   Heart,
   History,
   Hourglass,
@@ -796,6 +797,9 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
   const capRef = useRef<HTMLParagraphElement>(null);
   const [capMore, setCapMore] = useState(false);
   const [fiole, setFiole] = useState<"heal" | "poison" | "reveal">("heal");
+  // Apothicaire refonte : mode d'emploi de la fiole choisie — l'utiliser soi-même
+  // sur une cible, ou l'offrir à un joueur. Budgets séparés (1 usage, 1 don).
+  const [apoMode, setApoMode] = useState<"use" | "gift">("gift");
 
   // Le texte de capacité déborde-t-il (clampé à 4 lignes) ? → indicateur « voir plus ».
   // ≤ 4 lignes : tout tient, pas de « voir plus ». > 4 lignes : repli + bouton.
@@ -877,6 +881,15 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       label: string;
       Icon: LucideIcon;
     }>;
+  // Apothicaire refonte : budgets séparés (max 1 usage perso, max 1 don).
+  const apoSelfUsed = (meMeta.apo_self_used as number | undefined) ?? 0;
+  const apoGiven =
+    (meMeta.apo_given as number | undefined) ?? (meMeta.fioles_given as number | undefined) ?? 0;
+  const apoCanUse = apoSelfUsed < 1;
+  const apoCanGift = apoGiven < 1;
+  // Le mode effectif : force le seul mode encore autorisé si l'autre est épuisé.
+  const apoModeEff: "use" | "gift" = !apoCanGift ? "use" : !apoCanUse ? "gift" : apoMode;
+  const apoDone = !apoCanUse && !apoCanGift;
 
   const allies = isMechantTeam
     ? players.filter(
@@ -913,7 +926,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       .map((id) => players.find((p) => p.id === id))
       .filter((p): p is NonNullable<typeof p> => !!p);
     const baseExtra: Record<string, unknown> | undefined =
-      overrides?.extra ?? (isApothicaire ? { fiole } : undefined);
+      overrides?.extra ?? (isApothicaire ? { fiole, mode: apoModeEff } : undefined);
     const extra: Record<string, unknown> | undefined = puppeteerOverride
       ? { ...(baseExtra ?? {}), __puppet_call: true, __puppeteer_id: puppeteerOverride.puppeteerId }
       : baseExtra;
@@ -1593,39 +1606,94 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
           );
         })()}
 
-      {isApothicaire && (
-        <div className="mt-3">
-          <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 mb-2">
-            Choisis une fiole à <span className="font-semibold">offrir</span> à un joueur : il
-            l'utilisera comme il veut depuis son Carnet. Tu dois en offrir au moins 2 sur 3. Pour en{" "}
-            <span className="font-semibold">garder une</span> et l'utiliser toi-même, passe par ton
-            Carnet (1 maximum).
-          </div>
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-            <span>Choisis ta fiole à offrir</span>
-            <span>
-              Offertes : {(meMeta.fioles_given as number | undefined) ?? 0} · Gardée :{" "}
-              {(meMeta.fioles_self_used as number | undefined) ?? 0}/1
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {fiolesAvail.length === 0 && (
-              <div className="col-span-3 text-xs text-muted-foreground italic">
-                Toutes les fioles ont été utilisées.
+      {isApothicaire &&
+        (() => {
+          const USE_EFFECT: Record<"heal" | "poison" | "reveal", string> = {
+            heal: "Tu protèges la cible jusqu'à la prochaine Annonce.",
+            poison: "Tu empoisonnes la cible : elle meurt à la prochaine Annonce.",
+            reveal: "Tu découvres la faction de la cible.",
+          };
+          const GIFT_EFFECT: Record<"heal" | "poison" | "reveal", string> = {
+            heal: "Le joueur reçoit la fiole et pourra protéger un joueur jusqu'à une Annonce.",
+            poison: "Le joueur reçoit la fiole et pourra empoisonner une cible.",
+            reveal: "Le joueur reçoit la fiole et pourra révéler la faction d'une cible.",
+          };
+          const modeVerb = apoModeEff === "use" ? "utiliser toi-même" : "offrir";
+          return (
+            <div className="mt-3 space-y-3">
+              {/* Budgets */}
+              <div className="flex items-center gap-2 text-[11px]">
+                <span
+                  className={`rounded-full px-2 py-0.5 border ${apoCanUse ? "border-amber-400/50 text-amber-200 bg-amber-500/10" : "border-border text-muted-foreground line-through"}`}
+                >
+                  Usage perso {apoSelfUsed}/1
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 border ${apoCanGift ? "border-emerald-400/50 text-emerald-200 bg-emerald-500/10" : "border-border text-muted-foreground line-through"}`}
+                >
+                  Don {apoGiven}/1
+                </span>
+                <span className="ml-auto text-muted-foreground">
+                  {3 - flasksUsed.length} fiole(s) restante(s)
+                </span>
               </div>
-            )}
-            {fiolesAvail.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFiole(f.id)}
-                className={`h-12 rounded-lg text-sm transition inline-flex flex-col items-center justify-center gap-1 ${fiole === f.id ? "bg-primary/20 text-primary ring-1 ring-primary" : "bg-card/60 hover:bg-card"}`}
-              >
-                <f.Icon className="size-4" aria-hidden /> {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
+              {apoDone ? (
+                <div className="rounded-lg border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground italic">
+                  Tu as joué ton usage et ton don. Ta dernière fiole ne servira pas.
+                </div>
+              ) : (
+                <>
+                  {/* Étape 1 : mode */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      1. Que fais-tu de la fiole ?
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setApoMode("use")}
+                        disabled={!apoCanUse}
+                        className={`h-14 rounded-lg text-sm transition inline-flex flex-col items-center justify-center gap-1 border disabled:opacity-40 disabled:cursor-not-allowed ${apoModeEff === "use" ? "bg-amber-500/20 text-amber-100 border-amber-400/60 ring-1 ring-amber-400/50" : "bg-card/60 hover:bg-card border-border"}`}
+                      >
+                        <Sparkles className="size-4" aria-hidden /> Utiliser moi-même
+                      </button>
+                      <button
+                        onClick={() => setApoMode("gift")}
+                        disabled={!apoCanGift}
+                        className={`h-14 rounded-lg text-sm transition inline-flex flex-col items-center justify-center gap-1 border disabled:opacity-40 disabled:cursor-not-allowed ${apoModeEff === "gift" ? "bg-emerald-500/20 text-emerald-100 border-emerald-400/60 ring-1 ring-emerald-400/50" : "bg-card/60 hover:bg-card border-border"}`}
+                      >
+                        <Gift className="size-4" aria-hidden /> Offrir à un joueur
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Étape 2 : fiole */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      2. Quelle fiole {modeVerb} ?
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {fiolesAvail.map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => setFiole(f.id)}
+                          className={`h-12 rounded-lg text-sm transition inline-flex flex-col items-center justify-center gap-1 border ${fiole === f.id ? "bg-primary/20 text-primary ring-1 ring-primary border-primary/50" : "bg-card/60 hover:bg-card border-border"}`}
+                        >
+                          <f.Icon className="size-4" aria-hidden /> {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Effet résumé */}
+                  <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    {apoModeEff === "use" ? USE_EFFECT[fiole] : GIFT_EFFECT[fiole]}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
       {myRole?.slug === "cuisinier" && (
         <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-start gap-1.5">
@@ -1801,7 +1869,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                 busy ||
                 !!blockedReason ||
                 targets.length < minTargets ||
-                (isApothicaire && fiolesAvail.length === 0)
+                (isApothicaire && (fiolesAvail.length === 0 || apoDone))
               }
               onClick={() => void runCapacity()}
               style={{
@@ -1817,7 +1885,9 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               {busy
                 ? "…"
                 : isApothicaire
-                  ? `Offrir la fiole${targets.length > 0 ? ` à 1 joueur` : ""}`
+                  ? apoModeEff === "use"
+                    ? `Utiliser la fiole${targets.length > 0 ? ` sur 1 joueur` : ""}`
+                    : `Offrir la fiole${targets.length > 0 ? ` à 1 joueur` : ""}`
                   : `Utiliser${targets.length > 0 ? ` (${targets.length}/${needed})` : ""}`}
             </button>
           )}
@@ -2062,7 +2132,7 @@ export type LastRow = {
 const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> = {
   accusateur: (t) => `Tu as accusé ${t ?? "un joueur"}.`,
   ange_gardien: (t) => `Tu as protégé ${t ?? "un joueur"}.`,
-  apothicaire: (t) => `Tu as offert une fiole à ${t ?? "un joueur"}.`,
+  apothicaire: (t) => `Tu as joué une fiole sur ${t ?? "un joueur"}.`,
   armurier: (t) => `Tu as armé ${t ?? "un joueur"}.`,
   assistant_du_detective: (t) => `Tu as enquêté sur ${t ?? "un joueur"}.`,
   avocat: (t) => `Tu as défendu ${t ?? "un joueur"}.`,
@@ -2149,6 +2219,10 @@ function describeActionFromRow(
   if (effect === "offer_fiole") {
     const fioleName = FIOLE_LABELS[(p.fiole as string | undefined) ?? ""] ?? "une fiole";
     return t1 ? `Tu as offert ${fioleName} à ${t1}.` : `Tu as offert ${fioleName}.`;
+  }
+  if (effect === "use_fiole") {
+    const fioleName = FIOLE_LABELS[(p.fiole as string | undefined) ?? ""] ?? "une fiole";
+    return t1 ? `Tu as utilisé ${fioleName} sur ${t1}.` : `Tu as utilisé ${fioleName}.`;
   }
   // 3) Repli : libellé par rôle (slug stocké dans le payload de capacité).
   return describeAction(p.role as string | undefined, t1, t2);
