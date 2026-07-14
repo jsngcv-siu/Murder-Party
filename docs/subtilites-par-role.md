@@ -67,7 +67,7 @@
 
 ## 👀 Le Guetteur
 - 【 Journal en direct 】 Pendant le tour choisi, ta cible et l'ordre de ses visiteurs sont enregistrés au fil des actions.
-- 【 Démasque les attaques 】 Voir qui a visité une future victime révèle souvent le Tueur ou le Croque-mitaine.
+- 【 Démasque les attaques 】 Voir qui a fait une action envers ta cible peut révéler souvent un Méchant.
 - 【 Historique consultable 】 Tu gardes accès aux relevés des tours précédents pour recouper les allées et venues.
 
 ## 🧑‍⚖️ Le Juge

@@ -273,7 +273,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           },
           {
             tag: "Démasque les attaques",
-            body: "Voir qui a visité une future victime révèle souvent le Tueur ou le Croque-mitaine.",
+            body: "Voir qui a fait une action envers ta cible peut révéler souvent un Méchant.",
           },
           {
             tag: "Historique consultable",
