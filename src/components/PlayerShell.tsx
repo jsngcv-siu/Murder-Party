@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { tickPhase, beginGame } from "@/engine/actions";
 import { defaultBotConfig, startBotDriver, stopBotDriver } from "@/engine/bots";
+import { BOTS_ENABLED } from "@/lib/botsEnabled";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import type { FrameContext } from "@/components/frames/registry";
@@ -277,8 +278,15 @@ export function PlayerShell({
     };
 
     scheduleBoundaries();
-    // Filet de sécurité : re-tente régulièrement au cas où un réveil calé rate.
-    const safety = setInterval(() => void tickPhase(game.id), 3000);
+    // Filet de sécurité : re-tente au cas où un réveil calé rate. On ne sonde la
+    // base QUE si la frontière est réellement franchie — le test se fait ici, en
+    // mémoire, sur des valeurs qu'on a déjà (`started`/`boundariesS` viennent du
+    // Realtime, cf. deps). Sans ce garde, chaque client appelait tickPhase toutes
+    // les 3 s pendant TOUTE la phase, et chaque appel coûtait un SELECT `games`
+    // pour s'entendre répondre « pas encore » (≈940 k requêtes en 12 j).
+    const safety = setInterval(() => {
+      if (serverNow() >= started + boundariesS[0] * 1000) void tickPhase(game.id);
+    }, 3000);
     // Au retour de veille / bascule d'onglet : les timers ont pu être gelés — on
     // ré-arme les frontières et on rattrape immédiatement.
     const onVisible = () => {
@@ -306,6 +314,8 @@ export function PlayerShell({
   ]);
 
   useEffect(() => {
+    // Bots hors `vite dev` : rien à piloter (cf. lib/botsEnabled).
+    if (!BOTS_ENABLED) return;
     if (disableHostDrivers || !isDriver) return;
     if (game.status !== "in_progress") return;
     if (waitingStart) return;
@@ -320,6 +330,12 @@ export function PlayerShell({
     };
   }, [disableHostDrivers, isDriver, game.status, game.id, me.id, waitingStart]);
 
+  // `roles` est une table de RÉFÉRENCE quasi statique (44 lignes, modifiées
+  // uniquement par migration) : un chargement au montage suffit. Il y avait ici
+  // un canal Realtime `roles-live` — mais `roles` n'est pas dans la publication
+  // `supabase_realtime`, donc il ne s'est JAMAIS déclenché : un canal WebSocket
+  // par client, pour rien. Personne ne réécrit un texte de rôle pendant une
+  // partie ; le cas échéant, un rechargement de page suffit.
   useEffect(() => {
     async function loadRoles() {
       const { data } = await supabase.from("roles").select().eq("set_id", "set1");
@@ -328,18 +344,6 @@ export function PlayerShell({
       setRoles(m);
     }
     void loadRoles();
-    // Live : recharge la liste dès qu'un rôle est ajouté/modifié/supprimé en base.
-    const ch = supabase
-      .channel("roles-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "roles" },
-        () => void loadRoles(),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
   }, []);
 
   useEffect(() => {

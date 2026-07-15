@@ -44,3 +44,18 @@ Le CLI Supabase est **lié au projet prod** `eqcfagjvbiwhsofzmqtg` (org `buenckm
 **Garde-fou d'ordre** : si une migration ajoute des colonnes qu'un code (client OU edge) va écrire dans le même `update` que `status='ended'`, appliquer la migration AVANT de déployer ce code — sinon l'`update` échoue (colonne inconnue) et les parties gèlent en fin de partie.
 
 Ces actions touchent la prod : les mener quand la tâche les implique clairement, et rapporter précisément ce qui a été appliqué/déployé. Ne pas `git push` sans accord explicite.
+
+### Le cron du phase-ticker (job `phase-ticker`, toutes les 5 s)
+
+Ce job **n'a jamais été créé par une migration** : il a été posé à la main dans le dashboard prod. Il n'est donc pas recréé par un `db reset` ni sur un nouveau projet — sans lui, les phases n'avancent plus dès que toutes les apps sont fermées. À retenir :
+
+- **Cadence** : `5 seconds`. **Commande** : `net.http_post` vers `…/functions/v1/phase-ticker`.
+- **Garde** (migration `20260715220300_ticker_gate`) : la commande est enveloppée dans un `if exists (select 1 from public.games where status = 'in_progress')`. Sans partie en cours, aucun appel HTTP n'est émis — c'était 63,9 % du temps d'exécution de la base. Le marqueur `mp_ticker_guard` dans la commande rend la migration idempotente.
+- **Ne PAS retirer `--no-verify-jwt`** (`package.json`, `.github/workflows/deploy-phase-ticker.yml`) **en l'état** : vérifié le 2026-07-15, le cron **n'envoie aucun en-tête `Authorization`**. Activer la vérification de jeton ferait échouer chaque appel → **toutes les parties gèlent**. Pour authentifier l'endpoint, ajouter d'ABORD un en-tête au job cron, ensuite seulement retirer le drapeau.
+- **Inspecter le job** : `select jobname, schedule, command from cron.job;` et
+  `select status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;`
+  (à lancer dans le SQL editor du dashboard — le CLI n'a **pas** de commande de requête libre ; `npx supabase inspect db …` ne couvre pas `cron`).
+
+### Purge automatique (`purge_old_games`, job `purge-old-games`, toutes les 30 min)
+
+Règle **uniquement temporelle** (depuis `20260715220200`) : partie terminée supprimée 30 min après `ended_at` ; **toute partie lancée il y a plus de 4 h** supprimée quel que soit son état (couvre les parties zombies/buguées). Les délais sont les deux paramètres par défaut de la fonction. L'ancienne règle « garder les 3 plus récentes » a été supprimée : elle pouvait effacer une partie EN COURS.

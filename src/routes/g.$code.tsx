@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureAuth, getStoredPseudo, setStoredPseudo } from "@/lib/session";
 import { joinGame, type GameRow, type PlayerRow, MIN_PLAYERS, MAX_PLAYERS } from "@/lib/game";
 import { startGame as engineStartGame, addBotPlayer, addBotPlayers } from "@/engine/actions";
+import { BOTS_ENABLED } from "@/lib/botsEnabled";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,45 +34,58 @@ function GamePage() {
   const [loading, setLoading] = useState(true);
   const [needsPseudo, setNeedsPseudo] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  // Id de la partie en ÉTAT (pas seulement en ref) : c'est la clé de l'effet
+  // d'abonnement ci-dessous, qui ne peut filtrer sur `game_id` qu'une fois l'id
+  // connu. Renseigné dès le lookup, donc AUSSI quand la RLS interdit la lecture
+  // directe de la partie (parcours « rejoindre »).
+  const [gameId, setGameId] = useState<string | null>(null);
   const gameIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
   // Debounce serial realtime player events into a single refetch to éviter
   // un re-render à chaque mutation (gros lag perceptible quand 8+ joueurs
   // bougent en même temps).
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refetchPlayers = useCallback(async () => {
+    const gid = gameIdRef.current;
+    if (!gid) return;
+    const uid = userIdRef.current;
+    const { data: ps } = await supabase
+      .from("players")
+      .select()
+      .eq("game_id", gid)
+      .order("joined_at", { ascending: true })
+      // Départage déterministe : sans lui, deux joueurs au même `joined_at`
+      // (bots créés en lot) sortent dans un ordre Postgres arbitraire, qui
+      // varie d'un refetch à l'autre → les listes de joueurs « bougent ».
+      .order("id", { ascending: true });
+    if (!mountedRef.current) return;
+    const list = (ps ?? []) as PlayerRow[];
+    setPlayers(list);
+    if (uid) {
+      const meRow = list.find((p) => p.user_id === uid);
+      if (meRow) setMe(meRow);
+    }
+  }, []);
+
+  const schedulePlayersRefetch = useCallback(() => {
+    if (refetchTimerRef.current) return; // déjà programmé
+    refetchTimerRef.current = setTimeout(() => {
+      refetchTimerRef.current = null;
+      void refetchPlayers();
+    }, 120);
+  }, [refetchPlayers]);
+
+  useEffect(() => {
     let cancelled = false;
-
-    async function refetchPlayers() {
-      const gid = gameIdRef.current;
-      if (!gid) return;
-      const uid = userIdRef.current;
-      const { data: ps } = await supabase
-        .from("players")
-        .select()
-        .eq("game_id", gid)
-        .order("joined_at", { ascending: true })
-        // Départage déterministe : sans lui, deux joueurs au même `joined_at`
-        // (bots créés en lot) sortent dans un ordre Postgres arbitraire, qui
-        // varie d'un refetch à l'autre → les listes de joueurs « bougent ».
-        .order("id", { ascending: true });
-      if (cancelled) return;
-      const list = (ps ?? []) as PlayerRow[];
-      setPlayers(list);
-      if (uid) {
-        const meRow = list.find((p) => p.user_id === uid);
-        if (meRow) setMe(meRow);
-      }
-    }
-
-    function schedulePlayersRefetch() {
-      if (refetchTimerRef.current) return; // déjà programmé
-      refetchTimerRef.current = setTimeout(() => {
-        refetchTimerRef.current = null;
-        void refetchPlayers();
-      }, 120);
-    }
 
     async function load() {
       const uid = await ensureAuth();
@@ -84,18 +98,20 @@ function GamePage() {
         .rpc("lookup_game_by_code" as never, { _code: code.toUpperCase() } as never)
         .maybeSingle();
       if (cancelled) return;
-      const gameId = (pub as { id?: string } | null)?.id;
-      if (!gameId) {
+      const foundId = (pub as { id?: string } | null)?.id;
+      if (!foundId) {
         toast.error("Partie introuvable.");
         setLoading(false);
         return;
       }
+      // Dès que l'id est connu, on arme l'effet d'abonnement (filtré sur game_id).
+      gameIdRef.current = foundId;
+      setGameId(foundId);
 
-      const { data: g } = await supabase.from("games").select().eq("id", gameId).maybeSingle();
+      const { data: g } = await supabase.from("games").select().eq("id", foundId).maybeSingle();
       if (cancelled) return;
       // Si pas accès direct (RLS), on bascule sur le flow rejoindre.
       if (!g) {
-        gameIdRef.current = gameId;
         setNeedsPseudo(true);
         setLoading(false);
         return;
@@ -134,23 +150,6 @@ function GamePage() {
     }
     void load();
 
-    const channel = supabase
-      .channel(`game-${code}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => {
-        schedulePlayersRefetch();
-      })
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "games",
-          filter: `code=eq.${code.toUpperCase()}`,
-        },
-        (payload) => setGame(payload.new as GameRow),
-      )
-      .subscribe();
-
     // ─── Resync au retour en avant-plan ───
     // En arrière-plan (onglet inactif, app minimisée, écran verrouillé), le
     // navigateur peut suspendre les WebSockets Supabase Realtime : on rate
@@ -176,16 +175,46 @@ function GamePage() {
     return () => {
       cancelled = true;
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
-      void supabase.removeChannel(channel);
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisible);
         window.removeEventListener("focus", onVisible);
       }
     };
-    // Ne pas inclure userId : il est lu via ref, et l'inclure ré-abonnait
-    // le channel et doublait tous les events (cause majeure de lag).
+    // Ne pas inclure userId : il est lu via ref, et l'inclure relancerait le
+    // chargement pour rien.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
+
+  // ─── Abonnements Realtime ───
+  // Effet SÉPARÉ du chargement, et clé sur `gameId` : c'est la seule façon de
+  // filtrer sur `game_id`. L'ancien canal s'abonnait en synchrone juste après un
+  // `load()` asynchrone, donc l'id n'était pas encore connu → l'abonnement
+  // `players` partait SANS filtre et recevait les mutations de TOUTES les parties
+  // en cours (chaque ligne évaluée contre la RLS, pour chaque client).
+  //
+  // Le refetch au passage à `SUBSCRIBED` ferme la fenêtre entre la fin de `load()`
+  // et l'attachement du canal — un événement émis entre les deux serait sinon perdu.
+  useEffect(() => {
+    if (!gameId) return;
+    const channel = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "players", filter: `game_id=eq.${gameId}` },
+        () => schedulePlayersRefetch(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` },
+        (payload) => setGame(payload.new as GameRow),
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void refetchPlayers();
+      });
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [gameId, schedulePlayersRefetch, refetchPlayers]);
 
   if (loading) {
     return (
@@ -604,7 +633,11 @@ function LobbyView({
               })}
             </ul>
 
-            {isHost && (
+            {/* Outils bots : `vite dev` uniquement (cf. lib/botsEnabled). En ligne,
+                le pilote de bots ne tourne pas — laisser ces boutons créerait des
+                bots INERTES, comptés dans l'effectif mais ne jouant jamais, ce qui
+                bloquerait le démarrage de la partie. */}
+            {isHost && BOTS_ENABLED && (
               <div className="mt-1.5 space-y-2">
                 {/* Emplacements libres jusqu'à la cible — touche pour ajouter un bot */}
                 {ghostCount > 0 && (

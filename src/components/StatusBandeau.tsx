@@ -128,6 +128,10 @@ export function StatusBandeau({
       setStatuses(rows);
     };
     void load();
+    // `player_statuses` est publiée en Realtime (migration `player_statuses_realtime`) :
+    // sans ça cet abonnement ne se déclenchait JAMAIS et le bandeau n'était rafraîchi
+    // qu'au changement de tour — un statut posé en cours de tour restait invisible.
+    // Table minuscule, écrite seulement à la résolution → coût négligeable.
     const ch = supabase
       .channel(`statuses-${me.id}`)
       .on(

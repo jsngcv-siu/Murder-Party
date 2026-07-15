@@ -364,7 +364,14 @@ function DemoMenu() {
     if (!gameId) return;
     const tick = setInterval(() => {
       const current = gameRef.current;
-      if (!current || current.status !== "in_progress") return;
+      if (!current || current.status !== "in_progress" || current.paused) return;
+      // Ne sonder la base QUE si la frontière est franchie : le test se fait ici,
+      // en mémoire, sur l'état déjà reçu par realtime. Sinon chaque tour de boucle
+      // coûtait un SELECT `games` pour s'entendre répondre « pas encore ».
+      if (!current.phase_started_at || !current.phase_duration_s) return;
+      const started = new Date(current.phase_started_at).getTime();
+      const dueS = introSFor(current.current_phase) + current.phase_duration_s;
+      if (serverNow() < started + dueS * 1000) return;
       void tickPhase(gameId);
     }, 1000);
     return () => clearInterval(tick);

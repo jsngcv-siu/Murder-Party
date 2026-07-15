@@ -5,7 +5,7 @@
 //   • TABLE — roster omniscient + fiche joueur (Rôle · État · Journal · Historique)
 //   • NOTES — cahier d'analyse du MJ (notifications type=mj_note) avec tags joueurs
 // Toute la logique métier (loadFeed, run, queries) est préservée.
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { FrameContext } from "../registry";
 import {
   ringGathering,
@@ -140,22 +140,39 @@ export function GM1Dashboard(ctx: FrameContext) {
     setFeed((n ?? []) as Notif[]);
     setActed(new Set(((a ?? []) as Action[]).map((x) => x.actor_player_id)));
   }
+  // Anti-rebond : une résolution insère des DIZAINES de notifications d'affilée.
+  // Sans ça, chaque insert relançait `loadFeed` (120 lignes + JSON, plus tous les
+  // `role_actions` du tour) → rafale de rechargements complets à chaque tour. Même
+  // motif que `routes/g.$code.tsx` pour les joueurs.
+  const feedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
+    function scheduleLoadFeed() {
+      if (feedTimerRef.current) return; // déjà programmé
+      feedTimerRef.current = setTimeout(() => {
+        feedTimerRef.current = null;
+        void loadFeed();
+      }, 120);
+    }
     void loadFeed();
     const ch = supabase
       .channel(`mj-${gameId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `game_id=eq.${gameId}` },
-        () => void loadFeed(),
+        () => scheduleLoadFeed(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "role_actions", filter: `game_id=eq.${gameId}` },
-        () => void loadFeed(),
+        () => scheduleLoadFeed(),
       )
       .subscribe();
     return () => {
+      if (feedTimerRef.current) {
+        clearTimeout(feedTimerRef.current);
+        feedTimerRef.current = null;
+      }
       void supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

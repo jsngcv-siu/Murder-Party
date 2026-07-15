@@ -11,6 +11,7 @@ import {
   type Phase,
 } from "./actions";
 import { BOT_TICK_BASE_MS } from "./constants";
+import { BOTS_ENABLED } from "@/lib/botsEnabled";
 import { readInventory, itemIsUsable, itemNeedsTarget, consumeItem } from "./items";
 import { probeCapability, probeItemUse } from "./qa/probes";
 import { maybeBotChat } from "./qa/chat";
@@ -80,6 +81,9 @@ export function startBotDriver(opts: {
   getConfig: () => BotConfig;
   embodiedPlayerId: () => string | null;
 }) {
+  // Hors `vite dev`, aucun bot ne tourne : ni sondage, ni écriture. Garde de
+  // fond, doublée en amont par les appelants (cf. lib/botsEnabled).
+  if (!BOTS_ENABLED) return null;
   if (driver) driver.stop();
   let stopped = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -232,11 +236,19 @@ async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null
 
   // Chat des bots : au plus 1 message par appel (throttlé). Inclut les morts
   // (canal Conseil) et les Méchants vivants (canal mechants).
-  const chatBots = players.filter((p) => p.id !== embodiedId && !p.is_mj && p.user_id === null);
-  try {
-    await maybeBotChat({ gameId, game, bots: chatBots, alive, rolesBySlug });
-  } catch (e) {
-    console.error("[bot chat]", e);
+  //
+  // Réservé à la démo (`cfg.qa`) : c'est le SEUL contexte où l'insertion passe.
+  // La RLS `chat_insert_self_in_channel` exige d'être le MJ ou l'auteur de la
+  // ligne ; un bot n'est jamais ni l'un ni l'autre quand le pilote élu est un
+  // joueur ordinaire → insert rejeté, avalé par le `console.error` ci-dessous.
+  // Dans `/demo`, l'opérateur EST le MJ → ça passe.
+  if (cfg.qa) {
+    const chatBots = players.filter((p) => p.id !== embodiedId && !p.is_mj && p.user_id === null);
+    try {
+      await maybeBotChat({ gameId, game, bots: chatBots, alive, rolesBySlug });
+    } catch (e) {
+      console.error("[bot chat]", e);
+    }
   }
 
   // Les transitions de phase sont gérées par tickPhase() qui respecte
@@ -255,7 +267,8 @@ function buildExtra(role: RoleRow, _bot: PlayerRow): Record<string, unknown> | u
     if (avail.length === 0) return undefined;
     const fiole = avail[Math.floor(Math.random() * avail.length)];
     const selfUsed = (m.apo_self_used as number | undefined) ?? 0;
-    const given = (m.apo_given as number | undefined) ?? (m.fioles_given as number | undefined) ?? 0;
+    const given =
+      (m.apo_given as number | undefined) ?? (m.fioles_given as number | undefined) ?? 0;
     const modes: Array<"use" | "gift"> = [];
     if (given < 1) modes.push("gift");
     if (selfUsed < 1) modes.push("use");

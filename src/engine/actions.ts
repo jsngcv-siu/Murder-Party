@@ -1190,6 +1190,12 @@ export async function nextCycle(gameId: string, phaseStartedAt = serverNowISO())
 // lirait la MÊME phase expirée et relancerait tout le resolver → notifications en
 // double/triple. Les deux se complètent : local = pas d'aller-retour inutile,
 // serveur = correction.
+// ⚠️ Cette valeur DOIT rester égale au TTL du verrou SQL `claim_phase_tick`
+// (cf. migration `tick_lease_align`). Si le TTL SQL est plus court, un tick lent
+// perd son verrou EN COURS DE ROUTE : un autre client le reprend et rejoue le
+// resolver → morts et notifications en double. Le bail est en plus RENOUVELÉ
+// avant chaque transition supplémentaire (cf. `renew_phase_tick` plus bas), donc
+// ce TTL n'a besoin de couvrir qu'UNE transition, pas le tick entier.
 const TICK_LOCK_TTL_MS = 30_000;
 const _tickInFlight = new Map<string, number>();
 const MAX_TICK_TRANSITIONS = 6;
@@ -1238,6 +1244,14 @@ export async function tickPhase(gameId: string): Promise<void> {
     if (claimErr || !won) return;
     try {
       for (let transitionCount = 0; transitionCount < MAX_TICK_TRANSITIONS; transitionCount++) {
+        // Renouvellement du bail AVANT chaque transition supplémentaire. Un tick
+        // de rattrapage peut enchaîner jusqu'à MAX_TICK_TRANSITIONS résolutions et
+        // dépasser le TTL : sans ce renouvellement, le verrou expirerait sous nos
+        // pieds et un autre client rejouerait le resolver en parallèle. Le cas
+        // normal (une seule transition puis sortie) ne paie AUCUNE écriture ici.
+        if (transitionCount > 0) {
+          await supabase.rpc("renew_phase_tick" as never, { p_game_id: gameId } as never);
+        }
         const { data: g } = await supabase
           .from("games")
           .select("current_phase, phase_started_at, phase_duration_s, status, paused")

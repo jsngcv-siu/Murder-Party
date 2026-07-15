@@ -2549,6 +2549,9 @@ async function tickPhase(gameId) {
     if (claimErr || !won) return;
     try {
       for (let transitionCount = 0; transitionCount < MAX_TICK_TRANSITIONS; transitionCount++) {
+        if (transitionCount > 0) {
+          await supabase.rpc("renew_phase_tick", { p_game_id: gameId });
+        }
         const { data: g } = await supabase.from("games").select("current_phase, phase_started_at, phase_duration_s, status, paused").eq("id", gameId).single();
         const game = g;
         if (!game || game.status === "ended") return;
