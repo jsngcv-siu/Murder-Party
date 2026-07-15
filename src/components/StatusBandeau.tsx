@@ -15,7 +15,6 @@ function toneAccent(tone: Tone): string {
 }
 import {
   Ban,
-  Crosshair,
   Dices,
   Drama,
   Flag,
@@ -55,7 +54,7 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       icon: FlaskConical,
       label: "Empoisonné",
       tone: "emerald",
-      desc: "Poison en toi. Sans soin, c'est la mort à la prochaine Annonce.",
+      desc: "Un poison sourd coule en toi. Il ne te tuera pas — mais tant que tu le portes, tu sers le dessein de l'Empoisonneur.",
     },
     blocked: {
       icon: Ban,
@@ -98,12 +97,6 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       label: "Perdant aux dés",
       tone: "redDark",
       desc: "Tu as perdu le pari du tricheur. À la prochaine annonce, tu seras mort — sauf si une protection te sauve d'ici là.",
-    },
-    cible: {
-      icon: Crosshair,
-      label: "Ciblé",
-      tone: "redDark",
-      desc: "Le Tueur Stratège t'a marqué. Tu mourras à la prochaine annonce — sauf si une protection te sauve, ou s'il est neutralisé d'ici là.",
     },
   };
 
