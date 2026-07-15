@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { setTestament } from "@/engine/actions";
 import type { PlayerRow } from "@/engine/actions";
+import { TestamentPaper, TestamentTitle } from "@/components/TestamentPaper";
 
 type SaveState = "idle" | "saving" | "saved";
 
@@ -52,97 +53,44 @@ export function TestamentEditor({ me }: { me: PlayerRow }) {
 
   return (
     <div className="mt-6">
-      {/* Parchemin */}
-      <div
-        className="relative"
-        style={{
-          borderRadius: "3px 3px 2px 2px",
-          background:
-            "repeating-linear-gradient(180deg, transparent 0 27px, oklch(0.55 0.06 70 / 0.16) 27px 28px), radial-gradient(120% 80% at 50% 0%, oklch(0.95 0.03 90), oklch(0.90 0.045 80))",
-          boxShadow:
-            "0 14px 30px -14px oklch(0 0 0 / 0.8), inset 0 0 44px oklch(0.45 0.10 55 / 0.32), inset 0 0 0 1px oklch(0.55 0.08 60 / 0.3)",
-        }}
-      >
-        {/* Scotch d'angle */}
-        <span
-          aria-hidden
-          className="absolute"
-          style={{
-            top: -10,
-            left: 22,
-            width: 62,
-            height: 18,
-            background: "oklch(0.86 0.04 85 / 0.5)",
-            transform: "rotate(-3deg)",
-            boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)",
-          }}
-        />
-        <span
-          aria-hidden
-          className="absolute"
-          style={{
-            top: -10,
-            right: 22,
-            width: 62,
-            height: 18,
-            background: "oklch(0.86 0.04 85 / 0.5)",
-            transform: "rotate(3deg)",
-            boxShadow: "0 2px 4px oklch(0 0 0 / 0.25)",
-          }}
-        />
-
-        <div className="px-5 pt-5 pb-4">
-          <div
-            className="leading-none"
+      {/* Parchemin — coquille partagée avec la lecture au cimetière. */}
+      <TestamentPaper>
+        <TestamentTitle>Mes dernières volontés</TestamentTitle>
+        <div
+          className="mt-2 mb-3 flex items-center justify-between"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          <span className="text-[8.5px] tracking-[0.1em]" style={{ color: "oklch(0.55 0.07 60)" }}>
+            SCELLÉ — RÉVÉLÉ À TA MORT
+          </span>
+          <span
+            className="text-[8.5px] px-2 py-0.5 rounded-sm"
             style={{
-              fontFamily: "var(--font-hand)",
-              fontWeight: 700,
-              fontSize: 28,
-              color: "oklch(0.40 0.08 45)",
-              transform: "rotate(-1deg)",
+              color: "oklch(0.45 0.06 55)",
+              border: "1px solid oklch(0.62 0.08 60 / 0.5)",
             }}
           >
-            Mes dernières volontés
-          </div>
-          <div
-            className="mt-2 mb-3 flex items-center justify-between"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            <span
-              className="text-[8.5px] tracking-[0.1em]"
-              style={{ color: "oklch(0.55 0.07 60)" }}
-            >
-              SCELLÉ — RÉVÉLÉ À TA MORT
-            </span>
-            <span
-              className="text-[8.5px] px-2 py-0.5 rounded-sm"
-              style={{
-                color: "oklch(0.45 0.06 55)",
-                border: "1px solid oklch(0.62 0.08 60 / 0.5)",
-              }}
-            >
-              brouillon
-            </span>
-          </div>
-
-          {/* Encre manuscrite sur les lignes du parchemin */}
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value.slice(0, 280))}
-            placeholder="À qui me lira, si vous tenez ceci, c'est que la nuit a eu ma peau…"
-            rows={4}
-            aria-label="Ton testament"
-            className="w-full bg-transparent border-0 outline-none resize-none p-0"
-            style={{
-              fontFamily: "var(--font-hand)",
-              fontSize: 19,
-              lineHeight: "28px",
-              color: "oklch(0.32 0.05 45)",
-              caretColor: "oklch(0.32 0.05 45)",
-            }}
-          />
+            brouillon
+          </span>
         </div>
-      </div>
+
+        {/* Encre manuscrite sur les lignes du parchemin */}
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 280))}
+          placeholder="À qui me lira, si vous tenez ceci, c'est que la nuit a eu ma peau…"
+          rows={4}
+          aria-label="Ton testament"
+          className="w-full bg-transparent border-0 outline-none resize-none p-0"
+          style={{
+            fontFamily: "var(--font-hand)",
+            fontSize: 19,
+            lineHeight: "28px",
+            color: "oklch(0.32 0.05 45)",
+            caretColor: "oklch(0.32 0.05 45)",
+          }}
+        />
+      </TestamentPaper>
 
       {/* Pied : compteur + état de sauvegarde (la « cire » se fige quand c'est scellé) */}
       <div className="flex items-center justify-between mt-2 px-1">

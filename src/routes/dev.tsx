@@ -397,6 +397,17 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
               chasseur_awakened_cycle: tour,
             },
           } as PlayerRow;
+        // Sortie de prison (le Juge a libéré Gus au tour courant).
+        if (p.pseudo === "Gus")
+          return {
+            ...p,
+            is_imprisoned: false,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              imprisoned_since_cycle: tour - 1,
+              released_at_cycle: tour,
+            },
+          } as PlayerRow;
         return p;
       });
       return <Frame node={<PA6Announces {...ctx} players={players} />} />;

@@ -1401,6 +1401,8 @@ async function resolveCycleTransition(gameId: string) {
     await patchMeta(p.id, { pending_release_for_cycle: null, pending_release_by: null });
     if (!p.is_alive || !p.is_imprisoned) continue;
     await supabase.from("players").update({ is_imprisoned: false }).eq("id", p.id);
+    // Trace datée pour l'annonce publique « X sort de prison ».
+    await patchMeta(p.id, { released_at_cycle: nextCycleN });
     await notify({
       gameId,
       playerId: p.id,
@@ -2878,6 +2880,16 @@ export async function releasePlayer(gameId: string, playerId: string) {
     .eq("id", playerId)
     .single();
   await supabase.from("players").update({ is_imprisoned: false }).eq("id", playerId);
+  // Trace datée pour l'annonce publique « X sort de prison » (cf. la libération
+  // par le Juge, qui pose la même clé).
+  const { data: g } = await supabase
+    .from("games")
+    .select("current_tour")
+    .eq("id", gameId)
+    .single();
+  await patchMeta(playerId, {
+    released_at_cycle: (g as { current_tour: number } | null)?.current_tour ?? 0,
+  });
   emit("release", `🔓 ${(p as { pseudo: string } | null)?.pseudo} libéré`, { playerId });
   // Tueur méchant d'origine libéré (Tueur, Croque-mitaine, …) → annule la promotion temporaire éventuelle
   const pm = meta(p as { role_meta: unknown });

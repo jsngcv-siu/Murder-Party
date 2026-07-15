@@ -30,6 +30,11 @@ export interface RoleMeta {
   blocked_from_cycle?: number;
   blackmail_until_cycle?: number;
   blackmail_from_cycle?: number;
+  // ─── Prison ───
+  // Trace DURABLE de la libération (le Juge). `pending_release_for_cycle` est
+  // effacé une fois consommé : sans cette clé, la sortie de prison ne laissait
+  // aucune trace datée et ne pouvait donc pas être annoncée.
+  released_at_cycle?: number;
   // ─── Vampire / conversion ───
   converted?: boolean;
   immortal?: boolean;

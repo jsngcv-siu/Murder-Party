@@ -18,6 +18,7 @@ import {
 import type { FrameContext } from "../registry";
 import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
+import { TestamentPaper, TestamentTitle } from "@/components/TestamentPaper";
 import { roleColor } from "@/lib/factionText";
 import type { RoleRow } from "@/engine/actions";
 
@@ -36,6 +37,7 @@ import { GazetteCard } from "./T1Transition";
 export type Event =
   | { kind: "death"; tour: number; phase: string; player: AnyPlayer; reason?: string }
   | { kind: "prison"; tour: number; player: AnyPlayer }
+  | { kind: "release"; tour: number; player: AnyPlayer }
   | {
       kind: "special";
       tour: number;
@@ -50,6 +52,7 @@ export type Event =
 function eventId(e: Event): string {
   if (e.kind === "special") return `s-${e.tour}-${e.text}`;
   if (e.kind === "death") return `d-${e.tour}-${e.player.id}`;
+  if (e.kind === "release") return `r-${e.tour}-${e.player.id}`;
   return `p-${e.tour}-${e.player.id}`;
 }
 
@@ -72,8 +75,17 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
         reason: m.death_reason as string | undefined,
       });
     }
-    if (p.is_imprisoned && typeof m.imprisoned_since_cycle === "number") {
+    // Entrée en prison — fait HISTORIQUE : on ne conditionne pas à
+    // `is_imprisoned`, sinon la carte disparaîtrait rétroactivement de la
+    // timeline à la libération (le tour où le joueur est parti en prison reste
+    // vrai), et « X sort de prison » s'afficherait sans qu'on ait jamais vu X y
+    // entrer.
+    if (typeof m.imprisoned_since_cycle === "number") {
       events.push({ kind: "prison", tour: m.imprisoned_since_cycle as number, player: p });
+    }
+    // Sortie de prison (ordre du Juge).
+    if (typeof m.released_at_cycle === "number") {
+      events.push({ kind: "release", tour: m.released_at_cycle as number, player: p });
     }
     if (m.converted === true && typeof m.converted_cycle === "number") {
       biteCycles.add(m.converted_cycle as number);
@@ -130,6 +142,8 @@ const PHASE_RANK: Record<string, number> = { free: 0, annonce: 1, gathering: 2, 
 function eventRecency(e: Event): number {
   if (e.kind === "prison") return PHASE_RANK.vote; // le verdict ferme le tour
   if (e.kind === "death") return PHASE_RANK[e.phase] ?? PHASE_RANK.gathering;
+  // La libération du Juge s'applique au basculement de tour → tout début de tour.
+  if (e.kind === "release") return -1;
   return -1; // annonces « de nuit »/setup en premier
 }
 
@@ -393,12 +407,30 @@ export function PA6Announces(ctx: FrameContext) {
             </div>
           </div>
           {openTestament ? (
-            <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm italic relative">
-              <div className="absolute -top-2 left-3 px-2 bg-background text-[10px] uppercase tracking-widest text-amber-400">
-                Testament
+            // Même parchemin que le TestamentEditor (papier réglé + scotchs) :
+            // la coquille est partagée, seule l'encre est en lecture seule.
+            <TestamentPaper className="mt-8">
+              <TestamentTitle>Mes dernières volontés</TestamentTitle>
+              <div className="mt-2 mb-3" style={{ fontFamily: "var(--font-display)" }}>
+                <span
+                  className="text-[8.5px] tracking-[0.1em]"
+                  style={{ color: "oklch(0.55 0.07 60)" }}
+                >
+                  SCELLÉ — OUVERT À SA MORT
+                </span>
               </div>
-              « {openTestament} »
-            </div>
+              <p
+                style={{
+                  fontFamily: "var(--font-hand)",
+                  fontSize: 19,
+                  lineHeight: "28px",
+                  color: "oklch(0.32 0.05 45)",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {openTestament}
+              </p>
+            </TestamentPaper>
           ) : (
             <p className="mt-6 text-center text-xs text-muted-foreground italic">
               Aucun testament laissé.

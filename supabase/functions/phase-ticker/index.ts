@@ -2656,6 +2656,7 @@ async function resolveCycleTransition(gameId) {
     await patchMeta(p.id, { pending_release_for_cycle: null, pending_release_by: null });
     if (!p.is_alive || !p.is_imprisoned) continue;
     await supabase.from("players").update({ is_imprisoned: false }).eq("id", p.id);
+    await patchMeta(p.id, { released_at_cycle: nextCycleN });
     await notify({
       gameId,
       playerId: p.id,
@@ -3641,6 +3642,10 @@ async function imprisonPlayer(gameId, playerId, reason = "vote") {
 async function releasePlayer(gameId, playerId) {
   const { data: p } = await supabase.from("players").select("pseudo, role_slug, role_meta").eq("id", playerId).single();
   await supabase.from("players").update({ is_imprisoned: false }).eq("id", playerId);
+  const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
+  await patchMeta(playerId, {
+    released_at_cycle: g?.current_tour ?? 0
+  });
   emit("release", `\u{1F513} ${p?.pseudo} lib\xE9r\xE9`, { playerId });
   const pm = meta(p);
   if (await isGenericMechantKiller(p?.role_slug) && pm.temp_promotion !== true) {

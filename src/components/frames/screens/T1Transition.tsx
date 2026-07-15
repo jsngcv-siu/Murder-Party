@@ -6,6 +6,7 @@ import { collectAnnouncements, sortTourEvents } from "./PA6Announces";
 import { avatarOf } from "@/lib/avatars";
 import { roleColor } from "@/lib/factionText";
 import { AvatarImg } from "@/components/AvatarImg";
+import { PrisonBars } from "@/components/PrisonBars";
 import { serverNow, useServerTimeOffset } from "@/lib/serverTime";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -1813,35 +1814,108 @@ export function GazetteCard({
     const role = roles.get(event.player.role_slug ?? "");
     const faction = cleaned ? "Effacé" : (role?.faction ?? "Inconnue");
     const factionColor = cleaned ? "#8a7458" : roleColor(role);
+    // Encre de faction : les couleurs de faction sont calibrées pour le fond
+    // SOMBRE de l'app — telles quelles, elles disparaissent sur le papier clair
+    // du polaroïd. On les rabat vers l'encre pour garder la teinte tout en
+    // restant lisibles. (Le halo du polaroïd, lui, garde la couleur vive.)
+    const factionInk = `color-mix(in oklab, ${factionColor} 60%, #2b1d14)`;
+    // Lueur beige derrière le titre. Un text-shadow flouté seul ne suffit PAS :
+    // le flou étale la couleur, qui devient quasi transparente et disparaît sur
+    // le sang. On procède donc en deux temps :
+    //  1) un DÉTOURAGE net (8 ombres sans flou) — chaque glyphe est posé sur du
+    //     beige plein, donc noir-sur-beige en local, lisible quel que soit le fond ;
+    //  2) une lueur diffuse RÉPÉTÉE — empiler la même ombre compose son alpha,
+    //     seul moyen d'obtenir un halo réellement visible.
+    const HALO_EDGE = "#f4ead0";
+    const HALO_GLOW = "#e3d2a4";
+    const paperHalo = [
+      `-1.5px -1.5px 0 ${HALO_EDGE}`,
+      `1.5px -1.5px 0 ${HALO_EDGE}`,
+      `-1.5px 1.5px 0 ${HALO_EDGE}`,
+      `1.5px 1.5px 0 ${HALO_EDGE}`,
+      `0 -2px 0 ${HALO_EDGE}`,
+      `0 2px 0 ${HALO_EDGE}`,
+      `-2px 0 0 ${HALO_EDGE}`,
+      `2px 0 0 ${HALO_EDGE}`,
+      `0 0 7px ${HALO_GLOW}`,
+      `0 0 7px ${HALO_GLOW}`,
+      `0 0 14px ${HALO_GLOW}`,
+    ].join(", ");
     const hasTestament =
       typeof meta.testament === "string" && (meta.testament as string).length > 0;
     return (
       <div
         className="gz-item"
+        {...(hasTestament
+          ? {
+              role: "button" as const,
+              tabIndex: 0,
+              "aria-label": `Lire le testament de ${event.player.pseudo}`,
+              onClick: () => onOpenTestament(event.player.id),
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpenTestament(event.player.id);
+                }
+              },
+            }
+          : {})}
         style={{
           position: "relative",
           background: "linear-gradient(180deg,#f7f0df,#e7dcc2)",
-          border: "1px solid #ddcfac",
+          // Contour rouge sang, même teinte que le tampon DÉCÈS.
+          border: "1px solid #8c1c22",
           borderRadius: 3,
           padding: "12px 13px 13px",
           transform: "rotate(-0.7deg)",
           boxShadow: "0 17px 30px -12px rgba(0,0,0,.85)",
+          cursor: hasTestament ? "pointer" : undefined,
+          textAlign: "left",
         }}
       >
+        {/* Fond d'ambiance : éclaboussures de sang en haut à droite, fondu vers
+            la gauche (vers le crème du papier) pour garder le texte lisible.
+            Pas d'overflow:hidden sur la carte — la punaise déborde volontairement ;
+            le border-radius est porté par les calques eux-mêmes. */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 3,
+            backgroundImage: "url(/annonces/meurtre.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "right top",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 3,
+            background: "linear-gradient(90deg,#f7f0df 12%,rgba(247,240,223,0) 62%)",
+          }}
+        />
         <span style={{ position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)" }}>
           <Pin size={12} />
         </span>
         <div
           style={{
+            position: "relative",
             fontFamily: "var(--font-display)",
-            fontSize: 8,
-            letterSpacing: ".16em",
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: ".12em",
             color: "#b03a3a",
           }}
         >
-          ⚑ DÉPÊCHE · UN MORT
+          ★ UN MORT AU MANOIR
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 11, marginTop: 8 }}>
+        <div
+          style={{ position: "relative", display: "flex", alignItems: "center", gap: 11, marginTop: 8 }}
+        >
           {/* Polaroïd du défunt — photo barrée. Contour à la couleur de faction
               révélée (renforce le camp du mort ; propre à l'annonce). */}
           <div
@@ -1855,17 +1929,18 @@ export function GazetteCard({
               boxShadow: `0 0 0 2px ${factionColor}, 0 0 12px -2px ${factionColor}, 0 6px 12px -5px rgba(0,0,0,.6)`,
             }}
           >
+            {/* Le filtre N&B porte sur la PHOTO seule (et non sur le conteneur),
+                sinon il désaturerait aussi la croix — qui doit rester rouge. */}
             <div
               style={{
                 position: "relative",
                 width: 48,
                 height: 56,
                 overflow: "hidden",
-                filter: "grayscale(1)",
                 opacity: 0.9,
               }}
             >
-              <AvatarImg avatar={av} fill rounded="none" />
+              <AvatarImg avatar={av} fill rounded="none" className="grayscale" />
               <svg
                 viewBox="0 0 48 56"
                 preserveAspectRatio="none"
@@ -1900,24 +1975,25 @@ export function GazetteCard({
                 fontFamily: "Caveat,cursive",
                 fontWeight: 700,
                 fontSize: 12,
-                color: "#2b1d14",
+                color: factionInk,
                 lineHeight: 1.1,
                 marginTop: 1,
               }}
             >
-              {event.player.pseudo} †
+              {event.player.pseudo}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: 14,
+                fontSize: 18,
                 color: "#2b1d14",
-                lineHeight: 1.12,
+                lineHeight: 1.1,
+                textShadow: paperHalo,
               }}
             >
-              {event.player.pseudo} n'est plus en vie
+              <span style={{ color: factionInk }}>{event.player.pseudo}</span> n'est plus en vie
             </div>
             <div style={{ marginTop: 5 }}>
               <span
@@ -1939,22 +2015,26 @@ export function GazetteCard({
               </span>
             </div>
             {hasTestament && (
-              <button
-                onClick={() => onOpenTestament(event.player.id)}
+              // Affordance visuelle : c'est TOUTE la carte qui ouvre le
+              // testament (voir le conteneur), d'où un <span> et non un
+              // <button> — pas d'interactif imbriqué.
+              <span
                 style={{
-                  marginTop: 6,
+                  marginTop: 8,
+                  display: "inline-block",
                   fontFamily: "var(--font-display)",
-                  fontSize: 8.5,
-                  letterSpacing: ".08em",
-                  color: "#9a6f2a",
-                  border: "1px solid #c4a05a",
-                  borderRadius: 3,
-                  padding: "2px 7px",
-                  background: "transparent",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  letterSpacing: ".12em",
+                  color: "#8a5f1e",
+                  border: "1.5px solid #c4a05a",
+                  borderRadius: 4,
+                  padding: "5px 14px",
+                  background: "color-mix(in oklab, #c4a05a 14%, transparent)",
                 }}
               >
-                ✒ LIRE LE TESTAMENT
-              </button>
+                TESTAMENT
+              </span>
             )}
           </div>
         </div>
@@ -1966,8 +2046,8 @@ export function GazetteCard({
             fontFamily: "var(--font-display)",
             fontSize: 12.5,
             letterSpacing: ".05em",
-            color: "#c2202f",
-            border: "2.5px solid #c2202f",
+            color: "#8c1c22",
+            border: "2.5px solid #8c1c22",
             borderRadius: 4,
             padding: "2px 9px",
             transform: "rotate(-7deg)",
@@ -1981,84 +2061,276 @@ export function GazetteCard({
   }
 
   if (event.kind === "prison") {
+    const meta = (event.player.role_meta ?? {}) as Record<string, unknown>;
+    const av = avatarOf(meta.avatar as string | undefined, event.player.id);
     return (
       <div
         className="gz-item"
         style={{
           position: "relative",
-          overflow: "hidden",
-          background: "linear-gradient(180deg,#fbe6c6,#f1d29c)",
-          border: "1px solid #d99c4a",
+          background: "linear-gradient(180deg,#f4efe0,#e9e0cb)",
+          // Contour orange, même teinte que le badge PRISON.
+          border: "1px solid #c4711a",
           borderRadius: 3,
-          padding: "8px 11px",
+          padding: "12px 13px 13px",
           transform: "rotate(0.6deg)",
-          boxShadow: "0 7px 14px -10px rgba(0,0,0,.65)",
+          boxShadow: "0 17px 30px -12px rgba(0,0,0,.85)",
         }}
       >
-        <span style={{ position: "absolute", top: -4, left: 14 }}>
-          <Pin size={9} />
-        </span>
-        {/* Barreaux de prison sur le côté gauche */}
-        <span
+        {/* Fond d'ambiance : cellule à droite (le fondu est déjà dans l'image),
+            doublé d'un voile crème à gauche pour sécuriser la lisibilité. */}
+        <div
           aria-hidden
           style={{
             position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 26,
-            background: "repeating-linear-gradient(90deg,#8a5a1c 0 2.5px,transparent 2.5px 7.5px)",
-            opacity: 0.5,
+            inset: 0,
+            borderRadius: 3,
+            backgroundImage: "url(/annonces/prison.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "right center",
+            backgroundRepeat: "no-repeat",
           }}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: 9, paddingLeft: 26 }}>
-          <span
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 3,
+            background: "linear-gradient(90deg,#f4efe0 12%,rgba(244,239,224,0) 62%)",
+          }}
+        />
+        <span style={{ position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)" }}>
+          <Pin size={12} />
+        </span>
+        <div
+          style={{
+            position: "relative",
+            fontFamily: "var(--font-display)",
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: ".12em",
+            color: "#a35d12",
+          }}
+        >
+          ★ UN NOUVEAU PRISONNIER
+        </div>
+        {/* alignItems flex-start : la colonne de droite ne contient qu'une ligne
+            ici (contrairement au décès : titre + tag + bouton). Centrée, elle
+            ferait descendre le titre ~28px plus bas que celui du décès. */}
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 11,
+            marginTop: 8,
+          }}
+        >
+          {/* Polaroïd du prisonnier — derrière les barreaux, PAS barré.
+              Aucun contour de faction ici : le prisonnier est VIVANT, son camp
+              ne doit pas fuiter (contrairement à l'avis de décès). */}
+          <div
             style={{
+              position: "relative",
               flex: "none",
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              background: "radial-gradient(circle at 36% 30%,#f4a948,#c4711a 72%)",
-              boxShadow: "0 3px 7px -3px rgba(0,0,0,.5),inset 0 0 0 1.5px rgba(255,255,255,.2)",
+              width: 56,
+              background: "#fbfaf6",
+              padding: "4px 4px 2px",
+              transform: "rotate(-3deg)",
+              boxShadow: "0 6px 12px -5px rgba(0,0,0,.6)",
             }}
           >
-            🔒
-          </span>
-          <div style={{ flex: 1 }}>
+            <div style={{ position: "relative", width: 48, height: 56, overflow: "hidden" }}>
+              <AvatarImg avatar={av} fill rounded="none" />
+              {/* Cadre de fer affiné : la vignette est bien plus petite que les
+                  photos du mur des suspects (qui gardent leur 4px). */}
+              <PrisonBars frameWidth={2} />
+            </div>
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: "Caveat,cursive",
+                fontWeight: 700,
+                fontSize: 12,
+                color: "#2b1d14",
+                lineHeight: 1.1,
+                marginTop: 1,
+              }}
+            >
+              {event.player.pseudo}
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: 11.5,
-                color: "#6a4012",
+                fontSize: 18,
+                // Même encre que « X n'est plus en vie » (cadre décès).
+                color: "#2b1d14",
                 lineHeight: 1.1,
+                // Halo couleur papier : le titre déborde sur la cellule sombre.
+                textShadow: "0 0 7px #f4efe0, 0 0 3px #f4efe0, 0 0 1px #f4efe0",
               }}
             >
               {event.player.pseudo} part en prison
             </div>
-            <div style={{ fontSize: 8.5, color: "#a36f24", fontStyle: "italic", marginTop: 1 }}>
-              Écarté·e du tour.
-            </div>
           </div>
-          <span
+        </div>
+        {/* Badge PLEIN (et non un tampon en contour comme DÉCÈS) : il tombe sur
+            la partie sombre de la cellule, un aplat orange + texte blanc y reste
+            lisible là où un contour orange se noierait. */}
+        <span
+          style={{
+            position: "absolute",
+            right: 9,
+            bottom: 9,
+            fontFamily: "var(--font-display)",
+            fontSize: 12.5,
+            letterSpacing: ".05em",
+            color: "#fff",
+            background: "#c4711a",
+            borderRadius: 4,
+            padding: "3px 10px",
+            transform: "rotate(-7deg)",
+            boxShadow: "0 3px 8px -2px rgba(0,0,0,.55)",
+          }}
+        >
+          PRISON
+        </span>
+      </div>
+    );
+  }
+
+  // Sortie de prison (ordre du Juge) — pendant « clair » du cadre prison.
+  if (event.kind === "release") {
+    const meta = (event.player.role_meta ?? {}) as Record<string, unknown>;
+    const av = avatarOf(meta.avatar as string | undefined, event.player.id);
+    // Bleu ardoise « justice » : s'oppose à l'orange de l'enfermement.
+    const justice = "#2c5a7a";
+    return (
+      <div
+        className="gz-item"
+        style={{
+          position: "relative",
+          background: "linear-gradient(180deg,#f4efe0,#e9e0cb)",
+          border: `1px solid ${justice}`,
+          borderRadius: 3,
+          padding: "12px 13px 13px",
+          transform: "rotate(-0.5deg)",
+          boxShadow: "0 17px 30px -12px rgba(0,0,0,.85)",
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 3,
+            backgroundImage: "url(/annonces/libere.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "right center",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 3,
+            background: "linear-gradient(90deg,#f4efe0 12%,rgba(244,239,224,0) 62%)",
+          }}
+        />
+        <span style={{ position: "absolute", top: -5, left: "50%", transform: "translateX(-50%)" }}>
+          <Pin size={12} />
+        </span>
+        <div
+          style={{
+            position: "relative",
+            fontFamily: "var(--font-display)",
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: ".12em",
+            color: justice,
+          }}
+        >
+          ★ UN PRISONNIER LIBÉRÉ
+        </div>
+        {/* alignItems flex-start : cf. cadre prison — une seule ligne à droite,
+            le centrage la ferait descendre sous le titre du décès. */}
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 11,
+            marginTop: 8,
+          }}
+        >
+          {/* Polaroïd d'un joueur VIVANT et libre : ni barreaux, ni croix, ni
+              contour de faction (son camp ne doit pas fuiter). */}
+          <div
             style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 7,
-              letterSpacing: ".06em",
-              color: "#fff",
-              background: "#c4711a",
-              borderRadius: 3,
-              padding: "2px 6px",
+              position: "relative",
+              flex: "none",
+              width: 56,
+              background: "#fbfaf6",
+              padding: "4px 4px 2px",
               transform: "rotate(-3deg)",
-              boxShadow: "0 2px 5px -2px rgba(0,0,0,.45)",
+              boxShadow: "0 6px 12px -5px rgba(0,0,0,.6)",
             }}
           >
-            PRISON
-          </span>
+            <div style={{ position: "relative", width: 48, height: 56, overflow: "hidden" }}>
+              <AvatarImg avatar={av} fill rounded="none" />
+            </div>
+            <div
+              style={{
+                textAlign: "center",
+                fontFamily: "Caveat,cursive",
+                fontWeight: 700,
+                fontSize: 12,
+                color: "#2b1d14",
+                lineHeight: 1.1,
+                marginTop: 1,
+              }}
+            >
+              {event.player.pseudo}
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 18,
+                // Même encre que « X n'est plus en vie » (cadre décès).
+                color: "#2b1d14",
+                lineHeight: 1.1,
+                textShadow: "0 0 7px #f4efe0, 0 0 3px #f4efe0, 0 0 1px #f4efe0",
+              }}
+            >
+              {event.player.pseudo} sort de prison
+            </div>
+          </div>
         </div>
+        <span
+          style={{
+            position: "absolute",
+            right: 9,
+            bottom: 9,
+            fontFamily: "var(--font-display)",
+            fontSize: 12.5,
+            letterSpacing: ".05em",
+            color: "#fff",
+            background: justice,
+            borderRadius: 4,
+            padding: "3px 10px",
+            transform: "rotate(-7deg)",
+            boxShadow: "0 3px 8px -2px rgba(0,0,0,.55)",
+          }}
+        >
+          LIBÉRÉ
+        </span>
       </div>
     );
   }
@@ -2104,12 +2376,13 @@ export function GazetteCard({
             background: `linear-gradient(90deg, rgb(${base}) 16%, rgba(${base},0) 82%)`,
           }}
         />
+        {/* Mêmes tailles que la carte de mort : libellé 10.5 / phrase 18. */}
         <div style={{ position: "relative", padding: "15px 17px" }}>
           <div
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: 13,
-              letterSpacing: ".1em",
+              fontSize: 10.5,
+              letterSpacing: ".12em",
               fontWeight: 700,
               lineHeight: 1.1,
               color: headColor,
@@ -2117,7 +2390,15 @@ export function GazetteCard({
           >
             {event.heading}
           </div>
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.15, color: bodyColor }}>
+          <div
+            style={{
+              marginTop: 7,
+              fontFamily: "var(--font-display)",
+              fontSize: 18,
+              lineHeight: 1.1,
+              color: bodyColor,
+            }}
+          >
             {event.text}
           </div>
         </div>
