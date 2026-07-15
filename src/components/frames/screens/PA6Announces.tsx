@@ -36,7 +36,15 @@ import { GazetteCard } from "./T1Transition";
 export type Event =
   | { kind: "death"; tour: number; phase: string; player: AnyPlayer; reason?: string }
   | { kind: "prison"; tour: number; player: AnyPlayer }
-  | { kind: "special"; tour: number; icon: ReactNode; text: string };
+  | {
+      kind: "special";
+      tour: number;
+      icon: ReactNode;
+      text: string;
+      // Cadre illustré dédié (Morsure de vampire / éveil du Chasseur).
+      variant?: "bite" | "chasseur";
+      heading?: string;
+    };
 
 // ---------- Helpers ----------
 function eventId(e: Event): string {
@@ -78,16 +86,20 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     events.push({
       kind: "special",
       tour,
+      variant: "bite",
       icon: <Droplet className="size-5" aria-hidden />,
-      text: "Un joueur a été mordu cette nuit..",
+      heading: "★ MORSURE D'UN VAMPIRE",
+      text: "Un joueur a été mordu..",
     });
   }
   for (const tour of chasseurCycles) {
     events.push({
       kind: "special",
       tour,
+      variant: "chasseur",
       icon: <Crosshair className="size-5" aria-hidden />,
-      text: "Un joueur devient Chasseur de Vampire..",
+      heading: "★ UN CHASSEUR DE VAMPIRE S'ÉVEILLE",
+      text: "Un joueur devient Chasseur..",
     });
   }
   // Indices distribués au setup → annonce générique au tour 1 (jamais QUI).

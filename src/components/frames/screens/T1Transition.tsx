@@ -2063,6 +2063,68 @@ export function GazetteCard({
     );
   }
 
+  // Morsure de vampire / éveil du Chasseur — cadre illustré dédié : fond
+  // d'ambiance (image) net à droite, fondu vers la gauche sous le texte.
+  if (event.variant === "bite" || event.variant === "chasseur") {
+    const isBite = event.variant === "bite";
+    const img = isBite ? "/annonces/morsure.jpg" : "/annonces/chasseur.jpg";
+    const base = isBite ? "26,10,24" : "20,15,10";
+    const border = isBite ? "#4a1440" : "#4a3410";
+    const headColor = isBite ? "#f0a6e0" : "#f4c877";
+    const bodyColor = isBite ? "#e6c4de" : "#e9d3ac";
+    return (
+      <div
+        className="gz-item"
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          minHeight: 104,
+          borderRadius: 6,
+          background: `rgb(${base})`,
+          border: `1px solid ${border}`,
+          boxShadow: "0 10px 22px -10px rgba(0,0,0,.8)",
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: `url(${img})`,
+            backgroundSize: "112% auto",
+            backgroundPosition: "78% 40%",
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(90deg, rgb(${base}) 16%, rgba(${base},0) 82%)`,
+          }}
+        />
+        <div style={{ position: "relative", padding: "15px 17px" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 13,
+              letterSpacing: ".1em",
+              fontWeight: 700,
+              lineHeight: 1.1,
+              color: headColor,
+            }}
+          >
+            {event.heading}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.15, color: bodyColor }}>
+            {event.text}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // special — événement rare du MJ (morsure, émergence du Chasseur…)
   return (
     <div
