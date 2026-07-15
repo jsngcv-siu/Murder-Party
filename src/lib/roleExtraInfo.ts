@@ -787,7 +787,7 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Mords et convertis",
-            body: "Chaque tour (cooldown 1 phase), tu convertis un non-vampire : ton clan grandit dans l'ombre.",
+            body: "Chaque tour, tu convertis un non-vampire : ton clan grandit dans l'ombre.",
           },
           {
             tag: "La 1re morsure sonne l'alarme",

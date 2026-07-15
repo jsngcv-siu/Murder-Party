@@ -202,7 +202,7 @@
 - 【 Ton pari te tue 】 Si tu perds un pari, c'est toi qui tombes. Tu gagnes seulement en restant le dernier en vie.
 
 ## 🧛 Le Vampire
-- 【 Mords et convertis 】 Chaque tour (cooldown 1 phase), tu convertis un non-vampire : ton clan grandit dans l'ombre.
+- 【 Mords et convertis 】 Chaque tour, tu convertis un non-vampire : ton clan grandit dans l'ombre.
 - 【 La 1re morsure sonne l'alarme 】 Elle déclenche une annonce publique anonyme et fait émerger le Chasseur de Vampire.
 - 【 Victoire par le nombre 】 Le clan l'emporte en dominant le manoir : équilibre discrétion et vitesse de conversion.
 
