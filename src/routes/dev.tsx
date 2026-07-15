@@ -373,7 +373,34 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     id: "PA6",
     group: "Joueur — vivant",
     label: "Annonces / Cimetière",
-    render: () => <Frame node={<PA6Announces {...ctxFor(civil)} />} />,
+    render: () => {
+      // Aperçu dev : on injecte aussi les cadres illustrés Morsure + éveil du
+      // Chasseur (déduits du role_meta d'un joueur converti et du Chasseur),
+      // pour exposer tous les types d'annonce. Portée locale à la scène.
+      const ctx = ctxFor(civil);
+      const tour = ctx.game.current_tour;
+      const players = ctx.players.map((p) => {
+        if (p.pseudo === "Dré")
+          return {
+            ...p,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              converted: true,
+              converted_cycle: tour,
+            },
+          } as PlayerRow;
+        if (p.pseudo === "Léo")
+          return {
+            ...p,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              chasseur_awakened_cycle: tour,
+            },
+          } as PlayerRow;
+        return p;
+      });
+      return <Frame node={<PA6Announces {...ctx} players={players} />} />;
+    },
   });
   add({
     id: "P15",
