@@ -84,7 +84,7 @@ function isHostileRole(role: {
  * camouflage au verdict du Policier. Source de vérité : `is_killer_class` en
  * base ; repli sur l'ancienne logique (Méchant + type TUEUR).
  */
-function isKillerClass(r: {
+export function isKillerClass(r: {
   faction?: string | null;
   type?: string | null;
   is_killer_class?: boolean | null;
@@ -3312,6 +3312,13 @@ export async function executeCapability(opts: {
 
       case "chasseur_de_vampire": {
         if (!t1) return { ok: false, message: "Cible requise" };
+        // La falsification aveugle TOUTE enquête, le Chasseur compris (règle du
+        // Falsificateur, « toute enquête le concernant renvoie falsifié ») : il ne
+        // peut ni conclure ni exécuter sur une cible falsifiée (audit 2026-07-16).
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "track_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         const isVamp = t1.role_slug === "vampire" || meta(t1).converted === true;
         if (isVamp) {
           await submitIntent({
@@ -4153,9 +4160,17 @@ export async function executeCapability(opts: {
           });
           msg = `${t1.pseudo} : soin — à l'Annonce.`;
         } else {
-          // reveal : faction réelle de la cible (comme la Fiole de clairvoyance).
-          const r = opts.rolesBySlug.get(t1.role_slug ?? "");
-          msg = r ? `${t1.pseudo} = faction ${r.faction}` : `${t1.pseudo} : faction inconnue`;
+          // reveal : faction APPARENTE (déguisements respectés, comme la Fiole de
+          // clairvoyance et les autres enquêtes) — seul l'Assistant perce. La
+          // falsification aveugle. Avant, la faction RÉELLE fuitait l'Usurpateur
+          // couvert et le Tueur camouflé (audit 2026-07-16).
+          const tMeta = meta(t1);
+          if (isFalsified(tMeta)) {
+            msg = FALSIFIED_MSG;
+          } else {
+            const f = apparentFaction(t1.role_slug, tMeta, opts.rolesBySlug);
+            msg = f ? `${t1.pseudo} = faction ${f}` : `${t1.pseudo} : faction inconnue`;
+          }
         }
         await commitMeta({ apo_self_used: selfUsed + 1 });
         await used({ effect: "use_fiole", fiole, on: t1.id });

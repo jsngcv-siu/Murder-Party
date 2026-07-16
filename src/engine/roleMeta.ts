@@ -30,6 +30,12 @@ export interface RoleMeta {
   blocked_from_cycle?: number;
   blackmail_until_cycle?: number;
   blackmail_from_cycle?: number;
+  // ─── Mort différée ───
+  // Condamnation posée en Enquête (killPlayer en phase `free`) : le joueur garde
+  // `is_alive=true` et continue d'agir jusqu'au `flushPendingDeaths` de l'Annonce.
+  // Le resolver relit cette clé pour annuler les effets d'un acteur déjà condamné
+  // ce tour (Vampire/Empoisonneur exécuté par l'Exécuteur — « le kill prime »).
+  pending_death?: { reason: string; tour: number; ts: string; attacker_id?: string } | null;
   // ─── Prison ───
   // Trace DURABLE de la libération (le Juge). `pending_release_for_cycle` est
   // effacé une fois consommé : sans cette clé, la sortie de prison ne laissait

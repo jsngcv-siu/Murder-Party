@@ -103,6 +103,11 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const playerCount = real.length;
 
   const isRealMechant = (p: PlayerRow) => {
+    // Un joueur converti a rejoint le clan vampire : il QUITTE le camp Méchant.
+    // Sans ça il était compté DEUX fois — dans la majorité Méchante ET dans le
+    // règne des Vampires — et un Tueur mordu donnait la victoire « Méchants »
+    // alors qu'il appartient désormais au clan (audit 2026-07-16).
+    if (getMeta(p).converted === true) return false;
     const r = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
     return r?.faction === "Méchant";
   };
@@ -146,7 +151,10 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
 
   const mechantsAlive = alive.filter(isMechant).length;
   const vampiresAlive = alive.filter(isVampire).length;
-  const nonVampAlive = alive.filter((p) => !isVampire(p)).length;
+  // Les neutres bénins (Oracle) NE BLOQUENT PERSONNE (cf. isBenignNeutre) : on les
+  // exclut du décompte des « non-vampires à éliminer », sinon un Oracle vivant
+  // empêchait à tort le règne des Vampires (audit 2026-07-16).
+  const nonVampAlive = alive.filter((p) => !isVampire(p) && !isBenignNeutre(p)).length;
   const loversAlive = alive.filter(isLover);
   // Faction Entremetteur réputée perdue si les 2 amoureux ne sont pas tous les deux vivants.
   const entremetteurFactionActive = loversAlive.length === 2;
@@ -166,7 +174,8 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   for (const slug of soloNeutreSlugs) {
     const me = alive.find((p) => p.role_slug === slug);
     if (!me) continue;
-    const others = alive.filter((p) => p.id !== me.id);
+    // Bénins exclus : ils ne bloquent pas la victoire solo (audit 2026-07-16).
+    const others = alive.filter((p) => p.id !== me.id && !isBenignNeutre(p));
     if (others.length === 0) {
       const label = slug === "veuve_noire" ? "Veuve noire" : "Parieur tricheur";
       return { winner: label, reason: `${me.pseudo} est le·la seul·e survivant·e.` };
@@ -176,7 +185,10 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const empoisonneur = alive.find((p) => p.role_slug === "empoisonneur");
   if (empoisonneur) {
     const others = alive.filter((p) => p.id !== empoisonneur.id);
-    if (others.length > 0 && others.every((p) => getMeta(p).poisoned === true)) {
+    // Les bénins (Oracle) ne bloquent personne : ils n'ont pas besoin d'être
+    // empoisonnés pour que l'Empoisonneur l'emporte (audit 2026-07-16).
+    const mustPoison = others.filter((p) => !isBenignNeutre(p));
+    if (others.length > 0 && mustPoison.every((p) => getMeta(p).poisoned === true)) {
       return {
         winner: "Empoisonneur",
         reason: `${empoisonneur.pseudo} a empoisonné tous les survivants libres.`,
@@ -207,7 +219,9 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
 
   // ── Faction Entremetteur : les 2 amoureux + éventuellement l'entremetteur, seuls vivants.
   if (entremetteurFactionActive) {
-    const others = alive.filter((p) => !isEntremetteurFaction(p));
+    // Bénins exclus : un Oracle vivant ne doit pas priver le couple de sa
+    // victoire (il co-gagne avec eux si sa prophétie colle) — audit 2026-07-16.
+    const others = alive.filter((p) => !isEntremetteurFaction(p) && !isBenignNeutre(p));
     if (others.length === 0) {
       const [a, b] = loversAlive;
       const entAlive = alive.some((p) => p.role_slug === "entremetteur");

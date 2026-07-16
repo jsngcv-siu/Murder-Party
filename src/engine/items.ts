@@ -328,7 +328,16 @@ export function buildRelique(variant: ReliqueVariant, from = "Manoir"): Item {
 }
 
 type UsePlayer = { id: string; pseudo: string; role_slug: string | null };
-type UseRole = { slug: string; name_fr: string; icon: string; faction: string };
+type UseRole = {
+  slug: string;
+  name_fr: string;
+  icon: string;
+  faction: string;
+  // Optionnels : requis seulement pour le camouflage killer-class d'une enquête
+  // (Fiole de clairvoyance). Absents = pas de camouflage appliqué.
+  type?: string | null;
+  is_killer_class?: boolean | null;
+};
 
 /** Applique l'effet d'un objet et marque la fiche comme consommée. */
 export async function consumeItem(opts: {
@@ -454,12 +463,31 @@ export async function consumeItem(opts: {
       break;
     }
     case "fiole_clairvoyance": {
-      const r = target!.role_slug ? opts.rolesBySlug.get(target!.role_slug) : null;
-      // Révèle la FACTION seule (conforme à la description de l'objet et à
-      // l'Apothicaire) — pas le rôle complet.
-      message = r
-        ? `${target!.pseudo} = faction ${r.faction}`
-        : `${target!.pseudo} : faction inconnue`;
+      // Révèle la FACTION seule (pas le rôle complet). Comme toute enquête, elle
+      // respecte les déguisements — seul l'Assistant du détective perce, et il
+      // n'utilise pas de fiole. Avant, la faction RÉELLE fuitait l'Usurpateur
+      // couvert et le Tueur camouflé, et la falsification n'aveuglait pas la
+      // fiole (audit 2026-07-16).
+      const { isKillerClass } = await import("./actions");
+      const { data: tRow } = await supabase
+        .from("players")
+        .select("role_meta")
+        .eq("id", target!.id)
+        .maybeSingle();
+      const tMeta = (tRow?.role_meta ?? {}) as Record<string, unknown>;
+      if (tMeta.falsified === true) {
+        message = "Le joueur a été falsifié";
+      } else {
+        // Usurpateur sous couverture (toujours un Civil) → faction de la couverture.
+        const coverSlug = typeof tMeta.cover_slug === "string" ? tMeta.cover_slug : null;
+        const seenSlug = coverSlug ?? target!.role_slug;
+        const r = seenSlug ? opts.rolesBySlug.get(seenSlug) : null;
+        // Tueur méchant camouflé (killer-class) → apparaît « Civil ».
+        const faction = r && isKillerClass(r) ? "Civil" : (r?.faction ?? null);
+        message = faction
+          ? `${target!.pseudo} = faction ${faction}`
+          : `${target!.pseudo} : faction inconnue`;
+      }
       await notify(actorId, "🔮 Clairvoyance", message);
       break;
     }

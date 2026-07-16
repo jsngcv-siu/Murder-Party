@@ -358,7 +358,14 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
                     : null;
                   const rolesForUse = new Map<
                     string,
-                    { slug: string; name_fr: string; icon: string; faction: string }
+                    {
+                      slug: string;
+                      name_fr: string;
+                      icon: string;
+                      faction: string;
+                      type?: string | null;
+                      is_killer_class?: boolean | null;
+                    }
                   >();
                   roles.forEach((r, k) =>
                     rolesForUse.set(k, {
@@ -366,6 +373,9 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
                       name_fr: r.name_fr,
                       icon: r.icon,
                       faction: r.faction as string,
+                      // Requis pour le camouflage killer-class de la Fiole de clairvoyance.
+                      type: r.type,
+                      is_killer_class: r.is_killer_class,
                     }),
                   );
                   const itemToUse: Item =

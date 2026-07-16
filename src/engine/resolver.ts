@@ -512,10 +512,16 @@ async function applyConvert(
   if (!targetId) return { status: "cancelled", reason: "no_target" };
   const { data: actorRow } = await supabase
     .from("players")
-    .select("is_alive")
+    .select("is_alive, role_meta")
     .eq("id", intent.actor_player_id)
     .single();
-  if (!(actorRow as { is_alive: boolean } | null)?.is_alive) {
+  const actor = actorRow as { is_alive: boolean; role_meta: Record<string, unknown> } | null;
+  // « Le kill prime » : un Vampire tué CE tour n'infecte pas. Le kill peut être
+  // IMMÉDIAT (is_alive déjà false) OU DIFFÉRÉ — condamné par l'Exécuteur en
+  // Enquête, il garde is_alive=true jusqu'au flush qui suit ce resolver, mais
+  // porte déjà `pending_death`. Sans ce second test, un Vampire condamné mordait
+  // quand même (audit 2026-07-16).
+  if (!actor?.is_alive || getMeta(actor).pending_death) {
     return { status: "cancelled", reason: "biter_killed" };
   }
   const { data: tgtRow } = await supabase
@@ -538,13 +544,16 @@ async function applyConvert(
 async function applyPoison(intent: RoleActionRow): Promise<Record<string, unknown>> {
   const targetId = intent.target_player_id;
   if (!targetId) return { status: "cancelled", reason: "no_target" };
-  // Empoisonneur mort ce tour → malédiction annulée.
+  // Empoisonneur mort ce tour → malédiction annulée. Kill immédiat (is_alive
+  // false) OU différé (condamné par l'Exécuteur en Enquête → `pending_death` posé
+  // avant le flush qui suit ce resolver) : les deux annulent (audit 2026-07-16).
   const { data: actorRow } = await supabase
     .from("players")
-    .select("is_alive")
+    .select("is_alive, role_meta")
     .eq("id", intent.actor_player_id)
     .single();
-  if (!(actorRow as { is_alive: boolean } | null)?.is_alive) {
+  const actor = actorRow as { is_alive: boolean; role_meta: Record<string, unknown> } | null;
+  if (!actor?.is_alive || getMeta(actor).pending_death) {
     return { status: "cancelled", reason: "poisoner_killed" };
   }
   const { data: tgt } = await supabase
