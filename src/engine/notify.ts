@@ -16,7 +16,7 @@ export async function notify(opts: {
   mjTitle?: string;
   mjBody?: string;
 }) {
-  await supabase.from("notifications").insert({
+  const { error } = await supabase.from("notifications").insert({
     game_id: opts.gameId,
     player_id: opts.playerId,
     type: opts.type,
@@ -24,8 +24,11 @@ export async function notify(opts: {
     body: opts.body ?? null,
     payload: (opts.payload ?? {}) as never,
   });
+  // Un INSERT refusé par RLS doit rester bruyant : c'est ce silence qui a caché
+  // les capacités inter-joueurs cassées hors hôte (audit 2026-07-16).
+  if (error) console.error(`[engine] notify(${opts.type}) REFUSÉ (RLS ?)`, error, opts.title);
   if (opts.mjTitle) {
-    await supabase.from("notifications").insert({
+    const { error: mjError } = await supabase.from("notifications").insert({
       game_id: opts.gameId,
       player_id: null,
       type: opts.type,
@@ -33,6 +36,7 @@ export async function notify(opts: {
       body: opts.mjBody ?? null,
       payload: { ...(opts.payload ?? {}), mj_view: true } as never,
     });
+    if (mjError) console.error(`[engine] notify MJ (${opts.type}) REFUSÉ (RLS ?)`, mjError);
   }
 }
 
@@ -44,7 +48,7 @@ export async function notifyMJ(opts: {
   body?: string;
   payload?: Record<string, unknown>;
 }) {
-  await supabase.from("notifications").insert({
+  const { error } = await supabase.from("notifications").insert({
     game_id: opts.gameId,
     player_id: null,
     type: opts.type,
@@ -52,4 +56,5 @@ export async function notifyMJ(opts: {
     body: opts.body ?? null,
     payload: { ...(opts.payload ?? {}), mj_view: true } as never,
   });
+  if (error) console.error(`[engine] notifyMJ(${opts.type}) REFUSÉ (RLS ?)`, error, opts.title);
 }

@@ -150,10 +150,15 @@ export async function grantItem(playerId: string, item: Item): Promise<void> {
   const meta = (row?.role_meta ?? {}) as Record<string, unknown>;
   const inv = (meta.inventory as Item[] | undefined) ?? [];
   const next = { ...meta, inventory: [item, ...inv] };
-  await supabase
+  // `.select("id")` : un UPDATE filtré par RLS renvoie 0 ligne sans erreur — rendu
+  // bruyant depuis l'audit 2026-07-16 (objets « donnés » qui n'arrivaient jamais).
+  const { data: wrote, error } = await supabase
     .from("players")
     .update({ role_meta: next as never })
-    .eq("id", playerId);
+    .eq("id", playerId)
+    .select("id");
+  if (error || !wrote?.length)
+    console.error(`[engine] grantItem(${item.slug}) REFUSÉ sur ${playerId} (RLS ?)`, error ?? "0 ligne");
 }
 
 export function readInventory(roleMeta: Record<string, unknown> | null | undefined): Item[] {

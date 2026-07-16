@@ -47,10 +47,18 @@ async function patchMeta(playerId: string, patch: Meta) {
   const { data } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
   const cur = meta(data as { role_meta: unknown });
   const next = { ...cur, ...patch };
-  await supabase
+  // `.select("id")` : un UPDATE filtré par RLS renvoie 0 ligne SANS erreur — c'est
+  // exactement le no-op silencieux qui a caché le bug des capacités inter-joueurs
+  // (audit 2026-07-16). On le rend bruyant pour ne plus jamais le perdre.
+  const { data: wrote, error } = await supabase
     .from("players")
     .update({ role_meta: next as never })
-    .eq("id", playerId);
+    .eq("id", playerId)
+    .select("id");
+  if (error || !wrote?.length) {
+    console.error(`[engine] patchMeta REFUSÉ sur ${playerId} (RLS ?)`, error ?? "0 ligne", patch);
+    emit("write_denied", `patchMeta refusé sur ${playerId}`, { patch });
+  }
   return next;
 }
 
@@ -1308,6 +1316,31 @@ export async function tickPhase(gameId: string): Promise<void> {
   } finally {
     _tickInFlight.delete(gameId);
   }
+}
+
+/** Exécute une transition MANUELLE (boutons MJ / démo) sous le MÊME verrou
+ *  serveur que le ticker. Sans lui, un clic MJ tombant pile sur la frontière de
+ *  phase faisait tourner ringGathering/closeVote EN PARALLÈLE du ticker : resolver
+ *  rejoué (notifications/charges en double) ou double verdict de vote — l'égalité
+ *  étant tranchée au sort, deux joueurs différents pouvaient être emprisonnés
+ *  (audit 2026-07-16). Si le verrou est pris, on ne fait RIEN : le détenteur
+ *  (ticker ou autre client) exécute déjà cette même transition.
+ *  Retourne false si l'action a été ignorée pour cette raison. */
+export async function runExclusivePhaseAction(
+  gameId: string,
+  fn: () => Promise<unknown>,
+): Promise<boolean> {
+  const { data: won, error } = await supabase.rpc(
+    "claim_phase_tick" as never,
+    { p_game_id: gameId } as never,
+  );
+  if (error || !won) return false;
+  try {
+    await fn();
+  } finally {
+    await supabase.rpc("release_phase_tick" as never, { p_game_id: gameId } as never);
+  }
+  return true;
 }
 
 export async function setPaused(gameId: string, paused: boolean): Promise<void> {

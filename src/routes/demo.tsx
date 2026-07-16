@@ -16,6 +16,7 @@ import {
   imprisonPlayer,
   releasePlayer,
   resetGame,
+  runExclusivePhaseAction,
   tickPhase,
   setPaused,
   type GameRow,
@@ -653,14 +654,16 @@ function DemoMenu() {
       alert(e instanceof Error ? e.message : "Erreur de tirage");
     }
   }
+  // Sous verrou serveur : mêmes règles que les boutons MJ — si le ticker franchit
+  // la frontière au même instant, un seul des deux exécute la transition.
   async function ring() {
-    if (gameId) await ringGathering(gameId, "Démo");
+    if (gameId) await runExclusivePhaseAction(gameId, () => ringGathering(gameId, "Démo"));
   }
   async function openV() {
-    if (gameId) await openVote(gameId);
+    if (gameId) await runExclusivePhaseAction(gameId, () => openVote(gameId));
   }
   async function closeV() {
-    if (gameId) await closeVote(gameId);
+    if (gameId) await runExclusivePhaseAction(gameId, () => closeVote(gameId));
   }
 
   // ── Contrôle du minuteur de phase en direct ──────────────────────────────

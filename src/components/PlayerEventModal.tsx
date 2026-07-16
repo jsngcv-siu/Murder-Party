@@ -1,5 +1,6 @@
 // PlayerEventModal — fenêtres centrées stylisées pour les événements personnels
-// du joueur : mort, prison, exécution, libération, morsure de vampire.
+// du joueur : mort, prison, exécution, libération, morsure de vampire, éveil du
+// Chasseur.
 //
 // S'abonne à la table `notifications` filtrée sur `player_id = me.id`, met les
 // événements pertinents en file d'attente, et les affiche un par un. Pour ne
@@ -26,7 +27,7 @@ import {
   INK_BODY,
 } from "@/components/boardChrome";
 
-export type EventKind = "killed" | "executed" | "imprisoned" | "released" | "bitten";
+export type EventKind = "killed" | "executed" | "imprisoned" | "released" | "bitten" | "chasseur";
 
 export interface QueuedEvent {
   id: string;
@@ -134,11 +135,23 @@ export function PlayerEventModal({
         createdAt: new Date(row.created_at).getTime(),
       };
     }
-    if (row.type === "bitten" || row.type === "vampire_bite") {
+    // "converted" est le type réellement émis par applyVampireConversion ;
+    // "bitten"/"vampire_bite" sont gardés pour compat (DevGallery, anciens rows).
+    // Sans ce mapping, la carte Morsure n'apparaissait JAMAIS en live (audit 2026-07-16).
+    if (row.type === "converted" || row.type === "bitten" || row.type === "vampire_bite") {
       return {
         id: row.id,
         kind: "bitten",
         byRoleSlug: "vampire",
+        createdAt: new Date(row.created_at).getTime(),
+      };
+    }
+    // Émis uniquement par l'émergence du Chasseur (1ère morsure de la partie).
+    if (row.type === "role_swap") {
+      return {
+        id: row.id,
+        kind: "chasseur",
+        byRoleSlug: "chasseur_de_vampire",
         createdAt: new Date(row.created_at).getTime(),
       };
     }
@@ -163,7 +176,7 @@ export function PlayerEventModal({
         .select("id, type, title, body, payload, created_at")
         .eq("game_id", game.id)
         .eq("player_id", me.id)
-        .in("type", ["death", "imprisoned", "released", "bitten", "vampire_bite"])
+        .in("type", ["death", "imprisoned", "released", "bitten", "vampire_bite", "converted", "role_swap"])
         .order("created_at", { ascending: true });
       if (cancelled) return;
       const rows = (data ?? []) as NotificationRow[];
@@ -328,6 +341,21 @@ const BOARD_LOOK: Record<EventKind, BoardLook> = {
     rotate: 1,
     btnLabel: "Compris",
     btnVariant: "fill",
+  },
+  chasseur: {
+    header: "— BULLETIN CONFIDENTIEL —",
+    title: "Tu sens l'appel",
+    stamp: "CHASSEUR ÉVEILLÉ",
+    body: "Un vampire rôde. Tu deviens Chasseur de Vampire — traque-les avant qu'il ne soit trop tard.",
+    emoji: "🩸",
+    emojiBg: "radial-gradient(circle at 36% 30%,#8fb4d8,#2f4d7d 72%)",
+    ink: "#33507e",
+    paper: PAPER,
+    border: PAPER_BORDER,
+    rotate: -1,
+    btnLabel: "Prendre les armes",
+    btnVariant: "fill",
+    showRole: true,
   },
 };
 

@@ -237,9 +237,22 @@ function GamePage() {
     return (
       <JoinAsLatePlayer
         code={code}
-        onJoined={(p) => {
-          setMe(p);
+        onJoined={({ game: joinedGame, player }) => {
+          // Le `game` retourné par joinGame est indispensable ici : avant le
+          // join, la lecture directe de `games` était bloquée par RLS (arrivée
+          // par URL directe) → sans lui, `game` restait null et l'écran
+          // retombait sur « Partie introuvable » malgré un join réussi, jusqu'au
+          // prochain event realtime (audit 2026-07-16).
+          if (joinedGame) {
+            gameIdRef.current = joinedGame.id;
+            setGameId(joinedGame.id);
+            setGame(joinedGame);
+          }
+          setMe(player);
           setNeedsPseudo(false);
+          // La liste des joueurs n'a jamais été chargée sur ce chemin (load()
+          // sortait avant) — on la récupère maintenant qu'on est participant.
+          void refetchPlayers();
         }}
       />
     );
@@ -249,7 +262,13 @@ function GamePage() {
 }
 
 // ─────────────── Late join ───────────────
-function JoinAsLatePlayer({ code, onJoined }: { code: string; onJoined: (p: PlayerRow) => void }) {
+function JoinAsLatePlayer({
+  code,
+  onJoined,
+}: {
+  code: string;
+  onJoined: (r: { game: GameRow | null; player: PlayerRow }) => void;
+}) {
   const [pseudo, setPseudo] = useState(getStoredPseudo());
   const [loading, setLoading] = useState(false);
   async function submit(e: React.FormEvent) {
@@ -257,9 +276,9 @@ function JoinAsLatePlayer({ code, onJoined }: { code: string; onJoined: (p: Play
     if (!pseudo.trim()) return;
     setLoading(true);
     try {
-      const { player } = await joinGame({ code, pseudo: pseudo.trim() });
+      const { game, player } = await joinGame({ code, pseudo: pseudo.trim() });
       setStoredPseudo(pseudo.trim());
-      onJoined(player);
+      onJoined({ game: game ?? null, player });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {

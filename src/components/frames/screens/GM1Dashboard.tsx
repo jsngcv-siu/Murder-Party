@@ -13,6 +13,7 @@ import {
   openVote,
   closeVote,
   nextCycle,
+  runExclusivePhaseAction,
   setPhase,
   setPaused,
   type RoleRow,
@@ -215,7 +216,9 @@ export function GM1Dashboard(ctx: FrameContext) {
       );
       if (!ok) return;
     }
-    await run("Annonce", () => ringGathering(gameId, "MJ"));
+    // Sous verrou serveur : si le ticker franchit la frontière au même instant,
+    // un seul des deux exécute la transition (sinon resolver rejoué en double).
+    await run("Annonce", () => runExclusivePhaseAction(gameId, () => ringGathering(gameId, "MJ")));
   }
 
   const selectedPlayer = livePlayers.find((p) => p.id === selected) ?? null;
@@ -382,11 +385,19 @@ export function GM1Dashboard(ctx: FrameContext) {
             tour={game.current_tour}
             gameId={gameId}
             onRing={tryRing}
-            onOpenGathering={() => run("Débat ouvert", () => openGathering(gameId))}
-            onOpenVote={() => run("Vote ouvert", () => openVote(gameId))}
-            onCloseVote={() => run("Vote clôturé", () => closeVote(gameId))}
+            onOpenGathering={() =>
+              run("Débat ouvert", () => runExclusivePhaseAction(gameId, () => openGathering(gameId)))
+            }
+            onOpenVote={() =>
+              run("Vote ouvert", () => runExclusivePhaseAction(gameId, () => openVote(gameId)))
+            }
+            onCloseVote={() =>
+              run("Vote clôturé", () => runExclusivePhaseAction(gameId, () => closeVote(gameId)))
+            }
             onFree={() => run("Enquête", () => setPhase(gameId, "free"))}
-            onNext={() => run("Tour suivant", () => nextCycle(gameId))}
+            onNext={() =>
+              run("Tour suivant", () => runExclusivePhaseAction(gameId, () => nextCycle(gameId)))
+            }
             onSelect={setSelected}
           />
         )}

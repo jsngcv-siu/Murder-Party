@@ -366,6 +366,20 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
       ),
   });
   add({
+    id: "M-chasseur",
+    group: "Modales",
+    label: "Éveil du Chasseur",
+    render: () =>
+      modal(
+        <EventCard
+          embedded
+          ev={evt("chasseur", "chasseur_de_vampire")}
+          role={roles.get("chasseur_de_vampire") ?? null}
+          onClose={() => {}}
+        />,
+      ),
+  });
+  add({
     id: "M-cible",
     group: "Modales",
     label: "Mort (avis de décès)",

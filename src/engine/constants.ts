@@ -27,14 +27,22 @@ const ACOLYTE_QUOTAS: Record<"small" | "mid" | "large" | "xl", FactionQuotas> = 
     TROMPERIE: { min: 0, max: 1 },
     CONTRÔLE: { min: 0, max: 1 },
   },
+  // ⚠ Les `min` CONSOMMENT les slots avant le tirage libre (drawByQuotas §1) :
+  // à 9 j. (1 seul acolyte), un min:1 force la famille de l'unique slot ; à
+  // 14-17 j. (2 acolytes), deux min:1 saturent les 2 slots. C'est ce qui rendait
+  // la famille CONTRÔLE mathématiquement NON-TIRABLE à 9 et 14-17 joueurs
+  // (audit 2026-07-16) — les mins sont relâchés pour laisser le tirage pondéré
+  // choisir la famille, les max continuent de borner la composition.
   mid: {
-    INVESTIGATION: { min: 1, max: 1 },
+    INVESTIGATION: { min: 0, max: 1 },
     TROMPERIE: { min: 0, max: 1 },
     CONTRÔLE: { min: 0, max: 1 },
   },
   large: {
+    // 1 enquêteur méchant garanti ; le 2ᵉ slot se joue entre TROMPERIE et
+    // CONTRÔLE (INVESTIGATION saturé par son max:1).
     INVESTIGATION: { min: 1, max: 1 },
-    TROMPERIE: { min: 1, max: 2 },
+    TROMPERIE: { min: 0, max: 2 },
     CONTRÔLE: { min: 0, max: 2 },
   },
   xl: {
