@@ -1760,7 +1760,7 @@ export function AnnonceScreen({ game, players, roles }: FrameContext) {
 
       {/* Modal testament */}
       {openPlayerId && openPlayer && (
-        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur flex flex-col p-6 pt-[max(1.5rem,env(safe-area-inset-top))] max-w-md mx-auto">
+        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur flex flex-col p-6 pt-[max(1.5rem,var(--safe-top))] max-w-md mx-auto">
           <button
             onClick={() => setOpenPlayerId(null)}
             className="self-start text-sm text-muted-foreground hover:text-foreground transition"

@@ -89,7 +89,7 @@ export function P11HelpMenu({
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col max-w-md mx-auto">
-      <header className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-border">
+      <header className="flex items-center justify-between p-4 pt-[max(1rem,var(--safe-top))] border-b border-border">
         <span className="text-sm font-semibold">{title}</span>
         <button
           onClick={onClose}
@@ -136,7 +136,7 @@ export function P11HelpMenu({
       </div>
 
       {(onLeave || onQuit) && (
-        <footer className="border-t border-border bg-card/60 p-3 space-y-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <footer className="border-t border-border bg-card/60 p-3 space-y-2 pb-[max(0.75rem,var(--safe-bottom))]">
           {onLeave && (
             <button
               onClick={onLeave}
@@ -1392,7 +1392,7 @@ function RolePopup({
   return (
     <div className="fixed inset-0 z-[60] bg-background/96 backdrop-blur-md flex flex-col max-w-md mx-auto">
       {/* Barre retour */}
-      <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
+      <div className="flex items-center justify-between px-4 pt-[max(1rem,var(--safe-top))] pb-2">
         <button
           onClick={onClose}
           className="inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg border border-border bg-card/70 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card transition active:scale-95"

@@ -36,13 +36,13 @@ function HomePage() {
         <>
           <Link
             to="/dev"
-            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
+            className="absolute top-[max(0.5rem,var(--safe-top))] left-[max(0.75rem,var(--safe-left))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
           >
             🧪 Dev
           </Link>
           <Link
             to="/demo"
-            className="absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
+            className="absolute top-[max(0.5rem,var(--safe-top))] right-[max(0.75rem,var(--safe-right))] inline-flex items-center justify-center tap-target text-xs font-medium text-muted-foreground hover:text-gold transition z-50 px-3 py-1.5 rounded-full border border-border/40 bg-card/40 backdrop-blur"
           >
             🎬 Démo
           </Link>
@@ -85,7 +85,7 @@ function VersionBadge() {
     }
   })();
   return (
-    <footer className="pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 text-center">
+    <footer className="pb-[max(0.75rem,var(--safe-bottom))] pt-1 text-center">
       <span className="text-[10px] font-mono tracking-wide text-muted-foreground/50 select-all">
         V {APP_VERSION}
         {built ? ` · ${built}` : ""}

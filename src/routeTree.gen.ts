@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StateLabRouteImport } from './routes/state-lab'
 import { Route as ResultLabRouteImport } from './routes/result-lab'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GCodeRouteImport } from './routes/g.$code'
 
+const StateLabRoute = StateLabRouteImport.update({
+  id: '/state-lab',
+  path: '/state-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResultLabRoute = ResultLabRouteImport.update({
   id: '/result-lab',
   path: '/result-lab',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/result-lab': typeof ResultLabRoute
+  '/state-lab': typeof StateLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/result-lab': typeof ResultLabRoute
+  '/state-lab': typeof StateLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,22 @@ export interface FileRoutesById {
   '/demo': typeof DemoRoute
   '/dev': typeof DevRoute
   '/result-lab': typeof ResultLabRoute
+  '/state-lab': typeof StateLabRoute
   '/g/$code': typeof GCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
+  fullPaths: '/' | '/demo' | '/dev' | '/result-lab' | '/state-lab' | '/g/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
-  id: '__root__' | '/' | '/demo' | '/dev' | '/result-lab' | '/g/$code'
+  to: '/' | '/demo' | '/dev' | '/result-lab' | '/state-lab' | '/g/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/demo'
+    | '/dev'
+    | '/result-lab'
+    | '/state-lab'
+    | '/g/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +92,19 @@ export interface RootRouteChildren {
   DemoRoute: typeof DemoRoute
   DevRoute: typeof DevRoute
   ResultLabRoute: typeof ResultLabRoute
+  StateLabRoute: typeof StateLabRoute
   GCodeRoute: typeof GCodeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/state-lab': {
+      id: '/state-lab'
+      path: '/state-lab'
+      fullPath: '/state-lab'
+      preLoaderRoute: typeof StateLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/result-lab': {
       id: '/result-lab'
       path: '/result-lab'
@@ -124,6 +148,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemoRoute: DemoRoute,
   DevRoute: DevRoute,
   ResultLabRoute: ResultLabRoute,
+  StateLabRoute: StateLabRoute,
   GCodeRoute: GCodeRoute,
 }
 export const routeTree = rootRouteImport

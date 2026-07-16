@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 export function BrandHeader({ subtitle }: { subtitle?: string }) {
   return (
-    <header className="px-6 pt-[max(2.5rem,env(safe-area-inset-top))] pb-6 text-center">
+    <header className="px-6 pt-[max(2.5rem,var(--safe-top))] pb-6 text-center">
       <Link to="/" className="inline-block group">
         <h1 className="brand-title text-3xl font-bold tracking-wide text-gold transition-transform duration-300 group-hover:scale-[1.02]">
           MURDER · PARTY

@@ -347,7 +347,7 @@ export function EventCard({
 
   return (
     <div
-      className={`${embedded ? "absolute" : "fixed"} inset-0 z-[200] flex items-center justify-center p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] animate-in fade-in duration-300`}
+      className={`${embedded ? "absolute" : "fixed"} inset-0 z-[200] flex items-center justify-center p-6 pt-[max(1.5rem,var(--safe-top))] pb-[max(1.5rem,var(--safe-bottom))] animate-in fade-in duration-300`}
       style={{ background: "rgba(6,5,8,.78)", backdropFilter: "blur(3px)" }}
       onClick={onClose}
     >

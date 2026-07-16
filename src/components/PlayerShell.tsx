@@ -11,6 +11,7 @@ import type { GameRow, PlayerRow } from "@/lib/game";
 import type { RoleRow } from "@/engine/actions";
 import type { FrameContext } from "@/components/frames/registry";
 import { phasePalette } from "@/lib/avatars";
+import { playerState, stateTheme, type Atmosphere } from "@/lib/statePalette";
 import { Check, Clock, Hourglass, Lock, Pause, Settings, Skull } from "lucide-react";
 import {
   AnnoncesIcon,
@@ -610,9 +611,30 @@ export function PlayerShell({
   // clavier en plein milieu d'un testament, perd le focus des inputs, etc.).
   const rootClass = `${embedded ? "h-full" : "h-dvh"} flex flex-col bg-background relative overflow-hidden isolate`;
 
+  // Colorimétrie d'ÉTAT (vivant / prison / mort). `theme.vars` redéfinit des
+  // tokens CSS sur cette racine ; tout ce qui est dessous (en-tête, bandeau de
+  // statuts, fonds d'onglets, barre du bas) suit sans le savoir. Vivant = DA
+  // principale, donc `vars` est vide et rien ne change. Cf. lib/statePalette.
+  const theme = stateTheme(playerState(me));
+  // Le décor d'état (barreaux / volutes) est peint UNE SEULE FOIS, dans le fond
+  // de la racine — donc derrière tout le contenu, à position/échelle/teinte
+  // identiques sur tous les onglets. Le liège des onglets, opaque, masquerait ce
+  // fond : `data-cork="off"` (posé sur les racines quand `theme.corkOff`)
+  // l'efface entièrement. Les propriétés vont ENSEMBLE : sans `size`/`repeat` la
+  // texture se carrellerait à sa taille native, sans `position` elle resterait
+  // collée en haut à gauche.
+  const rootStyle = {
+    ...theme.vars,
+    backgroundImage: "var(--surface-pattern, none)",
+    backgroundSize: "var(--surface-size, auto)",
+    backgroundPosition: "var(--surface-position, 0 0)",
+    backgroundRepeat: "var(--surface-repeat, repeat)",
+    backgroundBlendMode: "var(--surface-blend, normal)",
+  };
+
   if (game.status === "ended") {
     return (
-      <div className={rootClass}>
+      <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
         {embedded ? null : <BrandHeader subtitle="Partie terminée" />}
         <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
           <E1EndGame {...ctx} />
@@ -666,6 +688,8 @@ export function PlayerShell({
     onHelp: () => setHelpOpen(true),
     waitingCount: pendingReveals,
     waitingTotal: totalToReveal,
+    stateWash: theme.wash,
+    stateAccent: theme.accent,
   };
 
   // ── Attente du départ (cas SANS fiche de rôle) ────────────────────────────
@@ -677,7 +701,7 @@ export function PlayerShell({
   // (`embedded`) la bascule est instantanée, on garde le shell.
   if (waitingStart && !embedded) {
     return (
-      <div className={rootClass}>
+      <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
         <ShellHeader {...headerProps} />
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center gap-4 px-5 text-center">
           <span className="relative flex size-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
@@ -706,7 +730,7 @@ export function PlayerShell({
   const isMjView = me.is_mj && !game.mode_detective_player;
   if (isMjView) {
     return (
-      <div className={rootClass}>
+      <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
         <ShellHeader {...headerProps} />
         <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
           <M1Dashboard {...ctx} />
@@ -727,7 +751,7 @@ export function PlayerShell({
 
   if (isAnnonce) {
     return (
-      <div className={rootClass}>
+      <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
         <ShellHeader {...headerProps} />
         <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
           <AnnonceScreen {...ctx} />
@@ -749,7 +773,7 @@ export function PlayerShell({
     const isSuspicionVariant =
       (game as unknown as { variant?: string | null }).variant === "suspicion";
     return (
-      <div className={rootClass}>
+      <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
         <ShellHeader {...headerProps} />
         <div className="flex-1 max-w-md mx-auto w-full overflow-y-auto">
           {isSuspicionVariant ? <V1VoteSuspicion {...ctx} /> : <P7Vote {...ctx} />}
@@ -787,7 +811,7 @@ export function PlayerShell({
     if (me.is_imprisoned) {
       if (tab === "capacity")
         return (
-          <HoldToReveal>
+          <HoldToReveal label="Prison" subtitle="registre d'écrou">
             <P13Prison {...ctx} />
           </HoldToReveal>
         );
@@ -824,22 +848,30 @@ export function PlayerShell({
   const activeAccent = tabAccent(tab);
 
   return (
-    <div className={rootClass}>
-      <AmbientTint phase={game.current_phase} />
+    <div className={rootClass} style={rootStyle} data-cork={theme.corkOff ? "off" : undefined}>
+      <AmbientTint phase={game.current_phase} stateWash={theme.wash} />
       <ShellHeader {...headerProps} />
       <StatusBandeau me={me} tour={game.current_tour} players={players} />
       {isLoup && me.is_alive && <KillerTargetBanner game={game} players={players} />}
 
-      <div
-        key={tab}
-        className="anim-tab-in flex-1 min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain"
-      >
-        {renderBody()}
+      {/* L'atmosphère est confinée au CORPS — pas au chrome. En couvrant toute la
+          racine, son gel de lumière passait au-dessus de l'en-tête (z-20), du
+          bandeau de statuts et de la barre d'onglets : les tampons de phase et
+          les badges se retrouvaient lavés par la lampe et ne ressortaient plus.
+          La lumière appartient au décor ; les contrôles n'en font pas partie. */}
+      <div className="relative flex-1 min-h-0 flex flex-col isolate">
+        <div
+          key={tab}
+          className="anim-tab-in flex-1 min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain"
+        >
+          {renderBody()}
+        </div>
+        <StateAtmosphere atmosphere={theme.atmosphere} />
       </div>
 
       <nav
         aria-label="Navigation du joueur"
-        className="relative border-t border-border bg-card/95 backdrop-blur grid grid-cols-5 max-w-md mx-auto w-full pb-[max(0.25rem,env(safe-area-inset-bottom))] select-none"
+        className="relative border-t border-border bg-card/95 backdrop-blur grid grid-cols-5 max-w-md mx-auto w-full pb-[max(0.25rem,var(--safe-bottom))] select-none"
       >
         {/* Indicateur actif unique qui glisse entre les onglets. */}
         <span
@@ -940,8 +972,43 @@ export function PlayerShell({
 
 // Calque d'ambiance derrière le contenu : une teinte douce qui change selon
 // la phase (Enquête = chaud doré, Débat = violet nuit, vote = rouge tension).
-function AmbientTint({ phase }: { phase: string }) {
-  const { wash } = phasePalette(phase);
+//
+// `stateWash` (prison / mort) PRIME sur la phase : l'état doit primer sur le
+// moment de la partie. On ne perd pas la phase pour autant — le stepper de
+// l'en-tête garde la couleur propre à chaque phase.
+// Atmosphère d'état — uniquement de la LUMIÈRE et de l'OMBRE, jamais de la
+// matière. Les barreaux et la brume sont peints dans le FOND des surfaces
+// (`--surface-pattern`) : en avant-plan ils striaient le papier et lisaient
+// comme de la saleté plutôt que comme un décor.
+//
+// Ces deux calques-ci restent devant parce que la lumière tombe bel et bien SUR
+// le dossier qu'on tient, et parce que le liège des onglets est opaque (un
+// calque derrière serait masqué dès qu'on ouvre un onglet).
+//
+// Sans manger la lisibilité :
+//  · `light` est en `soft-light` — il éclaire les valeurs claires mais laisse
+//    les noirs noirs, au lieu d'un voile qui aplatirait tout ;
+//  · `vignette` est SOMBRE : elle augmente le contraste du texte crème.
+// Tout est inerte au clic, et l'`isolate` de la racine confine le blend au shell.
+function StateAtmosphere({ atmosphere }: { atmosphere: Atmosphere }) {
+  const { light, fog, vignette } = atmosphere;
+  if (!light && !fog && !vignette) return null;
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+      {light && (
+        <div
+          className="absolute inset-0"
+          style={{ background: light, mixBlendMode: "soft-light" }}
+        />
+      )}
+      {fog && <div className="absolute inset-0" style={{ background: fog }} />}
+      {vignette && <div className="absolute inset-0" style={{ background: vignette }} />}
+    </div>
+  );
+}
+
+function AmbientTint({ phase, stateWash }: { phase: string; stateWash?: string | null }) {
+  const wash = stateWash ?? phasePalette(phase).wash;
   const bg =
     wash === "transparent"
       ? "transparent"
@@ -960,11 +1027,16 @@ function ShellHeader({
   onHelp,
   waitingCount = 0,
   waitingTotal = 0,
+  stateWash,
+  stateAccent,
 }: {
   game: GameRow;
   onHelp: () => void;
   waitingCount?: number;
   waitingTotal?: number;
+  /** Prison / mort : prime sur la teinte de phase (cf. lib/statePalette). */
+  stateWash?: string | null;
+  stateAccent?: string | null;
 }) {
   // Mode MJ : le MJ pilote les phases à la main → chrono qui MONTE (temps écoulé,
   // informatif), pas de compte à rebours qui déclenche la phase suivante.
@@ -997,7 +1069,14 @@ function ShellHeader({
   const ss = (shown % 60).toString().padStart(2, "0");
   const showTimer = timerActive;
   const urgent = !isMjMode && displayedRemaining <= 10;
-  const pal = phasePalette(game.current_phase);
+  const phasePal = phasePalette(game.current_phase);
+  // L'état (prison / mort) prime sur la phase pour la teinte de fond et le
+  // liseré. Le stepper plus bas garde, lui, la couleur propre à chaque phase :
+  // on lit donc l'état ET le moment de la partie.
+  const pal = {
+    accent: stateAccent ?? phasePal.accent,
+    wash: stateWash ?? phasePal.wash,
+  };
   const ready = Math.max(0, waitingTotal - waitingCount);
 
   // Progression de la barre : Joueur Only = temps restant / durée (se vide) ;
@@ -1029,7 +1108,7 @@ function ShellHeader({
         borderColor: `color-mix(in oklab, ${pal.accent} 38%, transparent)`,
       }}
     >
-      <div className="max-w-md mx-auto w-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
+      <div className="max-w-md mx-auto w-full pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))] pt-[calc(var(--safe-top)+0.5rem)] pb-2">
         {/* Ligne 1 — TOUR N (gauche) · chrono (droite) · paramètres */}
         <div className="flex items-center justify-between gap-2.5">
           <span

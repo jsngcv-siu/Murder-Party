@@ -24,7 +24,7 @@ liege, bois sombre, ficelle rouge, punaises, tampons, post-it et photos.
 
 ## Palette officielle
 
-- Nuit / fond: `oklch(0.16 0.03 30)`.
+- Nuit / fond: `oklch(0.16 0.045 15)` (manoir « Velours », bordeaux nuit — fond de base de toute l'app).
 - Liege: `oklch(0.38 0.07 38)`.
 - Cadre bois: `oklch(0.45 0.08 50)`.
 - Papier dossier: `oklch(0.93 0.02 85)`.
@@ -38,6 +38,26 @@ Factions:
 - Neutres: `oklch(0.80 0.12 300)`.
 - Vampires: `oklch(0.66 0.20 340)`.
 - Detective: `oklch(0.85 0.16 90)`.
+
+## Colorimetrie d'etat du joueur
+
+Le decor du joueur change de teinte selon son etat, pour qu'il le ressente d'un
+coup d'oeil. Source unique: `src/lib/statePalette.ts` (reecrit les tokens de
+surface sur la racine du PlayerShell; header, bandeau, onglets et fonds suivent).
+
+- **Vivant**: le manoir bordeaux ci-dessus (base, aucune surcharge).
+- **Prison**: cellule de pierre froide (hue 245) + texture de barreaux
+  (`public/textures/barreaux.webp`), calee sur `public/annonces/prison.png`.
+  L'orange `oklch(0.77 0.15 62)` reste le TAMPON de l'etat, jamais la surface.
+- **Mort**: teal spectral delave (hue 180) + volutes d'ames
+  (`public/textures/fantomes.webp`), registre du Conseil des Morts.
+
+Regles invariantes: l'etat colore le monde mais JAMAIS l'action (ficelle rouge,
+or et onglets restent intacts partout); la couleur est une lumiere (surfaces
+sombres, contraste AA preserve, gel + vignette confines au corps); les matieres
+(barreaux, volutes) sont peintes UNE SEULE FOIS dans le fond de la racine du
+shell, sous le contenu (le liege des onglets s'efface pour les laisser voir),
+jamais posees sur le papier; le froid oppresse, le chaud accueille.
 
 ## Typographies
 

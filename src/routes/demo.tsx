@@ -2,7 +2,7 @@
 // (composant PlayerShell partagé). Aucun écran spécifique à la démo : ce qui
 // est testé ici, c'est exactement ce que voient les vrais joueurs en live.
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { createGame } from "@/lib/game";
@@ -56,6 +56,9 @@ import {
   RotateCcw,
   Plus,
   Radio,
+  Signal,
+  Wifi,
+  BatteryFull,
 } from "lucide-react";
 import { RoleIcon } from "@/components/RoleIcon";
 import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
@@ -95,6 +98,145 @@ const DEMO_PHASE_DURATIONS = {
   phase_duration_vote_s: 30,
 };
 const MAX_BOTS = 15;
+
+// Gabarits d'écran pour tester le responsive. Dimensions en POINTS CSS (celles
+// que voient les media queries et le layout), pas en pixels physiques. Le shell
+// est rendu à cette taille EXACTE puis réduit par `transform: scale()` pour
+// tenir dans la fenêtre : les boutons restent cliquables et le layout travaille
+// comme sur le vrai téléphone. Couvre les extrêmes du parc réel : 360 (Android
+// compact, la largeur la plus contrainte) → 430 (iPhone Pro Max).
+//
+// `safeTop` / `safeBottom` : les insets réels de l'appareil (barre d'état +
+// encoche en haut, barre de geste en bas). Posés en `--safe-top` / `--safe-bottom`
+// sur le cadre, ils sont consommés par toute l'app à la place de
+// `env(safe-area-inset-*)` (cf. styles.css) → le layout se pousse sous la barre
+// d'état EXACTEMENT comme sur l'appareil. `chrome` pilote le dessin de la barre :
+// `island` (Dynamic Island iOS), `classic` (iPhone à bouton), `punch`
+// (poinçon Android).
+const DEVICES = [
+  {
+    key: "iphone-se",
+    brand: "iPhone",
+    label: "SE",
+    w: 375,
+    h: 667,
+    safeTop: 20,
+    safeBottom: 0,
+    chrome: "classic",
+  },
+  {
+    key: "iphone-15",
+    brand: "iPhone",
+    label: "15",
+    w: 393,
+    h: 852,
+    safeTop: 59,
+    safeBottom: 34,
+    chrome: "island",
+  },
+  {
+    key: "iphone-15-max",
+    brand: "iPhone",
+    label: "Pro Max",
+    w: 430,
+    h: 932,
+    safeTop: 59,
+    safeBottom: 34,
+    chrome: "island",
+  },
+  {
+    key: "galaxy-s23",
+    brand: "Android",
+    label: "S23",
+    w: 360,
+    h: 780,
+    safeTop: 28,
+    safeBottom: 24,
+    chrome: "punch",
+  },
+  {
+    key: "pixel-8",
+    brand: "Android",
+    label: "Pixel 8",
+    w: 412,
+    h: 915,
+    safeTop: 28,
+    safeBottom: 24,
+    chrome: "punch",
+  },
+] as const;
+type Device = (typeof DEVICES)[number];
+type DeviceKey = Device["key"];
+const DEVICE_STORAGE_KEY = "mp_demo_device";
+
+// Barre d'état + barre de geste du téléphone simulé, dessinées PAR-DESSUS l'app
+// (comme sur l'appareil, où l'app s'étend dessous et s'en protège via les
+// insets). `pointer-events-none` : purement visuel. Au-dessus de tout ce que le
+// shell empile (modales à z-[210]).
+function DeviceChrome({ device }: { device: Device }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const icons = (
+    <span className="flex items-center gap-1">
+      <Signal className="size-3.5" strokeWidth={2.5} />
+      <Wifi className="size-3.5" strokeWidth={2.5} />
+      <BatteryFull className="size-4" strokeWidth={2} />
+    </span>
+  );
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[300] text-white">
+      {/* Barre d'état */}
+      {device.chrome === "island" && (
+        <div className="absolute inset-x-0 top-0" style={{ height: device.safeTop }}>
+          <div className="absolute left-1/2 -translate-x-1/2 top-[11px] h-[36px] w-[122px] rounded-full bg-black" />
+          <div className="absolute inset-x-0 top-[16px] flex items-center justify-between px-9 text-[15px] font-semibold">
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>{time}</span>
+            {icons}
+          </div>
+        </div>
+      )}
+      {device.chrome === "classic" && (
+        <div
+          className="absolute inset-x-0 top-0 flex items-center justify-between px-2.5 text-[12px] font-semibold"
+          style={{ height: device.safeTop }}
+        >
+          {icons}
+          <span
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {time}
+          </span>
+          <span />
+        </div>
+      )}
+      {device.chrome === "punch" && (
+        <div
+          className="absolute inset-x-0 top-0 flex items-center justify-between px-4 text-[13px] font-medium"
+          style={{ height: device.safeTop }}
+        >
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{time}</span>
+          <span className="absolute left-1/2 -translate-x-1/2 top-1/2 -mt-[5px] size-[10px] rounded-full bg-black" />
+          {icons}
+        </div>
+      )}
+      {/* Barre de geste */}
+      {device.safeBottom > 0 && (
+        <div
+          className={`absolute bottom-[8px] left-1/2 -translate-x-1/2 rounded-full ${
+            device.chrome === "punch"
+              ? "h-[4px] w-[72px] bg-white/70"
+              : "h-[5px] w-[134px] bg-white/90"
+          }`}
+        />
+      )}
+    </div>
+  );
+}
 
 type Tab = "journal" | "suspicions" | "cemetery" | "capacity" | "testament";
 const TABS: { id: Tab; icon: string; label: string }[] = [
@@ -142,6 +284,27 @@ function DemoMenu() {
     if (typeof window !== "undefined")
       localStorage.setItem("mp_demo_bots_active", botsActive ? "1" : "0");
   }, [botsActive]);
+
+  // Gabarit d'écran du téléphone simulé (cf. DEVICES) — persisté pour comparer
+  // le même écran d'une session à l'autre.
+  const [deviceKey, setDeviceKey] = useState<DeviceKey>(() => {
+    if (typeof window === "undefined") return "iphone-15";
+    const v = localStorage.getItem(DEVICE_STORAGE_KEY);
+    return DEVICES.some((d) => d.key === v) ? (v as DeviceKey) : "iphone-15";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem(DEVICE_STORAGE_KEY, deviceKey);
+  }, [deviceKey]);
+  // Hauteur de fenêtre → facteur d'échelle du cadre (le shell garde SA taille
+  // CSS d'appareil ; seul le rendu est réduit pour tenir sous la barre MJ).
+  const [viewH, setViewH] = useState<number>(() =>
+    typeof window === "undefined" ? 900 : window.innerHeight,
+  );
+  useEffect(() => {
+    const onResize = () => setViewH(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     void supabase
@@ -1084,25 +1247,105 @@ function DemoMenu() {
               <span>Sélectionne un joueur à droite</span>
             )}
           </div>
-          <div className="aspect-[390/780] h-[clamp(420px,calc(100dvh-210px),780px)] w-auto bg-background overflow-hidden rounded-[36px] shadow-2xl border-4 border-zinc-800 relative shrink-0">
-            {me ? (
-              <PlayerShell
-                key={me.id}
-                game={game as unknown as import("@/lib/game").GameRow}
-                me={me as unknown as import("@/lib/game").PlayerRow}
-                players={players as unknown as import("@/lib/game").PlayerRow[]}
-                embedded
-                disableHostDrivers
-                forcedTab={forcedTab}
-                onTabChange={setForcedTab}
-                skipReveal
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                Aucun joueur sélectionné
-              </div>
-            )}
-          </div>
+
+          {/* Sélecteur de gabarit d'écran — groupé par plateforme. */}
+          {(() => {
+            const device = DEVICES.find((d) => d.key === deviceKey) ?? DEVICES[1];
+            // 260px de budget vertical pour le chrome de la démo (barre MJ,
+            // libellés, boutons Tuer/Emprisonner). Jamais agrandi au-delà de 1 :
+            // on ne teste pas un téléphone zoomé.
+            const scale = Math.min(1, (viewH - 260) / device.h);
+            const brands: Array<(typeof DEVICES)[number]["brand"]> = ["iPhone", "Android"];
+            return (
+              <>
+                <div className="flex items-center gap-3 shrink-0">
+                  {brands.map((brand) => (
+                    <div key={brand} className="flex items-center gap-1.5">
+                      <span
+                        className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        {brand}
+                      </span>
+                      <div className="flex items-center gap-1 rounded-lg border border-border bg-background/60 p-0.5">
+                        {DEVICES.filter((d) => d.brand === brand).map((d) => (
+                          <button
+                            key={d.key}
+                            onClick={() => setDeviceKey(d.key)}
+                            aria-pressed={deviceKey === d.key}
+                            className={`px-2 py-1 rounded-md text-[11px] transition-colors ${
+                              deviceKey === d.key
+                                ? "bg-gold/20 text-gold ring-1 ring-gold/40"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {device.w} × {device.h}
+                  </span>
+                </div>
+
+                {/* Cadre téléphone : le shell est rendu aux dimensions CSS RÉELLES
+                    de l'appareil (ce que voient media queries et layout), puis
+                    réduit via `transform` pour tenir dans la fenêtre. Le wrapper
+                    porte la taille RÉDUITE pour ne pas réserver la place du cadre
+                    plein format ; `transform` fait aussi du cadre le bloc
+                    conteneur des `position:fixed` internes (overlays confinés au
+                    téléphone, comme en live). */}
+                <div
+                  style={{ width: (device.w + 8) * scale, height: (device.h + 8) * scale }}
+                  className="shrink-0 overflow-hidden"
+                >
+                  <div
+                    style={
+                      {
+                        width: device.w,
+                        height: device.h,
+                        // `content-box` : la bordure décorative du cadre s'ajoute
+                        // AUTOUR du viewport au lieu d'en manger 8px — sur un vrai
+                        // téléphone, l'app dispose de la largeur entière (les +8 du
+                        // wrapper ci-dessus compensent).
+                        boxSizing: "content-box",
+                        transform: `scale(${scale})`,
+                        transformOrigin: "top left",
+                        // Insets simulés : toute l'app consomme var(--safe-*) à la
+                        // place d'env(safe-area-inset-*) (cf. styles.css) → le
+                        // layout se pousse sous la barre d'état / de geste
+                        // exactement comme sur l'appareil.
+                        "--safe-top": `${device.safeTop}px`,
+                        "--safe-bottom": `${device.safeBottom}px`,
+                      } as CSSProperties
+                    }
+                    className="bg-background overflow-hidden rounded-[36px] shadow-2xl border-4 border-zinc-800 relative"
+                  >
+                    {me ? (
+                      <PlayerShell
+                        key={`${me.id}-${device.key}`}
+                        game={game as unknown as import("@/lib/game").GameRow}
+                        me={me as unknown as import("@/lib/game").PlayerRow}
+                        players={players as unknown as import("@/lib/game").PlayerRow[]}
+                        embedded
+                        disableHostDrivers
+                        forcedTab={forcedTab}
+                        onTabChange={setForcedTab}
+                        skipReveal
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                        Aucun joueur sélectionné
+                      </div>
+                    )}
+                    <DeviceChrome device={device} />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           {me && game.status === "in_progress" && (
             <div className="flex items-center gap-2 text-xs">
               {me.is_alive ? (

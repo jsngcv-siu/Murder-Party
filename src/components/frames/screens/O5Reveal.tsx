@@ -191,7 +191,7 @@ export function O5Reveal({
           "radial-gradient(ellipse 120% 80% at 50% -2%, oklch(0.24 0.06 45) 0%, oklch(0.13 0.03 35) 58%)",
       }}
     >
-      <div className="min-h-full flex flex-col items-center px-5 pt-[max(2.25rem,env(safe-area-inset-top))] pb-[max(2.25rem,env(safe-area-inset-bottom))] max-w-md mx-auto">
+      <div className="min-h-full flex flex-col items-center px-5 pt-[max(2.25rem,var(--safe-top))] pb-[max(2.25rem,var(--safe-bottom))] max-w-md mx-auto">
         {/* En-tête confidentiel */}
         <div className="reveal-kicker text-center">
           <div

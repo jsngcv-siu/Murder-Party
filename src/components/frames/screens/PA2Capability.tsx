@@ -1926,7 +1926,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       )}
 
       {hasStickyFooter && (
-        <div className="sticky bottom-0 left-0 right-0 -mx-5 -mb-5 mt-4 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-background via-background/95 to-background/80 backdrop-blur-md border-t border-border z-20 space-y-2 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)]">
+        <div className="sticky bottom-0 left-0 right-0 -mx-5 -mb-5 mt-4 px-5 pt-3 pb-[max(0.75rem,var(--safe-bottom))] bg-gradient-to-t from-background via-background/95 to-background/80 backdrop-blur-md border-t border-border z-20 space-y-2 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.6)]">
           {result && !result.ok && (
             <div className="rounded-lg px-3 py-2 text-sm bg-destructive/15 ring-1 ring-destructive/40 text-destructive font-medium">
               {result.message}

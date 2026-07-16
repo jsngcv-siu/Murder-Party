@@ -79,17 +79,38 @@
 :root {
   --radius: 0.75rem;
 
-  /* ── Surfaces : nuit chaude, bois, papier (DA « tableau d'enquête ») ── */
-  --background: oklch(0.16 0.03 30); /* nuit chaude (remplace le violet froid) */
+  /* ── Zones sûres (encoche, barre d'état, barre de geste) ──
+   * TOUJOURS consommer `var(--safe-*)`, jamais `env(safe-area-inset-*)` en
+   * direct : sur appareil ces variables valent l'inset réel (via env()), et le
+   * simulateur de téléphones de /demo les SURCHARGE sur son cadre pour que le
+   * layout réagisse comme sur l'appareil (env() n'est pas simulable, une
+   * variable l'est). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* ── Surfaces : manoir « Velours » — bordeaux nuit (DA « tableau d'enquête ») ──
+   * Le fond ne porte plus le brun mais un bordeaux profond (hue 15) : rideau de
+   * théâtre et sang séché, le registre « murder ». Il reste TRÈS sombre (L 0.16)
+   * et bien plus terne (C 0.045) que la ficelle d'action (L 0.55 C 0.22), qui
+   * continue de sauter aux yeux. C'est la base de TOUTE l'app ; prison et mort la
+   * réécrivent le temps de l'état (cf. lib/statePalette). */
+  --background: oklch(0.16 0.045 15);
   --foreground: oklch(0.93 0.02 85); /* crème lisible */
-  --card: oklch(0.22 0.035 35); /* panneau bois sombre */
+  --card: oklch(0.22 0.05 15); /* panneau bois sombre, teinté bordeaux */
   --card-foreground: oklch(0.93 0.02 85);
   /* Carte « surélevée » : volontairement plus claire que le fond liège (0.21)
    * pour que les cadres/boutons se détachent nettement du mur. */
-  --panel: oklch(0.235 0.024 46);
-  --panel-border: oklch(0.46 0.045 52 / 0.65);
-  --popover: oklch(0.19 0.03 32);
+  --panel: oklch(0.235 0.03 18);
+  --panel-border: oklch(0.46 0.05 18 / 0.65);
+  --popover: oklch(0.19 0.04 15);
   --popover-foreground: oklch(0.93 0.02 85);
+
+  /* Fond liège (`.cork-surface`) : teinte + chroma pilotés par tokens, alignés
+   * sur le bordeaux du fond. Prison / mort les réécrivent. */
+  --cork-h: 22;
+  --cork-c-mul: 1.15;
 
   /* Surfaces signature « enquête » — cartes papier, fond liège, cadres bois. */
   --cork: oklch(0.38 0.07 38);
@@ -109,10 +130,10 @@
   --primary-foreground: oklch(0.98 0.01 90);
   --primary-glow: oklch(0.62 0.23 20);
 
-  --secondary: oklch(0.26 0.04 38);
+  --secondary: oklch(0.26 0.05 15);
   --secondary-foreground: oklch(0.93 0.02 85);
 
-  --muted: oklch(0.24 0.03 38);
+  --muted: oklch(0.24 0.045 15);
   --muted-foreground: oklch(0.72 0.03 55);
 
   --accent: oklch(0.8 0.15 78); /* or détective (highlights, actif) */
@@ -131,8 +152,8 @@
   --warning: oklch(0.8 0.15 70);
   --warning-foreground: oklch(0.2 0.03 40);
 
-  --border: oklch(0.32 0.04 40);
-  --input: oklch(0.26 0.035 38);
+  --border: oklch(0.33 0.06 15);
+  --input: oklch(0.26 0.05 15);
   --ring: oklch(0.55 0.22 18);
 
   /* Tokens factions (teintes conservées) */
@@ -149,7 +170,7 @@
   --sticky-orange: oklch(0.78 0.15 55);
 
   /* Gradients & ombres signature (DA The Board) */
-  --gradient-night: linear-gradient(180deg, oklch(0.24 0.04 30), oklch(0.14 0.025 28));
+  --gradient-night: linear-gradient(180deg, oklch(0.24 0.05 15), oklch(0.14 0.035 14));
   --gradient-cork: radial-gradient(circle at 40% 22%, oklch(0.42 0.08 38), oklch(0.3 0.06 36) 80%);
   --gradient-wood: linear-gradient(135deg, oklch(0.45 0.08 50), oklch(0.3 0.06 45));
   --gradient-string: linear-gradient(
@@ -201,17 +222,20 @@
 }
 
 .dark {
-  /* Identique : on force ce même thème « dossier » partout (app dark-only). */
-  --background: oklch(0.16 0.03 30);
+  /* Identique : on force ce même thème « dossier » partout (app dark-only).
+   * Doit rester le miroir des surfaces `:root` (bordeaux Velours). */
+  --background: oklch(0.16 0.045 15);
   --foreground: oklch(0.93 0.02 85);
-  --card: oklch(0.22 0.035 35);
+  --card: oklch(0.22 0.05 15);
   --card-foreground: oklch(0.93 0.02 85);
   /* Carte « surélevée » : volontairement plus claire que le fond liège (0.21)
    * pour que les cadres/boutons se détachent nettement du mur. */
-  --panel: oklch(0.235 0.024 46);
-  --panel-border: oklch(0.46 0.045 52 / 0.65);
-  --popover: oklch(0.19 0.03 32);
+  --panel: oklch(0.235 0.03 18);
+  --panel-border: oklch(0.46 0.05 18 / 0.65);
+  --popover: oklch(0.19 0.04 15);
   --popover-foreground: oklch(0.93 0.02 85);
+  --cork-h: 22;
+  --cork-c-mul: 1.15;
   --cork: oklch(0.38 0.07 38);
   --cork-edge: oklch(0.3 0.06 36);
   --wood: oklch(0.45 0.08 50);
@@ -222,9 +246,9 @@
   --primary: oklch(0.55 0.22 18);
   --primary-foreground: oklch(0.98 0.01 90);
   --primary-glow: oklch(0.62 0.23 20);
-  --secondary: oklch(0.26 0.04 38);
+  --secondary: oklch(0.26 0.05 15);
   --secondary-foreground: oklch(0.93 0.02 85);
-  --muted: oklch(0.24 0.03 38);
+  --muted: oklch(0.24 0.045 15);
   --muted-foreground: oklch(0.72 0.03 55);
   --accent: oklch(0.8 0.15 78);
   --accent-foreground: oklch(0.2 0.03 40);
@@ -234,8 +258,8 @@
   --success-foreground: oklch(0.16 0.03 30);
   --warning: oklch(0.8 0.15 70);
   --warning-foreground: oklch(0.2 0.03 40);
-  --border: oklch(0.32 0.04 40);
-  --input: oklch(0.26 0.035 38);
+  --border: oklch(0.33 0.06 15);
+  --input: oklch(0.26 0.05 15);
   --ring: oklch(0.55 0.22 18);
   --citoyens: oklch(0.72 0.16 230);
   --mechants: oklch(0.62 0.24 22);
@@ -267,9 +291,9 @@
       repeating-linear-gradient(0deg, oklch(0.95 0.02 85 / 0.016) 0 1px, transparent 1px 3px),
       radial-gradient(
         130% 90% at 50% -10%,
-        oklch(0.24 0.05 330) 0%,
-        oklch(0.17 0.03 30) 45%,
-        oklch(0.13 0.025 28) 100%
+        oklch(0.24 0.06 350) 0%,
+        oklch(0.17 0.045 15) 45%,
+        oklch(0.13 0.035 14) 100%
       );
     background-attachment: fixed;
     color: var(--color-foreground);
@@ -350,13 +374,16 @@
   .pulse-gold {
     animation: pulseGold 1.6s ease-in-out infinite;
   }
+  /* `--pulse-hue` / `--pulse-chroma` : le halo suit l'état du joueur quand le
+   * PlayerShell les redéfinit (prison orangée, mort verte). Par défaut, l'or
+   * d'origine. Cf. lib/statePalette.ts. */
   @keyframes pulseGold {
     0%,
     100% {
-      box-shadow: 0 0 0 0 oklch(0.78 0.16 75 / 0.6);
+      box-shadow: 0 0 0 0 oklch(0.78 var(--pulse-chroma, 0.16) var(--pulse-hue, 75) / 0.6);
     }
     50% {
-      box-shadow: 0 0 0 8px oklch(0.78 0.16 75 / 0);
+      box-shadow: 0 0 0 8px oklch(0.78 var(--pulse-chroma, 0.16) var(--pulse-hue, 75) / 0);
     }
   }
   .last-result-anim {
@@ -618,16 +645,56 @@
    * La texture reste fixe pendant le défilement (background-attachment par
    * défaut sur le conteneur scrollable). */
   .cork-surface {
-    /* « Espresso » — brun chaud, halo haut discret + dégradé vertical. */
-    background-color: oklch(0.16 0.03 42);
+    /* « Espresso » — brun chaud, halo haut discret + dégradé vertical.
+     *
+     * Teinte paramétrable : `--cork-h` (teinte), `--cork-c-mul` (facteur de
+     * chroma) et `--cork-l-add` (décalage de luminosité) laissent le PlayerShell
+     * re-teinter le liège selon l'état du joueur (prison de pierre, mort verte)
+     * SANS toucher à la matière — grain, halo et dégradé restent identiques.
+     * Cf. lib/statePalette.ts.
+     *
+     * `--surface-pattern` ajoute le DÉCOR de l'état par-dessus le liège mais
+     * DERRIÈRE le contenu (barreaux de la cellule). En fond, il ne se voit que
+     * dans les vides — c'est le mur derrière le dossier. Posé en avant-plan, il
+     * striait le papier et lisait comme de la saleté.
+     *
+     * `--cork-l-add` n'est pas un luxe : sous L≈0.25, le gamut sRGB n'a plus de
+     * place pour l'orange, la chroma demandée est écrêtée et le liège vire au
+     * ROUGE (oklch(0.16 0.078 58) → rgb(35,0,0)). Un orange sombre est un brun :
+     * pour le lire, il faut monter en lumière. Le froid et le vert, eux, tiennent
+     * à L basse — d'où la prison de pierre.
+     *
+     * Les écarts de teinte entre couches (+8 sur le halo, +4/-4 sur le dégradé)
+     * sont ceux de la DA d'origine : ils donnent au liège sa variation chaude.
+     * Aux valeurs par défaut, le rendu est exactement celui d'avant. */
+    background-color: oklch(
+      calc(0.16 + var(--cork-l-add, 0)) calc(0.03 * var(--cork-c-mul, 1)) var(--cork-h, 42)
+    );
     background-image:
       /* grain de liège (au-dessus) */
       radial-gradient(oklch(0 0 0 / 0.26) 1px, transparent 1.7px),
       radial-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1.7px),
       /* halo chaud discret en haut */
-        radial-gradient(120% 55% at 50% -5%, oklch(0.3 0.055 50 / 0.32), transparent 60%),
+        radial-gradient(
+          120% 55% at 50% -5%,
+          oklch(
+            calc(0.3 + var(--cork-l-add, 0)) calc(0.055 * var(--cork-c-mul, 1))
+              calc(var(--cork-h, 42) + 8) / 0.32
+          ),
+          transparent 60%
+        ),
       /* dégradé vertical : assombrit vers le bas */
-        linear-gradient(180deg, oklch(0.185 0.038 46), oklch(0.115 0.02 38));
+        linear-gradient(
+          180deg,
+          oklch(
+            calc(0.185 + var(--cork-l-add, 0)) calc(0.038 * var(--cork-c-mul, 1))
+              calc(var(--cork-h, 42) + 4)
+          ),
+          oklch(
+            calc(0.115 + var(--cork-l-add, 0)) calc(0.02 * var(--cork-c-mul, 1))
+              calc(var(--cork-h, 42) - 4)
+          )
+        );
     background-size:
       7px 7px,
       11px 11px,
@@ -638,6 +705,18 @@
       3px 4px,
       0 0,
       0 0;
+  }
+
+  /* État à décor plein cadre (prison : barreaux · mort : volutes) : le liège
+   * s'efface ENTIÈREMENT et laisse voir le fond de la RACINE du shell, peint une
+   * seule fois plein écran (`--surface-pattern`, cf. PlayerShell). Quand chaque
+   * onglet peignait sa propre copie de la texture par-dessus son liège, la
+   * position (cadrée sur la boîte de l'onglet, pas sur l'écran), l'échelle et la
+   * teinte (grain + dégradé du liège) variaient d'un onglet à l'autre. Une seule
+   * peinture = un décor identique partout, celui du voile « Maintiens pour
+   * révéler ». */
+  [data-cork="off"] .cork-surface {
+    background: none;
   }
 
   /* Panneau « V3 » — matière commune de tous les cadres de contenu : dégradé

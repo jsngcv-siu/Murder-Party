@@ -49,7 +49,12 @@ export type Event =
     };
 
 // ---------- Helpers ----------
-function eventId(e: Event): string {
+// Identifiant stable d'une annonce, tel que stocké dans les « déjà vues »
+// (cf. storageKey). Exporté pour /state-lab, qui pré-marque les annonces d'une
+// partie synthétique comme lues — sinon chaque changement de phase y fabrique
+// une partie neuve dont TOUTES les annonces sont « fraîches », et trois toasts
+// viennent recouvrir l'écran.
+export function eventId(e: Event): string {
   if (e.kind === "special") return `s-${e.tour}-${e.text}`;
   if (e.kind === "death") return `d-${e.tour}-${e.player.id}`;
   if (e.kind === "release") return `r-${e.tour}-${e.player.id}`;

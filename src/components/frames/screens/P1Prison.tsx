@@ -5,6 +5,18 @@ import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
 import { Bird, Eye, Lock, Vote, Zap, type LucideIcon } from "lucide-react";
 
+// Marqueur de l'état, posé par le PlayerShell (cf. lib/statePalette) : l'orange
+// du tampon « PRISON ». Repli pour les contextes hors shell (galerie /dev).
+//
+// Cet écran peignait auparavant TOUTE sa propre DA en orange chaud (fond dégradé,
+// titres, cartes) et dessinait ses propres barreaux en `repeating-linear-gradient`.
+// Hérité d'avant la colorimétrie d'état, ça entrait en conflit avec la cellule
+// froide du shell — et doublonnait la vraie texture de barreaux. Il ne porte plus
+// que le marqueur ; le monde autour vient du shell.
+const STAMP = "var(--state-accent, oklch(0.77 0.15 62))";
+const SURFACE = "color-mix(in oklab, var(--card) 78%, transparent)";
+const EDGE = "color-mix(in oklab, var(--border) 85%, transparent)";
+
 export function P1Prison({ me, myRole, players }: FrameContext) {
   const isMe = me.is_imprisoned;
   const otherPrisoners = players.filter((p) => p.is_imprisoned && p.id !== me.id);
@@ -128,41 +140,30 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
   );
 
   return (
-    <div
-      className="h-full flex flex-col overflow-y-auto relative"
-      style={{
-        background:
-          "linear-gradient(180deg, oklch(0.22 0.10 55) 0%, oklch(0.14 0.06 50) 60%, oklch(0.12 0.04 35) 100%)",
-      }}
-    >
-      {/* Barreaux décoratifs */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-25"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(90deg, transparent 0 38px, oklch(0.30 0.08 55 / 0.7) 38px 44px)",
-          maskImage: "linear-gradient(180deg, black, transparent)",
-        }}
-      />
-
+    // Aucun fond propre : la cellule (pierre froide + texture de barreaux) est
+    // déjà peinte par le shell, exactement comme sous le voile « Maintiens pour
+    // révéler ». Cet écran ne pose que son contenu par-dessus.
+    <div className="h-full flex flex-col overflow-y-auto relative">
       <div className="relative z-10 p-5 space-y-5">
         {/* Hero cellule */}
         <div className="text-center pt-2">
-          <div className="text-[10px] uppercase tracking-[0.3em] font-semibold text-[oklch(0.85_0.16_60)] inline-flex items-center justify-center gap-1">
+          <div
+            className="text-[10px] uppercase tracking-[0.3em] font-semibold inline-flex items-center justify-center gap-1"
+            style={{ color: STAMP }}
+          >
             <Lock className="size-3" aria-hidden /> Cellule
           </div>
           <h2
             className="text-3xl font-bold mt-2"
             style={{
-              color: "oklch(0.94 0.14 70)",
+              color: STAMP,
               fontFamily: "var(--font-display)",
-              textShadow: "0 0 28px oklch(0.65 0.22 50 / 0.6)",
+              textShadow: `0 0 28px color-mix(in oklab, ${STAMP} 45%, transparent)`,
             }}
           >
             Tu es en prison
           </h2>
-          <p className="mt-2 text-xs text-[oklch(0.82_0.08_55)] max-w-[280px] mx-auto leading-relaxed">
+          <p className="mt-2 text-xs text-muted-foreground max-w-[280px] mx-auto leading-relaxed">
             Tu observes les débats et chats publics mais tu ne peux ni voter ni utiliser ta
             capacité.
           </p>
@@ -177,21 +178,39 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
               { Icon: Eye, label: "Observer", off: false },
             ] as Array<{ Icon: LucideIcon; label: string; off: boolean }>
           ).map((r) => (
+            // Bloqué / autorisé restent ROUGE et VERT : c'est une lecture
+            // sémantique (`--destructive` / `--success`), pas la teinte du lieu.
+            // Elle ne doit donc pas suivre l'état — et elle apporte au passage la
+            // variété de couleur qui manquerait sur un écran monochrome.
             <div
               key={r.label}
               className="rounded-xl p-2.5 text-center border"
               style={{
-                background: r.off ? "oklch(0.16 0.04 22 / 0.5)" : "oklch(0.20 0.08 145 / 0.35)",
-                borderColor: r.off ? "oklch(0.45 0.18 22 / 0.35)" : "oklch(0.55 0.15 145 / 0.4)",
-                opacity: r.off ? 0.85 : 1,
+                background: r.off
+                  ? "color-mix(in oklab, var(--destructive) 14%, transparent)"
+                  : "color-mix(in oklab, var(--success) 14%, transparent)",
+                borderColor: r.off
+                  ? "color-mix(in oklab, var(--destructive) 40%, transparent)"
+                  : "color-mix(in oklab, var(--success) 40%, transparent)",
               }}
             >
-              <div className="flex justify-center" style={{ opacity: r.off ? 0.6 : 1 }}>
+              <div
+                className="flex justify-center"
+                style={{
+                  color: r.off
+                    ? "color-mix(in oklab, var(--destructive) 70%, white)"
+                    : "var(--success)",
+                }}
+              >
                 <r.Icon className="size-5" aria-hidden />
               </div>
               <div
                 className="text-[10px] mt-1 font-semibold uppercase tracking-wider"
-                style={{ color: r.off ? "oklch(0.75 0.10 22)" : "oklch(0.85 0.14 145)" }}
+                style={{
+                  color: r.off
+                    ? "color-mix(in oklab, var(--destructive) 55%, white)"
+                    : "color-mix(in oklab, var(--success) 75%, white)",
+                }}
               >
                 {r.label}
               </div>
@@ -206,28 +225,30 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
         <div
           className="rounded-2xl p-4 border flex items-center gap-3"
           style={{
-            background:
-              "linear-gradient(135deg, oklch(0.18 0.05 50 / 0.85), oklch(0.14 0.03 35 / 0.85))",
-            borderColor: "oklch(0.55 0.20 55 / 0.5)",
-            boxShadow: "0 0 32px -4px oklch(0.55 0.22 55 / 0.25)",
+            background: SURFACE,
+            borderColor: `color-mix(in oklab, ${STAMP} 38%, transparent)`,
+            boxShadow: `0 0 32px -4px color-mix(in oklab, ${STAMP} 22%, transparent)`,
           }}
         >
           <div
             className="size-14 rounded-none flex items-center justify-center overflow-hidden shrink-0"
             style={{
-              background: "oklch(0.20 0.06 50 / 0.9)",
-              boxShadow: "0 0 0 2px oklch(0.55 0.20 55 / 0.5)",
+              background: "color-mix(in oklab, var(--background) 70%, transparent)",
+              boxShadow: `0 0 0 2px color-mix(in oklab, ${STAMP} 45%, transparent)`,
             }}
           >
             <AvatarImg avatar={myAv} size={56} rounded="none" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-[oklch(0.78_0.10_55)]">
+            <div
+              className="text-[10px] uppercase tracking-[0.2em] font-semibold"
+              style={{ color: `color-mix(in oklab, ${STAMP} 82%, white)` }}
+            >
               Ton rôle (visible en cellule)
             </div>
             <div
-              className="mt-0.5 text-lg font-semibold flex items-center gap-2"
-              style={{ color: "oklch(0.95 0.12 70)", fontFamily: "var(--font-display)" }}
+              className="mt-0.5 text-lg font-semibold flex items-center gap-2 text-foreground"
+              style={{ fontFamily: "var(--font-display)" }}
             >
               <RoleIcon role={myRole} size={22} />
               {myRole?.name_fr ?? "—"}
@@ -242,14 +263,17 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
         {otherPrisoners.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2.5">
-              <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-[oklch(0.82_0.10_55)]">
+              <div
+                className="text-[10px] uppercase tracking-[0.2em] font-semibold"
+                style={{ color: `color-mix(in oklab, ${STAMP} 84%, white)` }}
+              >
                 Co-détenus
               </div>
               <div
                 className="text-[10px] px-2 py-0.5 rounded-full font-bold"
                 style={{
-                  background: "oklch(0.55 0.20 55 / 0.25)",
-                  color: "oklch(0.92 0.16 65)",
+                  background: `color-mix(in oklab, ${STAMP} 22%, transparent)`,
+                  color: `color-mix(in oklab, ${STAMP} 80%, white)`,
                 }}
               >
                 {otherPrisoners.length}
@@ -265,25 +289,24 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
                   <div
                     key={p.id}
                     className="elevate rounded-xl p-3 border flex items-center gap-2.5"
-                    style={{
-                      background: "oklch(0.18 0.06 50 / 0.6)",
-                      borderColor: "oklch(0.40 0.14 55 / 0.4)",
-                    }}
+                    style={{ background: SURFACE, borderColor: EDGE }}
                   >
                     <div
                       className="size-9 rounded-none flex items-center justify-center overflow-hidden shrink-0"
-                      style={{ background: "oklch(0.14 0.05 50 / 0.8)" }}
+                      style={{
+                        background: "color-mix(in oklab, var(--background) 75%, transparent)",
+                      }}
                     >
                       <AvatarImg avatar={av} size={36} rounded="none" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div
-                        className="text-xs font-semibold truncate"
-                        style={{ color: "oklch(0.92 0.08 65)" }}
-                      >
+                      <div className="text-xs font-semibold truncate text-foreground">
                         {p.pseudo}
                       </div>
-                      <div className="text-[10px] text-[oklch(0.75_0.10_55)] inline-flex items-center gap-1">
+                      <div
+                        className="text-[10px] inline-flex items-center gap-1"
+                        style={{ color: `color-mix(in oklab, ${STAMP} 78%, white)` }}
+                      >
                         <Lock className="size-2.5" aria-hidden /> En cellule
                       </div>
                     </div>

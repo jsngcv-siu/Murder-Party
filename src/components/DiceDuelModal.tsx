@@ -406,7 +406,7 @@ export function DuelScene({
 
   return (
     <div
-      className={`${embedded ? "absolute" : "fixed"} inset-0 z-[210] flex items-center justify-center p-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]`}
+      className={`${embedded ? "absolute" : "fixed"} inset-0 z-[210] flex items-center justify-center p-5 pt-[max(1.25rem,var(--safe-top))] pb-[max(1.25rem,var(--safe-bottom))]`}
       style={{ background: "rgba(6,5,8,.82)", backdropFilter: "blur(4px)" }}
     >
       <div

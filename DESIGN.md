@@ -2,9 +2,9 @@
 name: "Murder Party - The Board"
 description: "Un dossier d'enquête vivant pour une Murder Party mobile et théâtrale."
 colors:
-  night: "oklch(0.16 0.03 30)"
+  night: "oklch(0.16 0.045 15)" # manoir « Velours » — bordeaux nuit (fond de base de toute l'app)
   dossier-ink: "oklch(0.93 0.02 85)"
-  dark-wood: "oklch(0.22 0.035 35)"
+  dark-wood: "oklch(0.22 0.05 15)"
   cork: "oklch(0.38 0.07 38)"
   wood-frame: "oklch(0.45 0.08 50)"
   dossier-paper: "oklch(0.93 0.02 85)"
@@ -113,6 +113,21 @@ La palette oppose la nuit chaude du manoir à la lumière du dossier, avec deux 
 **The Two-Accent Rule.** Un écran emploie au maximum un accent fonctionnel de phase et un accent d'action. Les couleurs de factions n'entrent que comme données.
 
 **The Material Contract.** Papier = fait ou document, liège = relation spatiale, tampon = état ou verdict, post-it = annotation courte, polaroïd = personne, ficelle = relation ou action.
+
+### Colorimétrie d'état du joueur
+
+Le décor du joueur change de colorimétrie selon son état, pour qu'il le ressente d'un coup d'œil sans lire un badge. Piloté entièrement par `src/lib/statePalette.ts`, qui réécrit les tokens de surface (`--background`, `--card`, `--border`, `--muted`, `--secondary`, liège) sur la racine du `PlayerShell` ; header, bandeau de statuts, onglets et fonds suivent automatiquement.
+
+- **Vivant** — le manoir bordeaux « Velours » (la DA de base). Aucune surcharge, hérite de `:root`.
+- **Prison** — cellule de pierre froide (hue 245) + texture de barreaux (`public/textures/barreaux.webp`), calée sur `public/annonces/prison.png`. Le froid s'oppose au bordeaux : lisible instantanément. L'orange (`oklch(0.77 0.15 62)`) reste le **tampon** de l'état (badge, liseré), jamais la surface.
+- **Mort** — teal spectral délavé (hue 180, chroma basse) + volutes d'âmes (`public/textures/fantomes.webp`). Le registre du Conseil des Morts.
+
+Quatre règles invariantes :
+
+1. **L'état colore le monde, jamais l'action.** La ficelle rouge (sceau « Maintiens pour révéler », CTA), l'or d'accent et les couleurs sémantiques d'onglets restent intacts dans tous les états.
+2. **La couleur est une lumière, pas une peinture.** Surfaces sombres (contraste AA préservé) ; la couleur d'ambiance arrive par un gel `soft-light` + une vignette, confinés au corps (jamais sur le chrome).
+3. **La matière est un fond, pas un calque — et peinte une seule fois.** Barreaux et volutes vivent dans le fond de la racine du shell (`--surface-pattern`), plein écran et sous le contenu ; le liège des onglets s'efface (`data-cork="off"`) pour le laisser voir, sinon chaque onglet peindrait sa propre copie à une position et une teinte différentes. Jamais posés par-dessus le papier.
+4. **Le froid oppresse, le chaud accueille.** L'écart de teinte chaud/froid entre les états porte la lecture autant que la couleur elle-même.
 
 ## Typography
 
