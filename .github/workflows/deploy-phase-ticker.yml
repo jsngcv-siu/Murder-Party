@@ -40,9 +40,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 24 (→ npm 11) : indispensable. Le lock est généré par npm 11 en
+      # local ; l'ancien node 20 embarquait npm 10.8 qui, LUI, jugeait le lock
+      # « désynchronisé » (Missing: lru-cache@11.5.2) et faisait échouer `npm ci`,
+      # alors que le même `npm ci` passe en local sous npm 11. Node 24 aligne la
+      # version de npm sur celle du lock et satisfait aussi l'exigence
+      # `node >=22.12` de @tanstack/react-start (fin des avertissements EBADENGINE).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install deps (esbuild pour le bundle)
