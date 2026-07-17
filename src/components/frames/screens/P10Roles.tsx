@@ -96,7 +96,7 @@ export function P10Roles({ roles }: FrameContext) {
       </div>
 
       {detail && (
-        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur flex flex-col p-6 max-w-md mx-auto">
+        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur flex flex-col p-6 pt-[calc(var(--safe-top)+1.5rem)] pb-[calc(var(--safe-bottom)+1.5rem)] max-w-md mx-auto">
           <button
             onClick={() => setOpen(null)}
             className="self-start text-sm text-muted-foreground"

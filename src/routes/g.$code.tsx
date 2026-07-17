@@ -465,7 +465,7 @@ function LobbyView({
       <BrandHeader subtitle="Salon d'attente" />
       <button
         onClick={() => setHelpOpen(true)}
-        className="press fixed top-3 right-3 z-30 h-11 w-11 rounded-full bg-card/90 border border-primary/40 backdrop-blur flex items-center justify-center text-primary shadow-glow"
+        className="press fixed top-[calc(var(--safe-top)+0.75rem)] right-[calc(var(--safe-right)+0.75rem)] z-30 h-11 w-11 rounded-full bg-card/90 border border-primary/40 backdrop-blur flex items-center justify-center text-primary shadow-glow"
         aria-label="Livre d'aide — rôles & règles"
         title="Livre d'aide — rôles & règles"
       >

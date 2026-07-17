@@ -90,7 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      // `black` et NON `black-translucent` : en translucent iOS fait passer la page
+      // sous la barre d'état et laisse gérer l'inset via env(safe-area-inset-top),
+      // qui renvoie 0 en mode installé sur certaines versions → tout l'échafaudage
+      // safe-area s'effondre et les boutons du haut passent sous l'heure/la 5G.
+      // En `black` le contenu démarre SOUS la barre : l'inset à 0 devient correct.
+      // iOS met ce réglage en cache à l'installation → réinstaller l'icône pour voir l'effet.
+      { name: "apple-mobile-web-app-status-bar-style", content: "black" },
       { name: "apple-mobile-web-app-title", content: "Murder Party" },
       { name: "application-name", content: "Murder Party" },
     ],
