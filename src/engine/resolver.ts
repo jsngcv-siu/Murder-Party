@@ -526,11 +526,29 @@ async function applyConvert(
   }
   const { data: tgtRow } = await supabase
     .from("players")
-    .select("is_alive")
+    .select("is_alive, role_meta")
     .eq("id", targetId)
     .single();
-  if (!(tgtRow as { is_alive: boolean } | null)?.is_alive) {
+  const tRow = tgtRow as { is_alive: boolean; role_meta: Record<string, unknown> } | null;
+  if (!tRow?.is_alive) {
     return { status: "cancelled", reason: "target_dead" };
+  }
+  // Symétrie avec le poison (applyPoison) : une cible PROTÉGÉE (bouclier de l'Ange
+  // Gardien) ou BÉNIE (Saint) n'est PAS convertie — le bouclier arrête aussi les
+  // crocs. Décision design 2026-07-16 : cohérence protection ↔ morsure, annoncée
+  // sur les cartes Vampire et Empoisonneur.
+  const tMeta = getMeta(tRow);
+  const prot = tMeta.protected_until_cycle ?? -1;
+  const blessedUntil = tMeta.blessed_until_cycle ?? -1;
+  const isBlessed = tMeta.blessed_by_saint === true && blessedUntil >= intent.tour;
+  if (prot >= intent.tour || isBlessed) {
+    await notifyMJ({
+      gameId: intent.game_id,
+      type: "shielded",
+      title: "🛡️ Morsure bloquée",
+      body: `${(intent.payload as Record<string, unknown> | null)?.target_pseudo ?? "Cible"} était protégé(e) — la conversion n'a pas pris.`,
+    });
+    return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }
   const ok = await converter(intent.game_id, intent.actor_player_id, targetId, intent.tour);
   return { status: ok ? "applied" : "cancelled", effect: "convert", target: targetId };

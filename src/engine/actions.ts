@@ -1839,7 +1839,14 @@ export async function tallySuspicionVote(gameId: string): Promise<{
     is_mj: boolean;
     role_meta: Meta;
   }>;
-  const aliveIds = new Set(players.filter((p) => p.is_alive && !p.is_mj).map((p) => p.id));
+  // Cibles éligibles = vivantes ET LIBRES. Un joueur déjà en prison est neutralisé :
+  // sans l'exclure, comme les tableaux de suspicion sont persistants, le même
+  // suspect restait en tête et se faisait ré-emprisonner à chaque vote — ce qui
+  // réinitialisait son compteur de prison (Exécuteur/Juge n'y voyaient jamais « 1
+  // tour purgé ») et empêchait tout autre emprisonnement (décision design 2026-07-16).
+  const eligibleIds = new Set(
+    players.filter((p) => p.is_alive && !p.is_imprisoned && !p.is_mj).map((p) => p.id),
+  );
   const counts: Record<string, number> = {};
   for (const voter of players) {
     if (voter.is_mj) continue;
@@ -1848,7 +1855,7 @@ export async function tallySuspicionVote(gameId: string): Promise<{
     for (const [targetId, level] of Object.entries(board)) {
       if (level !== 3) continue; // 3 = SUSPECT
       if (targetId === voter.id) continue; // pas soi-même
-      if (!aliveIds.has(targetId)) continue; // cible doit être vivante (élimination)
+      if (!eligibleIds.has(targetId)) continue; // cible vivante ET libre
       counts[targetId] = (counts[targetId] ?? 0) + 1;
     }
   }
