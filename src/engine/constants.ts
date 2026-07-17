@@ -2,95 +2,34 @@
 // Bot tick base interval (ms). Multiplier divides this.
 export const BOT_TICK_BASE_MS = 4000;
 
-// ─────────── Quotas de tirage par type & faction ───────────
-// Plafonds appliqués dans drawRoles selon la taille de partie.
-// `min`/`max` = bornes inclusives par type ; le pool tire au hasard pondéré (draw_weight)
-// entre min et max, dans la limite des slots restants pour la faction.
+// ─────────── Composition : combien de chaque faction selon la taille ───────────
+// SOURCE UNIQUE des PROPORTIONS. Ces fonctions décident *combien* de méchants /
+// neutres une partie contient ; le reste des joueurs sont des civils. Elles sont
+// consommées à la fois par le configurateur (`buildDefaultPool`, src/lib/poolConfig.ts)
+// et par le tirage auto sans config (`drawRoles` passe désormais par le même
+// `buildDefaultPool`). Régler l'équilibrage = régler CES nombres — jamais un
+// quota de type en dur (les *types* vivent dans les patterns FILL de poolConfig).
+//
+// Invariant produit : les proportions Méch/Civ/Neu dépendent UNIQUEMENT du nombre
+// de joueurs. Forcer un rôle ou bannir un rôle ne change que *quel* rôle occupe un
+// slot, jamais *combien* de chaque faction.
 
-export type TypeQuota = { min: number; max: number };
-export type FactionQuotas = Record<string, TypeQuota>;
-
-function bracket(n: number): "small" | "mid" | "large" | "xl" {
-  if (n <= 8) return "small";
-  if (n <= 13) return "mid";
-  if (n <= 17) return "large";
-  return "xl"; // 18–20 joueurs
-}
-
-// Côté MÉCHANT (acolytes, hors Tueur principal qui est MUST).
-// ⚠ Pas de TUEUR secondaire dans les acolytes (interdit par design).
-// Familles acolytes = INVESTIGATION / TROMPERIE / CONTRÔLE (Méchant/SUPPORT n'existe plus :
-// Cleaner + Maître chanteur ont migré vers CONTRÔLE avec Voleur + Marionnettiste).
-const ACOLYTE_QUOTAS: Record<"small" | "mid" | "large" | "xl", FactionQuotas> = {
-  small: {
-    INVESTIGATION: { min: 0, max: 1 },
-    TROMPERIE: { min: 0, max: 1 },
-    CONTRÔLE: { min: 0, max: 1 },
-  },
-  // ⚠ Les `min` CONSOMMENT les slots avant le tirage libre (drawByQuotas §1) :
-  // à 9 j. (1 seul acolyte), un min:1 force la famille de l'unique slot ; à
-  // 14-17 j. (2 acolytes), deux min:1 saturent les 2 slots. C'est ce qui rendait
-  // la famille CONTRÔLE mathématiquement NON-TIRABLE à 9 et 14-17 joueurs
-  // (audit 2026-07-16) — les mins sont relâchés pour laisser le tirage pondéré
-  // choisir la famille, les max continuent de borner la composition.
-  mid: {
-    INVESTIGATION: { min: 0, max: 1 },
-    TROMPERIE: { min: 0, max: 1 },
-    CONTRÔLE: { min: 0, max: 1 },
-  },
-  large: {
-    // 1 enquêteur méchant garanti ; le 2ᵉ slot se joue entre TROMPERIE et
-    // CONTRÔLE (INVESTIGATION saturé par son max:1).
-    INVESTIGATION: { min: 1, max: 1 },
-    TROMPERIE: { min: 0, max: 2 },
-    CONTRÔLE: { min: 0, max: 2 },
-  },
-  xl: {
-    INVESTIGATION: { min: 1, max: 2 },
-    TROMPERIE: { min: 1, max: 2 },
-    CONTRÔLE: { min: 1, max: 2 },
-  },
-};
-
-// Côté CIVIL (hors base MUST : assistant_du_detective + majordome, toujours forcés avant ce tirage).
-// Cible de répartition (cf. plan §3) : enquêteurs présents sans envahir la partie.
-const CIVIL_QUOTAS: Record<"small" | "mid" | "large" | "xl", FactionQuotas> = {
-  small: {
-    INVESTIGATION: { min: 1, max: 2 },
-    PROTECTEUR: { min: 0, max: 1 },
-    TUEUR: { min: 0, max: 1 },
-    SUPPORT: { min: 1, max: 2 },
-  },
-  mid: {
-    INVESTIGATION: { min: 2, max: 2 },
-    PROTECTEUR: { min: 1, max: 2 },
-    TUEUR: { min: 1, max: 1 },
-    SUPPORT: { min: 1, max: 2 },
-  },
-  large: {
-    INVESTIGATION: { min: 2, max: 3 },
-    PROTECTEUR: { min: 2, max: 2 },
-    TUEUR: { min: 1, max: 2 },
-    SUPPORT: { min: 2, max: 3 },
-  },
-  xl: {
-    INVESTIGATION: { min: 3, max: 4 },
-    PROTECTEUR: { min: 2, max: 3 },
-    TUEUR: { min: 1, max: 2 },
-    SUPPORT: { min: 2, max: 3 },
-  },
-};
-
-export function acolyteQuotasFor(playerCount: number): FactionQuotas {
-  return ACOLYTE_QUOTAS[bracket(playerCount)];
-}
-export function civilQuotasFor(playerCount: number): FactionQuotas {
-  return CIVIL_QUOTAS[bracket(playerCount)];
+// Nombre d'acolytes méchants (hors Tueur principal, qui est toujours présent).
+// → Méchants total = acolytes + 1. Courbe visée ~20 % de méchants — DÉLIBÉRÉMENT
+//   SOUS le ~25 % du Loup-Garou : dans ce jeu les méchants (Tueur & co) tapent plus
+//   fort individuellement, donc on en met MOINS pour compenser (décision 2026-07-18).
+//   Plafond 4 méchants. ≤11 → 2 méch · 12-16 → 3 méch · 17-20 → 4 méch.
+//   6-7 j. restent à 2 méch (33/29 %) : plancher structurel (Tueur + 1 acolyte pour
+//   un vrai jeu d'équipe ; en dessous = loup solitaire). 8 j.+ passent tous sous 25 %.
+export function acolytesCountFor(playerCount: number): number {
+  if (playerCount <= 11) return 1; // 2 méchants
+  if (playerCount <= 16) return 2; // 3 méchants
+  return 3; // 17–20 joueurs → 4 méchants
 }
 
 // Nombre de neutres selon la taille de partie.
 // Rééquilibré : on retarde l'apparition du 2ᵉ neutre pour garder Civ/Menace ≈ 2.0.
-// Étendu à 20 j. : 3ᵉ neutre seulement aux très grandes tables (chaos dosé, cf. plan §4).
+// Étendu à 20 j. : 3ᵉ neutre seulement aux très grandes tables (chaos dosé).
 export function neutresCountFor(playerCount: number): number {
   if (playerCount <= 7) return 0;
   if (playerCount <= 11) return 1;
@@ -98,23 +37,12 @@ export function neutresCountFor(playerCount: number): number {
   return 3; // 18–20 joueurs
 }
 
-// Pondération par type pour le tirage neutre.
+// Pondération par type pour le tirage neutre (appliquée par le tirage de slots
+// dans actions.ts quand un slot neutre est une union "MAL/BÉNIN/CHAOS").
 // BÉNIN dominant (le moins hostile), MAL en retrait, CHAOS rare mais possible
-// dès le 1ᵉʳ neutre (à partir de 8 joueurs).
+// dès le 1ᵉʳ neutre.
 export const NEUTRE_TYPE_WEIGHTS: Record<string, number> = {
   BÉNIN: 1.0,
   MAL: 0.45,
   CHAOS: 0.2,
 };
-
-// Nombre d'acolytes (hors Tueur principal).
-// ≤9 → 1 acolyte (2 méchants). Plafond DOUX : 2 acolytes (3 méchants) jusqu'à 17 j.,
-// 3 acolytes (4 méchants) à 18–20 j. La sim (sim/balance.mjs) montre qu'aller à 5
-// méchants faisait dominer les Méchants (~68 %) ; 4 est déjà limite (~60 %). Le
-// scaling méchant reste donc conservateur — un vrai calage 55/45 sur les grandes
-// tables demande encore un passage d'équilibrage (cf. note plan §8).
-export function acolytesCountFor(playerCount: number): number {
-  if (playerCount <= 9) return 1;
-  if (playerCount <= 17) return 2;
-  return 3; // 18–20 joueurs → 4 méchants
-}

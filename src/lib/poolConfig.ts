@@ -29,13 +29,15 @@ export function expandSlotTypes(t: string): string[] {
 }
 
 // Patterns de slots non-verrouillés à dérouler dans l'ordre selon la taille cible.
-// Acolytes : Méchant/SUPPORT n'existe plus (migré vers CONTRÔLE). 1er slot = union
-// souple (petites tables), puis un enquêteur méchant garanti, puis TROMPERIE/CONTRÔLE.
+// Acolytes : Méchant/SUPPORT n'existe plus (migré vers CONTRÔLE). Tous les slots
+// acolytes sont des UNIONS souples INVESTIGATION/TROMPERIE/CONTRÔLE → Tromperie et
+// Contrôle sont tirables dès la 1ʳᵉ table (2026-07-18), plus seulement à 18 j.
+// (aucun type méchant garanti : c'est un jeu de variété/chaos).
 const ACOLYTE_FILL: string[] = [
   "INVESTIGATION/TROMPERIE/CONTRÔLE",
-  "INVESTIGATION",
-  "TROMPERIE/CONTRÔLE",
-  "TROMPERIE/CONTRÔLE",
+  "INVESTIGATION/TROMPERIE/CONTRÔLE",
+  "INVESTIGATION/TROMPERIE/CONTRÔLE",
+  "INVESTIGATION/TROMPERIE/CONTRÔLE",
 ];
 const NEUTRE_FILL: string[] = [
   // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
@@ -46,22 +48,13 @@ const NEUTRE_FILL: string[] = [
   "MAL/BÉNIN/CHAOS",
 ];
 
-// Civils non-verrouillés (les MUSTs majordome/assistant ne sont pas listés ici).
-// Ordre = séquence du plan §3 (chaque joueur civil ajouté impose ce type précis) :
-// à 20 j. → 2 TUEUR, 3 SUPPORT, 3 INVESTIGATION, 2 PROTECTEUR (+ les 2 MUST) =
-// 4 Investigation / 3 Protecteur / 3 Support / 2 Tueur. Enquêteurs présents sans envahir.
-const CIVIL_FILL: string[] = [
-  "TUEUR",
-  "SUPPORT",
-  "INVESTIGATION",
-  "PROTECTEUR",
-  "SUPPORT",
-  "INVESTIGATION",
-  "TUEUR",
-  "PROTECTEUR",
-  "SUPPORT",
-  "INVESTIGATION",
-];
+// Civils non-verrouillés (les MUSTs majordome[PROTECTEUR]/assistant[INVESTIGATION]
+// ne sont pas listés ici — ils garantissent déjà 1 protecteur + 1 enquêteur).
+// Refonte 2026-07-18 : au lieu de types RIGIDES (1 slot = 1 type fixe), chaque slot
+// civil ajouté est une UNION souple ENQUÊTE/SUPPORT/TUEUR → plus de variété, fin de
+// la séquence figée. Le Protecteur reste garanti par le Majordome (MUST) et n'entre
+// PAS dans le pool souple (on ne veut qu'un protecteur sûr, pas une avalanche).
+const CIVIL_FILL: string[] = ["INVESTIGATION/SUPPORT/TUEUR"];
 
 /**
  * Construit un pool par défaut pour `target` joueurs.
@@ -76,7 +69,11 @@ export function buildDefaultPool(target: number): PoolConfig {
   const nextId = () => `s${i++}`;
 
   // ── MUSTs (verrouillés) ──
-  slots.push({ id: nextId(), faction: "Méchant", type: "TUEUR", slug: "tueur", locked: true });
+  // Tueur méchant : slot GARANTI (locked) mais en AUTO (slug null) → tirage pondéré
+  // entre Le Tueur / Croque-mitaine / Armurier (draw_weight). Auparavant figé sur
+  // "tueur", ce qui privait les parties de Croque-mitaine/Armurier ET divergeait du
+  // tirage sans config. Le lead peut toujours épingler un tueur précis via la modale.
+  slots.push({ id: nextId(), faction: "Méchant", type: "TUEUR", slug: null, locked: true });
   slots.push({
     id: nextId(),
     faction: "Civil",

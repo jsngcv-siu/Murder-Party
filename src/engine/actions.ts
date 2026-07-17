@@ -7,6 +7,8 @@ import { checkAndEndGame } from "./winConditions";
 import { submitIntent, resolveDeferredIntents } from "./resolver";
 import { VOTE_RESULT_S, introSFor } from "@/lib/phaseTiming";
 import { serverNow, serverNowISO } from "@/lib/serverClock";
+import { buildDefaultPool, expandSlotTypes, type PoolSlot } from "@/lib/poolConfig";
+import { NEUTRE_TYPE_WEIGHTS } from "./constants";
 
 export type Phase = "lobby" | "free" | "annonce" | "gathering" | "vote" | "ended";
 export type RoleRow = Database["public"]["Tables"]["roles"]["Row"];
@@ -383,108 +385,83 @@ function weightedDraw(pool: RoleRow[], count: number): RoleRow[] {
   return picked;
 }
 
-// Tire selon des quotas par type pour une faction donnée.
-// Stratégie :
-//   1) garantit les `min` de chaque type
-//   2) puis remplit les slots restants en piochant aléatoirement parmi les types
-//      qui ne sont pas saturés (≤ max)
-function drawByQuotas(
-  pool: RoleRow[],
-  quotas: import("./constants").FactionQuotas,
-  totalSlots: number,
-  preCounted: Record<string, number> = {},
-): RoleRow[] {
-  const byType = new Map<string, RoleRow[]>();
-  for (const r of pool) {
-    const t = r.type ?? "AUTRE";
-    if (!byType.has(t)) byType.set(t, []);
-    byType.get(t)!.push(r);
-  }
-  const picked: RoleRow[] = [];
-  // Pré-compte les rôles MUST déjà placés (ex: base civile Assistant/Majordome) :
-  // les quotas min/max deviennent des TOTAUX réels incluant cette base.
-  const countByType: Record<string, number> = { ...preCounted };
+// ─────────── Tirage par SLOTS (source unique de composition) ───────────
+// Tire un slug pour chaque slot d'une config de pool (buildDefaultPool OU pool_config
+// sauvé — les deux passent par ici). Respecte faction+type(s) du slot, bans,
+// min_players, et évite les doublons. Pour les slots NEUTRES en union, pondère
+// d'abord le TYPE via NEUTRE_TYPE_WEIGHTS (BÉNIN ≫ MAL ≫ CHAOS) puis le rôle, et
+// force un type différent d'un neutre à l'autre (comme l'ancien tirage). Le Chasseur
+// de Vampire n'est jamais tiré ici : il est désigné secrètement au setup, couplé au
+// Vampire. Retourne les slugs (peut être < `need` si des pools sont vides → l'appelant
+// complète alors via un filet de dernier recours).
+function drawSlots(opts: {
+  slots: PoolSlot[];
+  allRoles: RoleRow[];
+  bannedSet: Set<string>;
+  usedSlugs: Set<string>;
+  need: number;
+  playerCount: number;
+}): string[] {
+  const { slots, allRoles, bannedSet, usedSlugs, need, playerCount } = opts;
+  const picked: string[] = [];
+  const usedNeutreTypes = new Set<string>();
+  const eligible = (r: RoleRow, faction: string, types: string[]) =>
+    r.faction === faction &&
+    types.includes(r.type ?? "") &&
+    r.slug !== "chasseur_de_vampire" &&
+    !usedSlugs.has(r.slug) &&
+    !bannedSet.has(r.slug) &&
+    (r.min_players ?? 6) <= playerCount;
 
-  // 1) min par type (en tenant compte de la base déjà pré-comptée)
-  for (const [type, q] of Object.entries(quotas)) {
-    const bucket = byType.get(type) ?? [];
-    const need = Math.min(
-      Math.max(0, q.min - (countByType[type] ?? 0)),
-      bucket.length,
-      totalSlots - picked.length,
-    );
-    if (need <= 0) continue;
-    const drawn = weightedDraw(bucket, need);
-    picked.push(...drawn);
-    countByType[type] = (countByType[type] ?? 0) + drawn.length;
-    for (const r of drawn) {
-      const i = bucket.indexOf(r);
-      if (i >= 0) bucket.splice(i, 1);
+  const ordered = shuffle([...slots]);
+  // 1) Slots à slug exact d'abord (choix fermes du lead).
+  for (const slot of ordered) {
+    if (picked.length >= need) break;
+    if (slot.slug && !usedSlugs.has(slot.slug) && !bannedSet.has(slot.slug)) {
+      picked.push(slot.slug);
+      usedSlugs.add(slot.slug);
     }
   }
-
-  // 2) remplir les slots restants
-  while (picked.length < totalSlots) {
-    const candidates: RoleRow[] = [];
-    for (const [type, bucket] of byType.entries()) {
-      const q = quotas[type];
-      const max = q?.max ?? 0; // types non listés = exclus (max 0)
-      if ((countByType[type] ?? 0) >= max) continue;
-      candidates.push(...bucket);
-    }
-    if (candidates.length === 0) break;
-    const [r] = weightedDraw(candidates, 1);
-    if (!r) break;
-    picked.push(r);
-    countByType[r.type ?? "AUTRE"] = (countByType[r.type ?? "AUTRE"] ?? 0) + 1;
-    const bucket = byType.get(r.type ?? "AUTRE");
-    if (bucket) {
-      const i = bucket.indexOf(r);
-      if (i >= 0) bucket.splice(i, 1);
-    }
-  }
-
-  return picked;
-}
-
-// Tirage neutre : pour chaque slot, on choisit d'abord un TYPE selon
-// `typeWeights`, puis un rôle dans ce type via `draw_weight`.
-function drawNeutresByTypeWeights(
-  pool: RoleRow[],
-  count: number,
-  typeWeights: Record<string, number>,
-): RoleRow[] {
-  const byType = new Map<string, RoleRow[]>();
-  for (const r of pool) {
-    const t = r.type ?? "AUTRE";
-    if (!(t in typeWeights)) continue;
-    if (!byType.has(t)) byType.set(t, []);
-    byType.get(t)!.push(r);
-  }
-  const picked: RoleRow[] = [];
-  for (let k = 0; k < count; k++) {
-    const availableTypes = [...byType.entries()].filter(([, b]) => b.length > 0);
-    if (availableTypes.length === 0) break;
-    const total = availableTypes.reduce((s, [t]) => s + (typeWeights[t] ?? 0), 0);
-    if (total <= 0) break;
-    let t = Math.random() * total;
-    let chosenType = availableTypes[0][0];
-    for (const [type] of availableTypes) {
-      t -= typeWeights[type] ?? 0;
-      if (t <= 0) {
-        chosenType = type;
-        break;
+  // 2) Slots auto : tirage pondéré dans le pool faction+type(s).
+  for (const slot of ordered) {
+    if (picked.length >= need) break;
+    if (slot.slug) continue;
+    const types = expandSlotTypes(slot.type);
+    let chosen: RoleRow | undefined;
+    if (slot.faction === "Neutre" && types.length > 1) {
+      // Neutre en union : pondère le TYPE puis le rôle, en évitant de répéter un type
+      // déjà pris par un autre neutre de la même partie.
+      const typesWithPool = types.filter((t) => allRoles.some((r) => eligible(r, "Neutre", [t])));
+      const freshTypes = typesWithPool.filter((t) => !usedNeutreTypes.has(t));
+      const candidateTypes = freshTypes.length > 0 ? freshTypes : typesWithPool;
+      if (candidateTypes.length > 0) {
+        const totalW = candidateTypes.reduce((s, t) => s + (NEUTRE_TYPE_WEIGHTS[t] ?? 0.0001), 0);
+        let x = Math.random() * totalW;
+        let pickedType = candidateTypes[0];
+        for (const t of candidateTypes) {
+          x -= NEUTRE_TYPE_WEIGHTS[t] ?? 0.0001;
+          if (x <= 0) {
+            pickedType = t;
+            break;
+          }
+        }
+        [chosen] = weightedDraw(
+          allRoles.filter((r) => eligible(r, "Neutre", [pickedType])),
+          1,
+        );
+        if (chosen) usedNeutreTypes.add(pickedType);
       }
+    } else {
+      [chosen] = weightedDraw(
+        allRoles.filter((r) => eligible(r, slot.faction, types)),
+        1,
+      );
     }
-    const bucket = byType.get(chosenType)!;
-    const [r] = weightedDraw(bucket, 1);
-    if (!r) break;
-    picked.push(r);
-    // Empêche le slot suivant de retirer un neutre du même TYPE :
-    // on retire entièrement le bucket de ce type.
-    byType.delete(chosenType);
+    if (chosen) {
+      picked.push(chosen.slug);
+      usedSlugs.add(chosen.slug);
+    }
   }
-
   return picked;
 }
 
@@ -493,8 +470,8 @@ export async function drawRoles(
   modeDetectivePlayer: boolean,
   bannedSlugs: string[] = [],
 ): Promise<string[]> {
-  const { acolyteQuotasFor, civilQuotasFor, acolytesCountFor, neutresCountFor } =
-    await import("./constants");
+  // Référence au paramètre conservé pour signature stable (le Détective immortel n'existe plus).
+  void modeDetectivePlayer;
 
   const { data: rolesData, error } = await supabase
     .from("roles")
@@ -503,94 +480,50 @@ export async function drawRoles(
     .eq("emergent", false)
     .eq("is_disabled", false);
   if (error) throw error;
-  const roles = (rolesData ?? []) as RoleRow[];
+  const allRoles = (rolesData ?? []) as RoleRow[];
 
-  const banned = new Set(bannedSlugs);
-  // Rôles MUST : jamais bannissables (Tueur principal + base Assistant/Majordome).
-  banned.delete("tueur");
-  banned.delete("majordome");
-  banned.delete("assistant_du_detective");
-  // Les rôles retirés/désactivés sont déjà exclus via `is_disabled` dans la
-  // requête ci-dessus (source de vérité unique) — pas de liste en dur à maintenir.
-  // Référence au paramètre conservé pour signature stable.
-  void modeDetectivePlayer;
+  const bannedSet = new Set(bannedSlugs);
+  // Base MUST jamais bannissable (Tueur principal + base Assistant/Majordome).
+  bannedSet.delete("tueur");
+  bannedSet.delete("majordome");
+  bannedSet.delete("assistant_du_detective");
 
-  const eligible = roles.filter((r) => (r.min_players ?? 6) <= playerCount && !banned.has(r.slug));
+  // SOURCE UNIQUE : le tirage sans config passe par le MÊME pool par défaut que le
+  // configurateur (buildDefaultPool). Ainsi « aucune config » == « config par défaut »
+  // == ce que la modale affiche. Les proportions (Méch/Civ/Neu) viennent des fonctions
+  // de compte (constants.ts) ; les types viennent des patterns FILL (poolConfig.ts).
+  const cfg = buildDefaultPool(playerCount);
+  const usedSlugs = new Set<string>();
+  const picked = drawSlots({
+    slots: cfg.slots,
+    allRoles,
+    bannedSet,
+    usedSlugs,
+    need: playerCount,
+    playerCount,
+  });
 
-  const slugs: string[] = [];
-
-  // ─── Tueur méchant principal (1 seul par partie, pondéré par draw_weight) ───
-  // Le Tueur classique a un poids dominant ; Croque-mitaine / Armurier sont des alternatives plus rares.
-  const tueurs = eligible.filter((r) => r.faction === "Méchant" && isKillerClass(r));
-  if (tueurs.length === 0) throw new Error("Aucun Tueur disponible (seed roles).");
-  const [leTueur] = weightedDraw(tueurs, 1);
-  slugs.push(leTueur.slug);
-
-  // Assistant du Détective : MUST dans les deux modes (le Détective immortel n'existe plus).
-  const assistant = roles.find((r) => r.slug === "assistant_du_detective");
-  if (assistant && !slugs.includes(assistant.slug)) slugs.push(assistant.slug);
-
-  const majordome = roles.find((r) => r.slug === "majordome");
-  if (majordome && !slugs.includes(majordome.slug)) slugs.push(majordome.slug);
-
-  // Exécuteur : plus MUST. C'est désormais un Civil/TUEUR ordinaire, tiré via les
-  // quotas civils (il concourt avec Cuisinier/Vengeur pour le slot tueur civil).
-  // Seuls Assistant du détective + Majordome restent la base 100% présente.
-
-  // ─── Acolytes méchants (hors Tueur principal, jamais de TUEUR secondaire) ───
-  const nAcolytes = acolytesCountFor(playerCount);
-  const acolytePool = eligible.filter(
-    (r) => r.faction === "Méchant" && !isKillerClass(r) && !slugs.includes(r.slug),
-  );
-  const acolytePicked = drawByQuotas(acolytePool, acolyteQuotasFor(playerCount), nAcolytes);
-  slugs.push(...acolytePicked.map((r) => r.slug));
-
-  // ─── Neutres (pondéré par type + par draw_weight) ───
-  // Chasseur de Vampire est exclu du pool normal : il n'est tiré
-  // qu'en couple avec le Vampire (voir plus bas).
-  const nNeutres = neutresCountFor(playerCount);
-  const { NEUTRE_TYPE_WEIGHTS } = await import("./constants");
-  const neutresPool = eligible.filter(
-    (r) => r.faction === "Neutre" && r.slug !== "chasseur_de_vampire" && !slugs.includes(r.slug),
-  );
-  const neutresPicked = drawNeutresByTypeWeights(neutresPool, nNeutres, NEUTRE_TYPE_WEIGHTS);
-  const neutresSlugs = neutresPicked.map((r) => r.slug);
-
-  // ─── Chasseur de Vampire : plus tiré au pool ───
-  // Si le Vampire est présent, un civil est secrètement désigné « Chasseur
-  // latent » au setup (applySetupEffects) ; il joue sa couverture civile et
-  // s'éveille en Chasseur à la 1ère morsure (voir handler "vampire"). Il
-  // n'occupe donc plus de slot visible au tirage.
-  slugs.push(...neutresSlugs);
-
-  // ─── Civils (avec quotas par type) ───
-  const remaining = playerCount - slugs.length;
-  const civilPool = eligible.filter((r) => r.faction === "Civil" && !slugs.includes(r.slug));
-  // Pré-compte la base civile déjà placée (Assistant=INVESTIGATION, Majordome=PROTECTEUR)
-  // pour que les civils tirés diversifient au lieu de doubler ces types.
-  const baseCivilTypes: Record<string, number> = {};
-  for (const s of slugs) {
-    const r = roles.find((rr) => rr.slug === s);
-    if (r?.faction === "Civil" && r.type)
-      baseCivilTypes[r.type] = (baseCivilTypes[r.type] ?? 0) + 1;
-  }
-  const civilPicked = drawByQuotas(
-    civilPool,
-    civilQuotasFor(playerCount),
-    remaining,
-    baseCivilTypes,
-  );
-  const civilSlugs = civilPicked.map((r) => r.slug);
-  slugs.push(...civilSlugs);
-
-  // Filet de sécurité : si les quotas civils n'ont pas rempli tous les slots
-  // (par ex. banissements importants), on complète avec n'importe quel civil.
-  if (slugs.length < playerCount) {
-    const fallback = civilPool.filter((r) => !slugs.includes(r.slug));
-    slugs.push(...weightedDraw(fallback, playerCount - slugs.length).map((r) => r.slug));
+  // Filet de dernier recours : si des slots avaient un pool vide (bans massifs), on
+  // complète avec n'importe quel rôle éligible non encore pris. Le garde-fou de ban
+  // (configurateur) empêche normalement d'en arriver là pour un type obligatoire.
+  if (picked.length < playerCount) {
+    const rest = shuffle(
+      allRoles.filter(
+        (r) =>
+          r.slug !== "chasseur_de_vampire" &&
+          !usedSlugs.has(r.slug) &&
+          !bannedSet.has(r.slug) &&
+          (r.min_players ?? 6) <= playerCount,
+      ),
+    );
+    for (const r of rest) {
+      if (picked.length >= playerCount) break;
+      picked.push(r.slug);
+      usedSlugs.add(r.slug);
+    }
   }
 
-  return shuffle(slugs);
+  return shuffle(picked).slice(0, playerCount);
 }
 
 // ─────────────── Game lifecycle ───────────────
@@ -635,7 +568,8 @@ export async function rollRoles(gameId: string): Promise<string[]> {
         .from("roles")
         .select("*")
         .eq("set_id", "set1")
-        .eq("emergent", false);
+        .eq("emergent", false)
+        .eq("is_disabled", false);
       const allRoles = (rolesData ?? []) as RoleRow[];
       const bannedSet = new Set(allBanned);
       // Base MUST jamais bannissable, même dans un pool configuré à la main
@@ -644,38 +578,18 @@ export async function rollRoles(gameId: string): Promise<string[]> {
       bannedSet.delete("assistant_du_detective");
       bannedSet.delete("majordome");
       const usedSlugs = new Set<string>(manuallyAssigned.map((p) => p.role_slug as string));
-      // Mélange les slots pour répartir aléatoirement entre les joueurs.
-      const slots = shuffle([...cfg.slots]);
-      const picked: string[] = [];
-      // 1) Slots avec slug exact d'abord (priorité aux choix fermes du lead).
-      for (const slot of slots) {
-        if (picked.length >= unassigned.length) break;
-        if (slot.slug && !usedSlugs.has(slot.slug) && !bannedSet.has(slot.slug)) {
-          picked.push(slot.slug);
-          usedSlugs.add(slot.slug);
-        }
-      }
-      // 2) Slots auto : tirage pondéré dans le pool faction+type.
-      const { expandSlotTypes } = await import("@/lib/poolConfig");
-      for (const slot of slots) {
-        if (picked.length >= unassigned.length) break;
-        if (slot.slug) continue;
-        const acceptedTypes = expandSlotTypes(slot.type);
-        const pool = allRoles.filter(
-          (r) =>
-            r.faction === slot.faction &&
-            acceptedTypes.includes(r.type) &&
-            !usedSlugs.has(r.slug) &&
-            !bannedSet.has(r.slug) &&
-            (r.min_players ?? 6) <= unassigned.length,
-        );
-        const [chosen] = weightedDraw(pool, 1);
-        if (chosen) {
-          picked.push(chosen.slug);
-          usedSlugs.add(chosen.slug);
-        }
-      }
-      // 3) Filet : si encore manquant (moins de joueurs que prévu ou pool vide), fallback drawRoles.
+      // Tirage par slots via le MÊME helper `drawSlots` que le tirage sans config :
+      // la compo configurée et la compo par défaut suivent exactement la même logique
+      // (faction+type, bans, min_players, pondération neutre). Fin de la divergence.
+      const picked = drawSlots({
+        slots: cfg.slots,
+        allRoles,
+        bannedSet,
+        usedSlugs,
+        need: unassigned.length,
+        playerCount: unassigned.length,
+      });
+      // Filet : si encore manquant (moins de joueurs que prévu ou pool vide), fallback drawRoles.
       if (picked.length < unassigned.length) {
         const extra = await drawRoles(
           unassigned.length - picked.length,

@@ -55,6 +55,28 @@ const FACTION_LABELS: Record<string, { Icon: LucideIcon; label: string }> = {
   Neutre: { Icon: VenetianMask, label: "Neutres" },
 };
 
+// Libellés courts pour les slots à type unique OU uni ("A/B/C"). Sans ça, une
+// union comme "INVESTIGATION/TROMPERIE/CONTRÔLE" était coupée par CSS (truncate)
+// et devenait illisible ("INVESTIGATION/T…"). On abrège chaque type et on laisse
+// le tout passer sur 2 lignes ; le libellé complet reste dispo au survol (title).
+const SHORT_TYPE: Record<string, string> = {
+  INVESTIGATION: "Enquête",
+  TROMPERIE: "Tromperie",
+  CONTRÔLE: "Contrôle",
+  PROTECTEUR: "Protec.",
+  SUPPORT: "Support",
+  TUEUR: "Tueur",
+  BÉNIN: "Bénin",
+  MAL: "Malin",
+  CHAOS: "Chaos",
+};
+function shortSlotType(type: string): string {
+  return type
+    .split("/")
+    .map((t) => SHORT_TYPE[t.trim()] ?? t.trim())
+    .join(" / ");
+}
+
 export function PoolConfigurator({ game }: { game: GameRow }) {
   const [open, setOpen] = useState(false);
   const [roles, setRoles] = useState<RoleRow[]>([]);
@@ -123,6 +145,37 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
   // Bascule un rôle banni / autorisé (persiste immédiatement, indépendant du pool).
   async function toggleBan(slug: string) {
     if (PROTECTED.has(slug)) return;
+    const willBan = !banned.has(slug);
+    // Garde-fou : refuser un ban qui viderait un slot NON-flexible (dernier rôle d'un
+    // type dont un slot AUTO a besoin). Un slot en union qui garde d'autres types
+    // disponibles n'est PAS bloqué — il prendra simplement un autre type au tirage.
+    if (willBan) {
+      const nextBanned = new Set(banned).add(slug);
+      const emptied = config.slots.find((s) => {
+        if (s.slug) return false; // slot épinglé sur un rôle précis : hors périmètre
+        const types = expandSlotTypes(s.type);
+        const hasCandidate = roles.some(
+          (r) =>
+            r.faction === s.faction &&
+            types.includes(r.type ?? "") &&
+            r.slug !== "chasseur_de_vampire" &&
+            r.emergent !== true &&
+            r.is_disabled !== true &&
+            (r.min_players ?? 6) <= config.targetPlayers &&
+            !nextBanned.has(r.slug),
+        );
+        return !hasCandidate;
+      });
+      if (emptied) {
+        const role = roles.find((r) => r.slug === slug);
+        toast.error(
+          `Impossible de bannir ${role?.name_fr ?? slug} : ce serait le dernier rôle « ${shortSlotType(
+            emptied.type,
+          )} » côté ${FACTION_LABELS[emptied.faction]?.label ?? emptied.faction}, un slot obligatoire ne pourrait plus se remplir.`,
+        );
+        return;
+      }
+    }
     const next = new Set(banned);
     if (next.has(slug)) next.delete(slug);
     else next.add(slug);
@@ -329,13 +382,15 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
                         <li key={slot.id} className="flex items-center gap-2">
                           {/* Type, codé couleur + icône */}
                           <span
-                            className="inline-flex items-center gap-1 w-24 sm:w-32 shrink-0 text-[10px] font-semibold uppercase tracking-wider"
+                            className="inline-flex items-start gap-1 w-24 sm:w-32 shrink-0 text-[10px] font-semibold uppercase tracking-wider"
                             style={{ color: tm.color }}
                             title={slot.type}
                           >
-                            <tm.Icon className="size-3.5 shrink-0" aria-hidden />
-                            <span className="truncate">{slot.type}</span>
-                            {slot.locked && <Lock className="size-3 text-gold shrink-0" />}
+                            <tm.Icon className="size-3.5 shrink-0 mt-0.5" aria-hidden />
+                            <span className="leading-tight break-words min-w-0">
+                              {shortSlotType(slot.type)}
+                            </span>
+                            {slot.locked && <Lock className="size-3 text-gold shrink-0 mt-0.5" />}
                           </span>
                           {/* Aperçu du rôle choisi (ou dé = Auto) */}
                           <span
