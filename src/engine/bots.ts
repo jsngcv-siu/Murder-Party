@@ -15,6 +15,7 @@ import { BOTS_ENABLED } from "@/lib/botsEnabled";
 import { readInventory, itemIsUsable, itemNeedsTarget, consumeItem } from "./items";
 import { probeCapability, probeItemUse } from "./qa/probes";
 import { maybeBotChat } from "./qa/chat";
+import { meterAddRead, approxBytes } from "./qa/egressMeter";
 
 export type Aggression = "passive" | "normal" | "aggressive";
 export type BotOverride = {
@@ -80,6 +81,12 @@ export function startBotDriver(opts: {
   gameId: string;
   getConfig: () => BotConfig;
   embodiedPlayerId: () => string | null;
+  /**
+   * État déjà en mémoire (reçu par realtime côté appelant). Fourni → le driver
+   * NE re-sonde PAS la base à chaque tick : zéro lecture (donc zéro egress) pour
+   * l'avancement des bots. Repli sur un fetch DB si absent ou incomplet.
+   */
+  getState?: () => { game: GameRow | null; players: PlayerRow[] } | null;
 }) {
   // Hors `vite dev`, aucun bot ne tourne : ni sondage, ni écriture. Garde de
   // fond, doublée en amont par les appelants (cf. lib/botsEnabled).
@@ -96,7 +103,7 @@ export function startBotDriver(opts: {
       return;
     }
     try {
-      await runTick(opts.gameId, cfg, opts.embodiedPlayerId());
+      await runTick(opts.gameId, cfg, opts.embodiedPlayerId(), opts.getState?.() ?? null);
     } catch (e) {
       console.error("[bot tick]", e);
     }
@@ -104,7 +111,10 @@ export function startBotDriver(opts: {
   }
   function schedule() {
     const cfg = opts.getConfig();
-    const interval = Math.max(200, BOT_TICK_BASE_MS / cfg.timeMultiplier);
+    // Plancher relevé 200 → 500 ms : à vitesse 20×, ça passe de 5 à 2 lectures/s
+    // de toute la table players (× role_meta) → ~60 % de lectures en moins au
+    // réglage le plus rapide. Sans effet aux vitesses 1× et 5× (déjà > 500 ms).
+    const interval = Math.max(500, BOT_TICK_BASE_MS / cfg.timeMultiplier);
     timeoutId = setTimeout(tick, interval);
   }
   schedule();
@@ -123,13 +133,32 @@ export function stopBotDriver() {
   if (driver) driver.stop();
 }
 
-async function runTick(gameId: string, cfg: BotConfig, embodiedId: string | null) {
-  const { data: gRaw } = await supabase.from("games").select().eq("id", gameId).single();
-  const game = gRaw as GameRow | null;
-  if (!game || game.status !== "in_progress") return;
+async function runTick(
+  gameId: string,
+  cfg: BotConfig,
+  embodiedId: string | null,
+  mem: { game: GameRow | null; players: PlayerRow[] } | null,
+) {
+  let game: GameRow | null;
+  let players: PlayerRow[];
 
-  const { data: pRaw } = await supabase.from("players").select().eq("game_id", gameId);
-  const players = (pRaw ?? []) as PlayerRow[];
+  // Chemin léger : l'appelant (ex: /demo) fournit l'état déjà reçu par realtime
+  // → AUCUNE lecture DB pour l'avancement des bots. C'est le gros levier d'egress.
+  if (mem && mem.game && mem.players.length > 0) {
+    game = mem.game;
+    players = mem.players;
+  } else {
+    // Repli : pas d'état fourni → on sonde la base (comportement historique).
+    const { data: gRaw } = await supabase.from("games").select().eq("id", gameId).single();
+    meterAddRead(approxBytes(gRaw)); // compteur d'egress local (démo)
+    game = gRaw as GameRow | null;
+    if (!game || game.status !== "in_progress") return;
+    const { data: pRaw } = await supabase.from("players").select().eq("game_id", gameId);
+    meterAddRead(approxBytes(pRaw)); // le gros poste : N joueurs × role_meta
+    players = (pRaw ?? []) as PlayerRow[];
+  }
+
+  if (!game || game.status !== "in_progress") return;
   const alive = players.filter((p) => p.is_alive && !p.is_imprisoned);
   // Un "vrai" bot n'a pas de user_id (auth anonyme côté humain renseigne user_id
   // sur la player row). On ne pilote JAMAIS un joueur humain, même si la démo

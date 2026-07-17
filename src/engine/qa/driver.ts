@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow, RoleRow } from "../actions";
 import { auditRoleStatic } from "./expectations";
 import { runInvariants, type InvariantCtx } from "./invariants";
+import { meterAddRead, approxBytes } from "./egressMeter";
 import { addFindings, withGame } from "./report";
 import { VOTE_RESULT_S, introSFor } from "@/lib/phaseTiming";
 import { serverNow } from "@/lib/serverTime";
@@ -66,6 +67,13 @@ export async function runInvariantSweep(
       .eq("tour", game.current_tour)
       .limit(200),
   ]);
+  // Survey QA : 4 lectures / 4 s → comptées dans le compteur d'egress démo.
+  meterAddRead(
+    approxBytes(notifRes.data) +
+      approxBytes(voteRes.data) +
+      approxBytes(actionRes.data) +
+      approxBytes(tourActionRes.data),
+  );
 
   const ctx: InvariantCtx = {
     game,

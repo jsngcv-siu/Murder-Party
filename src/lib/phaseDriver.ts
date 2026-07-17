@@ -31,8 +31,12 @@ import { serverNow } from "@/lib/serverClock";
 // Cadence du battement de cœur et seuil de péremption. Un client qui n'a pas
 // battu depuis STALE_MS est réputé endormi (≈ 2-3 battements manqués) et exclu
 // de l'élection. HEARTBEAT_MS ≪ STALE_MS pour tolérer un battement raté isolé.
-const HEARTBEAT_MS = 3000;
-const STALE_MS = 8000;
+// 5 s / 13 s (au lieu de 3 s / 8 s) : la présence est le flux realtime le plus
+// bavard (chaque client diffuse à tous les autres, ~N²). Rallonger de 2 s ne
+// coûte que ~2 s de détection de bascule de pilote — invisible, car les phases
+// sont arbitrées côté serveur par le ticker en parallèle.
+const HEARTBEAT_MS = 5000;
+const STALE_MS = 13000;
 
 type PresenceMeta = { id?: string; at?: number };
 

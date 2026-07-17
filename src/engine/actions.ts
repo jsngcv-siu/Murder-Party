@@ -4931,6 +4931,24 @@ export async function addBotPlayers(gameId: string, count: number): Promise<numb
 }
 
 // ─────────────── Reset (dev only) ───────────────
+/**
+ * Supprime DÉFINITIVEMENT une partie et toutes ses données (démo : éviter
+ * d'accumuler des parties fantômes). RLS : réservé au MJ de la partie
+ * (policies `*_mj`) — l'opérateur /demo l'est toujours.
+ *
+ * `chat_messages`, `inventory` et `player_statuses` portent un `game_id` SANS
+ * clé étrangère → aucune cascade : on les supprime explicitement d'abord. La
+ * suppression de la ligne `games` cascade ensuite vers players / role_actions /
+ * notifications / votes / gathering_calls. (Même logique que `purge_old_games`.)
+ */
+export async function deleteGame(gameId: string) {
+  await supabase.from("chat_messages").delete().eq("game_id", gameId);
+  await supabase.from("inventory").delete().eq("game_id", gameId);
+  await supabase.from("player_statuses").delete().eq("game_id", gameId);
+  const { error } = await supabase.from("games").delete().eq("id", gameId);
+  if (error) console.error("[deleteGame]", error);
+}
+
 export async function resetGame(gameId: string) {
   await supabase.from("votes").delete().eq("game_id", gameId);
   await supabase.from("role_actions").delete().eq("game_id", gameId);

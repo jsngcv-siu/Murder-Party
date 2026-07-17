@@ -9,6 +9,7 @@
 //  - refusal with no message (minor UX)
 
 import { supabase } from "@/integrations/supabase/client";
+import { meterAddRead, approxBytes } from "./egressMeter";
 import {
   usesOf,
   type CapabilityResult,
@@ -95,6 +96,7 @@ export async function probeCapability(opts: {
       .eq("tour", tour)
       .eq("timing", "DEFERRED")
       .limit(1);
+    meterAddRead(approxBytes(data));
     if (!data || data.length === 0) {
       add({
         ...baseFinding,
@@ -195,6 +197,7 @@ export async function probeItemUse(opts: {
       .eq("tour", tour)
       .limit(50),
   ]);
+  meterAddRead(approxBytes(actorRow) + approxBytes(actions));
 
   const meta = (actorRow?.role_meta ?? {}) as Record<string, unknown>;
   const inv = (meta.inventory as Item[] | undefined) ?? [];

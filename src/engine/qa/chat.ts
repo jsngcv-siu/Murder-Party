@@ -6,6 +6,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { GameRow, PlayerRow, RoleRow } from "../actions";
 import { getBrain, type ChatChannel, type ChatContext } from "./brain";
+import { meterAddRead, approxBytes } from "./egressMeter";
 
 const GLOBAL_GAP_MS = 3500; // min spacing between any two bot messages
 const PER_BOT_COOLDOWN_MS = 12000;
@@ -51,6 +52,7 @@ export async function maybeBotChat(opts: {
     .eq("channel", channel)
     .order("created_at", { ascending: false })
     .limit(6);
+  meterAddRead(approxBytes(recentRaw));
   const recent = ((recentRaw ?? []) as ChatContext["recent"]).slice().reverse();
 
   const ctx: ChatContext = {

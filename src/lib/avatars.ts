@@ -1,19 +1,19 @@
-// Avatars pilotés directement par le bucket Storage `icon-avatar`.
-// On liste le contenu du bucket en live : déposer un PNG (dans femmes/,
-// hommes/, autres/ ou à la racine) le fait apparaître dans l'UI, sans limite
-// ni SQL. Le nom de fichier devient le nom affiché de l'avatar.
+// Avatars bundlés dans public/icons/icon-avatar/ (WebP), servis par Vercel.
+// Depuis 2026-07-17 on ne liste plus le bucket Storage en live (egress +
+// latence) : la liste vient d'un manifeste statique généré à la conversion
+// (src/lib/avatarManifest.ts). Pour ajouter un avatar : déposer le fichier et
+// régénérer le manifeste via scratchpad/imgtool/convert.mjs.
 //
 // API publique INCHANGÉE (avatarOf / listAvatars / useAvatars) pour ne pas
 // toucher les ~15 écrans de jeu qui la consomment. Seule la source change.
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { AVATAR_MANIFEST } from "@/lib/avatarManifest";
 
-const BUCKET = "icon-avatar";
 export const AVATAR_CATEGORIES = ["femmes", "hommes", "autres"] as const;
 export type AvatarCategory = (typeof AVATAR_CATEGORIES)[number];
 
 export type AvatarDef = {
-  id: string; // chemin dans le bucket, ex "femmes/hana.png" (stocké dans role_meta.avatar)
+  id: string; // chemin/nom d'origine dans le bucket (stocké dans role_meta.avatar)
   emoji: string;
   /** Compat : alias de `name` (utilisé comme alt/aria un peu partout). */
   label: string;
@@ -23,8 +23,8 @@ export type AvatarDef = {
   image_url?: string | null;
 };
 
-// Placeholder unique pour ne jamais rendre une grille/avatar vide (offline,
-// bucket pas encore peuplé). N'apparaît pas dans le picker.
+// Placeholder unique pour ne jamais rendre une grille/avatar vide.
+// N'apparaît pas dans le picker.
 const FALLBACK: AvatarDef = {
   id: "_none",
   emoji: "👤",
@@ -34,19 +34,7 @@ const FALLBACK: AvatarDef = {
   image_url: null,
 };
 
-// État module : liste ordonnée + index par id, partagés entre tous les call
-// sites, avec subscribers pour propager dès que le bucket répond.
-let loaded: AvatarDef[] = [];
-let cache = new Map<string, AvatarDef>();
-let loadStarted = false;
-const subs = new Set<() => void>();
-
-function notify() {
-  for (const fn of subs) fn();
-}
-
 const IMAGE_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
-const isImage = (name: string) => IMAGE_RE.test(name);
 
 /** "marie-anne.png" → "Marie-Anne", "hana_01.png" → "Hana 01". */
 function prettifyName(file: string): string {
@@ -59,85 +47,34 @@ function prettifyName(file: string): string {
     .join(" ");
 }
 
-function makeDef(path: string, category: AvatarCategory): AvatarDef {
-  const file = path.split("/").pop() ?? path;
-  const name = prettifyName(file) || file;
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { id: path, emoji: "🗝️", label: name, name, category, image_url: data.publicUrl };
-}
-
-type StorageEntry = { name: string; id: string | null };
-
-async function rawList(prefix: string): Promise<StorageEntry[]> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .list(prefix, { limit: 1000, sortBy: { column: "name", order: "asc" } });
-  if (error || !data) return [];
-  return data as StorageEntry[];
-}
-
-/** Catégorie dérivée du préfixe du nom de fichier.
- *  - "femme-…" / "femmes-…" → femmes
- *  - "homme-…" / "hommes-…" → hommes
- *  - sinon → autres
- *  (Windows refuse `/` dans les noms : on n'utilise donc pas de sous-dossiers.) */
-function categoryFromFilename(file: string): AvatarCategory {
-  const lower = file.toLowerCase();
-  if (/^femmes?[-_]/.test(lower)) return "femmes";
-  if (/^hommes?[-_]/.test(lower)) return "hommes";
-  return "autres";
-}
-
 /** "femme-sakura.png" → "Sakura" (on retire le préfixe de catégorie). */
 function stripCategoryPrefix(file: string): string {
   return file.replace(/^(femmes?|hommes?|autres?)[-_]+/i, "");
 }
 
-async function loadAvatars() {
-  try {
-    const root = await rawList("");
-    const defs: AvatarDef[] = [];
+// Construction statique depuis le manifeste — synchrone, aucun réseau.
+const CAT_ORDER: Record<AvatarCategory, number> = { femmes: 0, hommes: 1, autres: 2 };
 
-    for (const e of root) {
-      if (!e.id || !isImage(e.name)) continue;
-      const cat = categoryFromFilename(e.name);
-      const def = makeDef(e.name, cat);
-      // Nom affiché sans le préfixe de catégorie.
-      const pretty = prettifyName(stripCategoryPrefix(e.name)) || def.name;
-      def.name = pretty;
-      def.label = pretty;
-      defs.push(def);
-    }
+const loaded: AvatarDef[] = AVATAR_MANIFEST.map((e) => {
+  const name = prettifyName(stripCategoryPrefix(e.id)) || e.id;
+  return {
+    id: e.id,
+    emoji: "🗝️",
+    label: name,
+    name,
+    category: e.category,
+    image_url: `/icons/icon-avatar/${e.file}`,
+  };
+}).sort(
+  (a, b) => CAT_ORDER[a.category] - CAT_ORDER[b.category] || a.name.localeCompare(b.name),
+);
 
-    if (defs.length === 0) return; // garde l'état précédent / fallback
+const cache = new Map(loaded.map((d) => [d.id, d]));
 
-    defs.sort(
-      (a, b) =>
-        AVATAR_CATEGORIES.indexOf(a.category) - AVATAR_CATEGORIES.indexOf(b.category) ||
-        a.name.localeCompare(b.name),
-    );
-
-    loaded = defs;
-    cache = new Map(defs.map((d) => [d.id, d]));
-    notify();
-  } catch {
-    /* offline / RLS : on garde le fallback */
-  }
-}
-
-function ensureLoaded() {
-  if (loadStarted) return;
-  loadStarted = true;
-  void loadAvatars();
-}
-
-/** Force un rechargement du bucket (ex : à l'ouverture du picker pour voir
- *  immédiatement un avatar fraîchement uploadé). */
+/** No-op conservé pour compat d'API (la liste est statique désormais). */
 export function refreshAvatars() {
-  void loadAvatars();
+  /* rien à recharger : avatars bundlés */
 }
-
-if (typeof window !== "undefined") ensureLoaded();
 
 function hashString(s: string): number {
   let h = 2166136261 >>> 0;
@@ -150,13 +87,12 @@ function hashString(s: string): number {
 
 /**
  * Résout un avatar.
- * - `id` (chemin bucket, ex "femmes/hana.png") : renvoie l'avatar correspondant.
+ * - `id` (nom d'origine, ex "femmes-avatar01.png") : renvoie l'avatar correspondant.
  * - sinon, si `fallbackSeed` fourni (ex: id joueur), on choisit un avatar
  *   stable et déterministe parmi ceux chargés — évite le placeholder 👤 pour
  *   les joueurs n'ayant pas (encore) choisi.
  */
 export function avatarOf(id?: string | null, fallbackSeed?: string | null): AvatarDef {
-  ensureLoaded();
   if (id) {
     const hit = cache.get(id);
     if (hit) return hit;
@@ -167,24 +103,17 @@ export function avatarOf(id?: string | null, fallbackSeed?: string | null): Avat
   return loaded[0] ?? FALLBACK;
 }
 
-/** Liste à jour des avatars (pour le picker). Réactif via useAvatars(). */
+/** Liste à jour des avatars (pour le picker). */
 export function listAvatars(): AvatarDef[] {
-  ensureLoaded();
   return loaded;
 }
 
-/** Hook React : re-render quand le bucket d'avatars change. */
+/** Hook React : conservé pour compat (la liste est statique, ne change pas). */
 export function useAvatars(): AvatarDef[] {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    ensureLoaded();
-    const fn = () => setTick((t) => t + 1);
-    subs.add(fn);
-    return () => {
-      subs.delete(fn);
-    };
-  }, []);
-  return listAvatars();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [, _setTick] = useState(0);
+  useEffect(() => {}, []);
+  return loaded;
 }
 
 /** Vocabulaire produit : "TOUR N — <PHASE>", PHASE = ENQUÊTE / ANNONCE / DÉBAT / VOTE.

@@ -8,6 +8,7 @@ import type { GameRow, PlayerRow, RoleRow, Phase } from "../actions";
 import type { Database } from "@/integrations/supabase/types";
 import type { FindingInput } from "./types";
 import { addFindings, withGame } from "./report";
+import { meterAddRead, approxBytes } from "./egressMeter";
 
 type RoleActionRow = Database["public"]["Tables"]["role_actions"]["Row"];
 type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
@@ -65,6 +66,13 @@ export async function runEndGameAudit(gameId: string): Promise<void> {
         .select("id, type, title, body, player_id")
         .eq("game_id", gameId),
     ]);
+  meterAddRead(
+    approxBytes(gRaw) +
+      approxBytes(pRaw) +
+      approxBytes(rRaw) +
+      approxBytes(aRaw) +
+      approxBytes(nRaw),
+  );
 
   const game = gRaw as GameRow | null;
   if (!game) return;

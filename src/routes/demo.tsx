@@ -16,6 +16,7 @@ import {
   imprisonPlayer,
   releasePlayer,
   resetGame,
+  deleteGame,
   runExclusivePhaseAction,
   tickPhase,
   setPaused,
@@ -24,6 +25,8 @@ import {
   type RoleRow,
 } from "@/engine/actions";
 import { defaultBotConfig, startBotDriver, stopBotDriver } from "@/engine/bots";
+import { BotEgressMeter } from "@/components/BotEgressMeter";
+import { meterAddRead, approxBytes } from "@/engine/qa/egressMeter";
 import { introSFor } from "@/lib/phaseTiming";
 import { serverNow, serverNowISO } from "@/lib/serverTime";
 import { initReport, onFindingsChange, clearFindings } from "@/engine/qa/report";
@@ -52,6 +55,7 @@ import {
   Search,
   Bot,
   BotOff,
+  Bug,
   Drama,
   Timer,
   RotateCcw,
@@ -286,6 +290,19 @@ function DemoMenu() {
       localStorage.setItem("mp_demo_bots_active", botsActive ? "1" : "0");
   }, [botsActive]);
 
+  // Harnais QA (probes + survey + chat + audit de fin). ON = on chasse les bugs
+  // (lectures DB en plus) ; OFF = run léger, les bots jouent sans analyse (zéro
+  // lecture QA). Défaut ON pour préserver le comportement de test habituel.
+  const [botsQa, setBotsQa] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("mp_demo_bots_qa");
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      localStorage.setItem("mp_demo_bots_qa", botsQa ? "1" : "0");
+  }, [botsQa]);
+
   // Gabarit d'écran du téléphone simulé (cf. DEVICES) — persisté pour comparer
   // le même écran d'une session à l'autre.
   const [deviceKey, setDeviceKey] = useState<DeviceKey>(() => {
@@ -449,6 +466,7 @@ function DemoMenu() {
             .select()
             .eq("game_id", gameId)
             .order("joined_at");
+          meterAddRead(approxBytes(data)); // refetch realtime : compté dans le total
           setPlayers((data ?? []) as PlayerRow[]);
         },
       )
@@ -548,14 +566,17 @@ function DemoMenu() {
     }
     const d = startBotDriver({
       gameId,
-      getConfig: () => ({ ...defaultBotConfig, timeMultiplier: 5, qa: true }),
+      getConfig: () => ({ ...defaultBotConfig, timeMultiplier: 5, qa: botsQa }),
       embodiedPlayerId: () => embodiedIdRef.current,
+      // Bots pilotés sur l'état DÉJÀ reçu par realtime (gameRef/playersRef) →
+      // zéro lecture DB pour l'avancement des bots. C'est le gros levier egress.
+      getState: () => ({ game: gameRef.current, players: playersRef.current }),
     });
     return () => {
       d?.stop();
       stopBotDriver();
     };
-  }, [gameId, game?.status, botsActive]);
+  }, [gameId, game?.status, botsActive, botsQa]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -569,6 +590,7 @@ function DemoMenu() {
   useEffect(() => {
     if (!gameId) return;
     const iv = setInterval(() => {
+      if (!botsQa) return; // QA OFF → aucune analyse ni lecture DB du survey
       const g = gameRef.current;
       const ps = playersRef.current;
       const rs = rolesRef.current;
@@ -578,18 +600,19 @@ function DemoMenu() {
       void runInvariantSweep(g, ps, rs);
     }, 4000);
     return () => clearInterval(iv);
-  }, [gameId]);
+  }, [gameId, botsQa]);
 
   useEffect(() => {
     if (!gameId || !game) return;
     if (game.status === "ended") {
+      if (!botsQa) return; // QA OFF → pas d'audit de fin (lectures en vrac évitées)
       if (endHandledRef.current === gameId) return;
       endHandledRef.current = gameId;
       void runEndGameAudit(gameId).then(() => setShowReport(true));
     } else if (game.status === "in_progress" && endHandledRef.current === gameId) {
       endHandledRef.current = null; // ré-armer après un reset + relance
     }
-  }, [gameId, game?.status, game]);
+  }, [gameId, game?.status, game, botsQa]);
 
   // Auto-prêt : en démo tous les joueurs (l'opérateur incarne un bot) sont
   // considérés "entrés dans la partie". Sans ça, PlayerShell attend
@@ -630,10 +653,12 @@ function DemoMenu() {
     await resetGame(gameId);
   }
   async function newDemo() {
-    if (!confirm("Créer une toute nouvelle partie démo ?")) return;
+    if (!confirm("Créer une nouvelle partie démo ? L'actuelle sera SUPPRIMÉE.")) return;
     if (gameId) {
       stopBotDriver();
-      await resetGame(gameId);
+      // Suppression complète (pas un simple reset) : évite d'accumuler des
+      // parties fantômes qui traînent en base jusqu'à la purge.
+      await deleteGame(gameId);
     }
     localStorage.removeItem(DEMO_GAME_KEY);
     location.reload();
@@ -887,6 +912,18 @@ function DemoMenu() {
               {botsActive ? "Bots ON" : "Bots OFF"}
             </button>
             <button
+              onClick={() => setBotsQa((v) => !v)}
+              className={`px-2.5 py-1.5 text-xs rounded border flex items-center gap-1.5 ${botsQa ? "border-amber-500/40 text-amber-300 hover:bg-amber-500/10" : "border-border text-muted-foreground hover:bg-card"}`}
+              title={
+                botsQa
+                  ? "Harnais QA actif (chasse aux bugs) — lectures DB en plus. Clique pour un run léger."
+                  : "QA coupé — run léger, aucune lecture QA. Clique pour réactiver l'analyse."
+              }
+            >
+              <Bug className="size-3.5" />
+              {botsQa ? "QA ON" : "QA OFF"}
+            </button>
+            <button
               onClick={reset}
               className="px-2.5 py-1.5 text-xs rounded border border-destructive/40 text-destructive hover:bg-destructive/10 flex items-center gap-1.5"
             >
@@ -982,6 +1019,7 @@ function DemoMenu() {
               >
                 <RotateCcw className="size-3.5" /> Relancer
               </button>
+              <BotEgressMeter />
               <span className="mx-1 h-5 w-px bg-border" />
               {/* Passage de phase manuel */}
               <button
