@@ -2850,11 +2850,7 @@ export async function releasePlayer(gameId: string, playerId: string) {
   await supabase.from("players").update({ is_imprisoned: false }).eq("id", playerId);
   // Trace datée pour l'annonce publique « X sort de prison » (cf. la libération
   // par le Juge, qui pose la même clé).
-  const { data: g } = await supabase
-    .from("games")
-    .select("current_tour")
-    .eq("id", gameId)
-    .single();
+  const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
   await patchMeta(playerId, {
     released_at_cycle: (g as { current_tour: number } | null)?.current_tour ?? 0,
   });
@@ -3314,12 +3310,16 @@ export async function executeCapability(opts: {
           // CONTRÔLE : Méchant (bloque/vole/détourne). Interchangeable avec TROMPERIE et
           // SUPPORT (menaces non-létales) + Neutre MAL/CHAOS.
           if (a.type === "CONTRÔLE") {
-            if (b.type === "CONTRÔLE" || b.type === "TROMPERIE" || b.type === "SUPPORT") return true;
+            if (b.type === "CONTRÔLE" || b.type === "TROMPERIE" || b.type === "SUPPORT")
+              return true;
             if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
           }
           // Neutres : mapping inverse vers types similaires des autres factions.
           if (a.faction === "Neutre") {
-            if (a.type === "MAL" && (b.type === "TUEUR" || b.type === "TROMPERIE" || b.type === "CONTRÔLE"))
+            if (
+              a.type === "MAL" &&
+              (b.type === "TUEUR" || b.type === "TROMPERIE" || b.type === "CONTRÔLE")
+            )
               return true;
             if (
               a.type === "CHAOS" &&
@@ -3848,9 +3848,7 @@ export async function executeCapability(opts: {
           playerId: actor.id,
           type: "heir_inquiry",
           title: "👑 Héritier — Enquête",
-          body: isSuspect
-            ? `🟠 ${t1.pseudo} ressort suspect.`
-            : `🟢 ${t1.pseudo} : pas suspect.`,
+          body: isSuspect ? `🟠 ${t1.pseudo} ressort suspect.` : `🟢 ${t1.pseudo} : pas suspect.`,
           mjTitle: "👑 Héritier déchu",
           mjBody: `${actor.pseudo} (Héritier déchu) enquête sur ${t1.pseudo} → ${verdict}.`,
         });
@@ -4326,7 +4324,8 @@ export async function executeCapability(opts: {
         const cover = meta(t1).cover_slug as string | undefined;
         const revealSlug = cover ?? t1.role_slug ?? "";
         const r = opts.rolesBySlug.get(revealSlug);
-        const label = !cover && r && isKillerClass(r) ? "Citoyen" : r ? `${r.icon} ${r.name_fr}` : "?";
+        const label =
+          !cover && r && isKillerClass(r) ? "Citoyen" : r ? `${r.icon} ${r.name_fr}` : "?";
         await used({ effect: "mouchard_reveal", target: t1.id, slug: revealSlug });
         await notify({
           gameId: opts.gameId,
