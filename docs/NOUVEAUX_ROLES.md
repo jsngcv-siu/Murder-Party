@@ -104,19 +104,32 @@ et **Méchant/INVESTIGATION (2 rôles)**.
 **Fantasme** : l'homme qui a « des connexions ». On ne sait jamais ce qu'il va sortir
 de sa malle.
 
-- **Capacité (focus unique retenu)** : reçoit automatiquement **1 objet aléatoire du
-  catalogue tous les 2 tours**.
-- **Catalogue proposé** (sous-ensemble de `ITEM_CATALOG`) : lettre, fiole de vie,
-  fiole de clairvoyance, fiole de mort (rare), couteau (rare). **Exclus** : relique
-  (signature du Conservateur) et indice (signature de la fuite du Stratège).
-  Pondération à définir (utilitaire ≫ létal).
-- **Contre-jeu** : le Voleur (l'inventaire du Contrebandier devient la cible n°1 —
-  duel d'objets savoureux), et le fait qu'un couteau d'origine civile utilisé
-  n'importe comment reste un kill civil raté.
-- **Équilibrage** : valeur lissée dans le temps, dépend fort de la pondération du
-  catalogue. Simple à ajuster après coup (les poids, pas le rôle).
+- **Capacité (focus unique retenu)** : reçoit automatiquement **1 objet aléatoire de
+  SA malle tous les 2 tours**.
+- **La Malle du Contrebandier (décision 2026-07-18)** : pool de **5 objets exclusifs**
+  que lui seul peut recevoir — pas de piochage dans `ITEM_CATALOG` (évite le
+  débordement : reliques du Conservateur, indice du Stratège, spam de couteaux).
+  Chaque objet réutilise une mécanique moteur existante :
+  1. 🗝️ **Le Passe-partout** *(rare)* — utilisable uniquement en prison : tu t'évades
+     immédiatement. (Patron : libération du Juge.)
+  2. 🧥 **Le Gilet matelassé** — bouclier personnel : annule la prochaine attaque sur
+     toi, puis est consommé. (Patron : bouclier de l'Ange Gardien.)
+  3. 🥃 **Le Rhum de contrebande** — cible 1 joueur : ivre au prochain tour, capacité
+     désactivée. Don anonyme. (Patron : ivresse du Barman / blocage Maître chanteur.)
+  4. 🧐 **Le Monocle du douanier** — cible 1 joueur : tu vois son inventaire complet.
+     (Nouvelle micro-mécanique de lecture d'inventaire — très peu coûteuse.)
+  5. 🎒 **Le Double-fond** — passif tant qu'il est dans ton inventaire : le premier
+     vol du Voleur qui te cible échoue et consomme le Double-fond à la place.
+  Pondération suggérée : Rhum/Monocle communs, Gilet moyen, Passe-partout/Double-fond
+  rares. Le Voleur peut voler ces objets (c'est voulu : duel Voleur↔Contrebandier).
+- **Équilibrage** : valeur lissée dans le temps, aucun objet létal — tout s'ajuste
+  par les poids de la malle, pas par le rôle.
 - **Implém** : distribution automatique au changement de tour (patron passif) +
-  `ITEM_CATALOG` existant. Léger.
+  5 entrées d'items dédiées. Léger.
+- **✅ Garde-fou Cœur du Manoir (FAIT, 2026-07-18)** : même si la malle est exclusive,
+  la mine a été désamorcée dans `items.ts` — utiliser une relique `coeur_du_manoir`
+  ne déclenche plus « Victoire du Conservateur » si aucun Conservateur n'est dans la
+  partie (l'objet devient inerte). Toute source future de reliques est safe.
 
 ---
 
@@ -163,24 +176,66 @@ est du **contenu d'Annonce**, pas une phase. Coût moyen, mais mutualisé pour t
 > Décision : **pas de nouveau type, pas de double type** (complexité inutile). Ce sont
 > des rôles ordinaires des types existants, dont le pouvoir s'active **à ou après la mort**.
 > Le vrai gain : un joueur mort tôt garde un moment de jeu — le point faible de tout
-> le genre en présentiel.
+> le genre en présentiel. Côté UI c'est déjà prêt : **l'espace capacité reste affiché
+> pour les morts**, il n'y a qu'à le remplir.
+
+**Règle d'équilibrage post-mortem (validée 2026-07-18)** :
+- **Civil** → des *miettes* seulement, et qui passent par le goulot du **Conseil des
+  morts / Médium** (info faillible, jamais un canal direct vers les vivants).
+- **Neutre CHAOS** → permis de tout casser : c'est son métier, et son pouvoir ne
+  sert aucune faction.
+- **Méchant** → **pas de post-mortem** tant que la faction est au-dessus de la cible
+  (48,5 % mesuré vs 45 % visé) : un outil d'outre-tombe serait un buff déguisé.
 
 1. **La Dame blanche — Civil/SUPPORT** : de son vivant, rien. À sa mort, elle hante :
    **1×**, depuis le Conseil des morts, elle désigne un vivant — le **Médium** (et lui
    seul) reçoit *« la Dame blanche désigne X »*. Canal d'outre-tombe faillible : encore
    faut-il que le Médium soit vivant, comprenne, et soit cru.
-2. **Le Poltergeist — Neutre/CHAOS** : après sa mort, **1×**, déplace un objet de
-   l'inventaire d'un vivant vers un autre vivant. Le couteau qui change de poche depuis
-   l'au-delà.
+2. **Le Poltergeist — Neutre/CHAOS** (musclé, autorisé par la règle CHAOS) : après sa
+   mort, **1 déplacement d'objet par Enquête** — il prend un objet de l'inventaire d'un
+   vivant et le glisse dans celui d'un autre. Ni la source ni le receveur ne savent d'où
+   ça vient. **Victoire** : quelqu'un meurt d'un objet qu'il a déplacé (le couteau qui
+   change de poche depuis l'au-delà finit par frapper).
 3. **Le Rancunier — Civil/SUPPORT** : à sa mort, la Gazette publie automatiquement son
    **principal suspect** (le joueur le plus marqué de son tableau de suspicions).
    Passif, zéro action requise — le mort « parle » une dernière fois.
+4. **La Banshee — Neutre/CHAOS** : de son vivant, rien. À sa mort, elle **maudit** un
+   vivant de son choix : il ressort **« suspect »** à toutes les enquêtes tant qu'il vit
+   (réutilise la mécanique Accusateur, en permanent). **Victoire** : le maudit meurt ou
+   est emprisonné avant la fin. Le hurlement qui poursuit un innocent — ou un coupable.
+5. **Le Veilleur — Civil/INVESTIGATION** : à sa mort, continue de veiller : **1×/Enquête**
+   depuis l'au-delà, observe un vivant et voit qui le cible ce tour (Guetteur des morts) —
+   mais ne peut le raconter **que dans le Conseil des morts** → seul le Médium peut
+   récupérer l'info. Respecte la règle « miettes via goulot Médium ».
 
 **⚠️ Point moteur bloquant à cadrer d'abord** : le resolver applique la symétrie
 « acteur mort ce tour → effet annulé » (et les préconditions re-checkent `is_alive`).
 Les capacités post-mortem devront être une **exception explicite et propre** dans
 `resolver.ts` / `actions.ts` — c'est LE chantier technique de cet axe, à faire une fois
 pour tous les rôles post-mortem.
+
+---
+
+## 9. Deuxième fournée (proposés 2026-07-18 — pas encore triés)
+
+> Proposés dans le cadre acté : combler BÉNIN et Méchant/INVESTIGATION, pas d'archétype
+> pompé, pas de structure temporelle, wincons scalables si létal.
+
+1. **Le Confident — Neutre/BÉNIN** : au setup, le manoir lui assigne secrètement un
+   **protégé** aléatoire. Aucun pouvoir mécanique. **Victoire** : le protégé est vivant
+   à la fin — même si le Confident, lui, est mort. Un garde du corps purement social :
+   orienter les soupçons, dépenser sa crédibilité pour un autre, sans jamais révéler le
+   lien (le protégé ne sait rien). Comble BÉNIN, zéro risque d'équilibrage.
+2. **Le Physionomiste — Méchant/INVESTIGATION** : 1×/Enquête, dévisage un joueur et
+   apprend son **TYPE** (PROTECTEUR, INVESTIGATION, SUPPORT, TUEUR…) sans le rôle exact.
+   Granularité entre la Boussole et le Mouchard : il chasse le Majordome et les
+   enquêteurs pour guider les kills. Info pure, pas de kill — puissance comparable au
+   Cartomancien. Comble Méchant/INVESTIGATION (3ᵉ rôle avec l'Archiviste).
+3. **Le Ventriloque — Méchant/TROMPERIE** : 1×/partie, fait parvenir une **lettre
+   signée du nom d'un autre joueur vivant** (réutilise l'objet lettre du Facteur —
+   implém quasi gratuite). Fausse accusation, faux aveu, faux indice… la table découvre
+   que les lettres peuvent mentir. ⚠️ À cadrer au design : le joueur imité doit pouvoir
+   nier — c'est précisément le jeu social recherché.
 
 ---
 

@@ -552,14 +552,30 @@ export async function consumeItem(opts: {
       const variant = (item.payload?.variant as ReliqueVariant | undefined) ?? null;
       const def = variant ? RELIQUE_CATALOG[variant] : null;
       if (variant === "coeur_du_manoir") {
-        const { endGameWithWinner } = await import("./actions");
-        await endGameWithWinner(
-          gameId,
-          "Conservateur",
-          `${opts.actorPseudo} a révélé Le Cœur du Manoir. Le Manoir le reconnaît comme son gardien.`,
-        );
-        message =
-          "🫀 Le Cœur du Manoir bat dans tes mains — toutes les factions s'inclinent. Victoire du Conservateur.";
+        // Garde-fou : la « Victoire du Conservateur » n'a de sens que si un
+        // Conservateur est dans la partie. L'objet ne peut aujourd'hui arriver
+        // en inventaire que par lui, mais toute source future de reliques
+        // (Contrebandier, événement…) armerait une victoire fantôme sans ce check.
+        const { data: gardien } = await supabase
+          .from("players")
+          .select("id")
+          .eq("game_id", gameId)
+          .eq("role_slug", "conservateur")
+          .limit(1)
+          .maybeSingle();
+        if (!gardien) {
+          message =
+            "🫀 Le Cœur du Manoir bat faiblement… mais aucun gardien ne le réclame. Rien ne se passe.";
+        } else {
+          const { endGameWithWinner } = await import("./actions");
+          await endGameWithWinner(
+            gameId,
+            "Conservateur",
+            `${opts.actorPseudo} a révélé Le Cœur du Manoir. Le Manoir le reconnaît comme son gardien.`,
+          );
+          message =
+            "🫀 Le Cœur du Manoir bat dans tes mains — toutes les factions s'inclinent. Victoire du Conservateur.";
+        }
       } else if (variant === "oeil_damnation") {
         // Révèle le rôle d'un joueur vivant au hasard (≠ porteur)
         const { data: pool } = await supabase
