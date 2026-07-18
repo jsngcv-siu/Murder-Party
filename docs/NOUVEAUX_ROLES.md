@@ -4,6 +4,10 @@
 > tri final à faire avant implémentation. Pipeline d'implémentation : `docs/ROLES_FRAMEWORK.md`
 > (DB → handler → resolver → setup → UI → tirage) puis écran animé (skill murder-party-analyst,
 > Playbook E). Les ancrages techniques cités ci-dessous ont été vérifiés contre le code au 2026-07-18.
+>
+> **Process (acté 2026-07-18)** : les nouvelles fournées de rôles se proposent **dans le
+> chat**, jamais directement ici. Seuls les rôles **validés** par Jason entrent dans ce
+> fichier ; les **rejetés** sont tracés en bas (pour ne jamais re-proposer la même idée).
 
 Rappel structurel (audit 2026-07-18) : l'équilibrage étant piloté par **proportions**
 (`buildDefaultPool` + unions souples), ajouter des rôles n'altère pas l'équilibre des
@@ -187,26 +191,17 @@ est du **contenu d'Annonce**, pas une phase. Coût moyen, mais mutualisé pour t
 - **Méchant** → **pas de post-mortem** tant que la faction est au-dessus de la cible
   (48,5 % mesuré vs 45 % visé) : un outil d'outre-tombe serait un buff déguisé.
 
-1. **La Dame blanche — Civil/SUPPORT** : de son vivant, rien. À sa mort, elle hante :
-   **1×**, depuis le Conseil des morts, elle désigne un vivant — le **Médium** (et lui
-   seul) reçoit *« la Dame blanche désigne X »*. Canal d'outre-tombe faillible : encore
-   faut-il que le Médium soit vivant, comprenne, et soit cru.
-2. **Le Poltergeist — Neutre/CHAOS** (musclé, autorisé par la règle CHAOS) : après sa
-   mort, **1 déplacement d'objet par Enquête** — il prend un objet de l'inventaire d'un
-   vivant et le glisse dans celui d'un autre. Ni la source ni le receveur ne savent d'où
-   ça vient. **Victoire** : quelqu'un meurt d'un objet qu'il a déplacé (le couteau qui
-   change de poche depuis l'au-delà finit par frapper).
-3. **Le Rancunier — Civil/SUPPORT** : à sa mort, la Gazette publie automatiquement son
-   **principal suspect** (le joueur le plus marqué de son tableau de suspicions).
-   Passif, zéro action requise — le mort « parle » une dernière fois.
-4. **La Banshee — Neutre/CHAOS** : de son vivant, rien. À sa mort, elle **maudit** un
-   vivant de son choix : il ressort **« suspect »** à toutes les enquêtes tant qu'il vit
-   (réutilise la mécanique Accusateur, en permanent). **Victoire** : le maudit meurt ou
-   est emprisonné avant la fin. Le hurlement qui poursuit un innocent — ou un coupable.
-5. **Le Veilleur — Civil/INVESTIGATION** : à sa mort, continue de veiller : **1×/Enquête**
-   depuis l'au-delà, observe un vivant et voit qui le cible ce tour (Guetteur des morts) —
-   mais ne peut le raconter **que dans le Conseil des morts** → seul le Médium peut
-   récupérer l'info. Respecte la règle « miettes via goulot Médium ».
+**Le Poltergeist — Neutre/CHAOS** *(VALIDÉ au tri 2026-07-18 — seul rôle post-mortem
+retenu)* : après sa mort, **1 déplacement d'objet par Enquête** — il prend un objet de
+l'inventaire d'un vivant et le glisse dans celui d'un autre. Ni la source ni le receveur
+ne savent d'où ça vient. **Victoire** : quelqu'un meurt d'un objet qu'il a déplacé (le
+couteau qui change de poche depuis l'au-delà finit par frapper).
+
+- **Exigence UI (demande Jason)** : son écran de capacité doit montrer **en live les
+  inventaires de chaque joueur vivant**, avec un flux en 2 temps : choisir la cible à
+  qui prendre l'objet, puis choisir la cible qui le reçoit. C'est le principal coût du
+  rôle (les inventaires sont en base, le Realtime existe — c'est un écran à construire,
+  pas une mécanique moteur).
 
 **⚠️ Point moteur bloquant à cadrer d'abord** : le resolver applique la symétrie
 « acteur mort ce tour → effet annulé » (et les préconditions re-checkent `is_alive`).
@@ -216,26 +211,25 @@ pour tous les rôles post-mortem.
 
 ---
 
-## 9. Deuxième fournée (proposés 2026-07-18 — pas encore triés)
+## 9. Deuxième fournée — validés au tri du 2026-07-18
 
-> Proposés dans le cadre acté : combler BÉNIN et Méchant/INVESTIGATION, pas d'archétype
-> pompé, pas de structure temporelle, wincons scalables si létal.
-
-1. **Le Confident — Neutre/BÉNIN** : au setup, le manoir lui assigne secrètement un
-   **protégé** aléatoire. Aucun pouvoir mécanique. **Victoire** : le protégé est vivant
-   à la fin — même si le Confident, lui, est mort. Un garde du corps purement social :
-   orienter les soupçons, dépenser sa crédibilité pour un autre, sans jamais révéler le
-   lien (le protégé ne sait rien). Comble BÉNIN, zéro risque d'équilibrage.
-2. **Le Physionomiste — Méchant/INVESTIGATION** : 1×/Enquête, dévisage un joueur et
-   apprend son **TYPE** (PROTECTEUR, INVESTIGATION, SUPPORT, TUEUR…) sans le rôle exact.
-   Granularité entre la Boussole et le Mouchard : il chasse le Majordome et les
-   enquêteurs pour guider les kills. Info pure, pas de kill — puissance comparable au
-   Cartomancien. Comble Méchant/INVESTIGATION (3ᵉ rôle avec l'Archiviste).
-3. **Le Ventriloque — Méchant/TROMPERIE** : 1×/partie, fait parvenir une **lettre
-   signée du nom d'un autre joueur vivant** (réutilise l'objet lettre du Facteur —
-   implém quasi gratuite). Fausse accusation, faux aveu, faux indice… la table découvre
-   que les lettres peuvent mentir. ⚠️ À cadrer au design : le joueur imité doit pouvoir
-   nier — c'est précisément le jeu social recherché.
+1. **Le Physionomiste — Méchant/INVESTIGATION** *(nom provisoire, à rebaptiser)* :
+   1×/Enquête, dévisage un joueur et apprend son **TYPE** (PROTECTEUR, INVESTIGATION,
+   SUPPORT, TUEUR…) sans le rôle exact. Il chasse le Majordome et les enquêteurs pour
+   guider les kills. **Grille de déduction (vérifiée contre la compo actuelle)** :
+   PROTECTEUR et SUPPORT ⇒ Civil sûr · TROMPERIE et CONTRÔLE ⇒ Méchant sûr ·
+   MAL/CHAOS/BÉNIN ⇒ Neutre sûr · seuls **TUEUR** (3 factions) et **INVESTIGATION**
+   (Civil/Méchant) restent ambigus — le verdict type ≈ un verdict de faction 7 fois
+   sur 9, c'est sa vraie puissance. Comble Méchant/INVESTIGATION (3ᵉ rôle avec
+   l'Archiviste). Info pure, pas de kill.
+2. **Le Ventriloque — Méchant/TROMPERIE** : sa capacité **génère un objet « lettre
+   déjà envoyée »** signé du nom d'un autre joueur vivant, livré à la cible de son
+   choix. Fausse accusation, faux aveu, faux indice… la table découvre que les lettres
+   peuvent mentir — le joueur imité doit nier, c'est le jeu social recherché.
+   **⚠️ Changement systémique requis (décision Jason)** : la lettre du Facteur n'est
+   **plus anonyme** — toute lettre normale arrive **signée du nom de son expéditeur**.
+   C'est ce qui donne son mordant à la contrefaçon du Ventriloque (une lettre signée
+   est crue par défaut). À implémenter en même temps que le rôle.
 
 ---
 
@@ -249,3 +243,12 @@ pour tous les rôles post-mortem.
 - **Le Limier** (détecteur d'activité méchant) — non retenu au tri.
 - **Le Vigilante masqué en rôle émergent** — transformé en **événement + statut** (§7) :
   un rôle émergent qui remplace le rôle du joueur serait frustrant.
+- **La Dame blanche** (Civil post-mortem, désigne via Médium) — rejetée au tri.
+- **Le Rancunier** (Civil, suspect publié à sa mort) — rejeté au tri.
+- **La Banshee** (CHAOS post-mortem, malédiction « suspect ») — rejetée au tri.
+- **Le Veilleur** (Civil post-mortem, Guetteur des morts) — rejeté au tri.
+- **Le Confident** (BÉNIN, protégé secret sans pouvoir) — rejeté au tri.
+  → Enseignement du tri : les rôles **passifs à miettes d'info** et les wincons
+  purement sociaux ne prennent pas ; ce qui plaît = rôles **actifs et systémiques**
+  (objets, chats, prison, moments spectaculaires). Seul post-mortem retenu : le
+  Poltergeist (interactif).
