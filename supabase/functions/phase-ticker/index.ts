@@ -685,7 +685,7 @@ async function applyAttack(intent, killer) {
       resolves_at: resolvesAt
     };
   }
-  if (tRow.role_slug === "chat_du_manoir" && tMeta.chat_life_used !== true) {
+  if (!pierce && tRow.role_slug === "chat_du_manoir" && tMeta.chat_life_used !== true) {
     await supabase.from("players").update({
       role_meta: {
         ...tMeta,
