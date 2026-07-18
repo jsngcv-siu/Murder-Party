@@ -249,6 +249,37 @@ pour tous les rôles post-mortem.
    totale en jeu à 16-20 j. ; levier supplémentaire si besoin = poids de tirage bas
    (comme Apothicaire 0.4). Implém : couche PROTECT existante + cadence alternée. Léger.
 
+---
+
+## 11. Quatrième fournée — Méchant/TUEUR, validés au tri du 2026-07-18
+
+> Gabarit de la classe (compris au tri) : le Méchant/TUEUR occupe le **slot tueur
+> garanti** et porte la létalité de la faction → **1 kill fiable par Enquête + UN seul
+> twist lisible**. Flags `HOSTILE, KILLER`, éligibles à la succession d'Acolyte,
+> tirage pondéré du slot TUEUR (aux côtés de Tueur poids 10, Croque-mitaine, Stratège,
+> Armurier).
+
+1. **Le Franc-tireur** *(nom acté)* : 1×/Enquête, tue 1 cible. **1×/partie**, bouton
+   « balle perforante » : ce kill-là **ignore TOUTES les protections — bénédiction du
+   Saint comprise** (acté par Jason : tout perce). La protection n'est plus jamais une
+   certitude absolue.
+2. **Le Détrousseur** : 1×/Enquête, tue 1 cible **et empoche son dernier objet**.
+   **1×/partie**, bouton « braquage » (même patron que le Franc-tireur) : sur ce
+   kill-là, il rafle **TOUT l'inventaire** de la victime en prime de la tuer.
+   Tension directe avec Jardinier / Voleur / Monocle du douanier (son inventaire
+   volé le trahit s'il est fouillé).
+3. **Le Vautour** : 1×/Enquête, tue 1 cible — mais **uniquement parmi les joueurs
+   ayant reçu au moins une voix au dernier Vote**. **Tour 1 (aucun vote encore) : il
+   reçoit un couteau** dans son inventaire à la place — kill libre via l'objet.
+   **Exigence UI (demande Jason)** : son onglet capacité doit filtrer dynamiquement
+   les cibles proposées = les votés du dernier Vote uniquement. Quand une victime
+   avait des voix, la table croit avoir lynché un coupable — le vote devient une
+   arme sans toucher à sa structure.
+
+---
+
+## Rejetés (trace des décisions, 2026-07-18)
+
 - **Le Bouffon du Manoir** (gagne s'il est emprisonné) — rejeté : archétype pompé des
   autres jeux à rôles cachés, pas l'identité voulue.
 - **Le Sonneur de tocsin** (saute/prolonge le Débat) — rejeté : on ne touche **jamais**
@@ -271,3 +302,11 @@ pour tous les rôles post-mortem.
   Standardiste (chats privés éphémères), le Notaire (authentification
   anti-Falsificateur), le Faussaire (contrefaçons d'objets), l'Embaumeur (maquille
   le rôle des morts), l'Illusionniste (échange de capacités 1 tour).
+- **Non retenus au tri de la 4ᵉ fournée (2026-07-18)** : le Rôdeur (insaisissable les
+  tours où il tue), le Caméléon (couverture = rôle de sa dernière victime), la
+  Toxicologue (poison à retardement d'un tour). Rappel du gabarit : les 3 proposés
+  d'avant (Dynamiteur/Procureur/Vipère) étaient hors-gabarit — un Méchant/TUEUR doit
+  tuer de façon fiable chaque Enquête (moteur de létalité du slot garanti).
+- **Annonces d'attribution (idée transverse, abandonnée 2026-07-18)** : révéler au
+  sauvé qui l'a protégé / révéler la cause de la mort en Gazette — zappé par Jason
+  (complexité d'infos sur l'app). Ne pas re-proposer.
