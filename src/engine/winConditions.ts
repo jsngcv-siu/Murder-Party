@@ -260,11 +260,11 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   }
 
   // Pyromane (lot 5) : victoire SOLO immédiate dès que le compte de morts par
-  // le feu atteint le barème (2 ≤10 j. / 3 en 11-15 / 4 à 16+) — s'il est
-  // vivant et libre pour signer son œuvre.
+  // le feu atteint le barème (3 ≤15 j. / 4 à 16+, calé par sim/pyromane.mjs) —
+  // s'il est vivant et libre pour signer son œuvre.
   const pyromane = alive.find((p) => p.role_slug === "pyromane");
   if (pyromane) {
-    const need = playerCount <= 10 ? 2 : playerCount <= 15 ? 3 : 4;
+    const need = playerCount <= 15 ? 3 : 4;
     if ((getMeta(pyromane).pyro_kills ?? 0) >= need) {
       return {
         winner: "Pyromane",

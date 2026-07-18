@@ -292,7 +292,7 @@ async function evaluateWin(gameId) {
   }
   const pyromane = alive.find((p) => p.role_slug === "pyromane");
   if (pyromane) {
-    const need = playerCount <= 10 ? 2 : playerCount <= 15 ? 3 : 4;
+    const need = playerCount <= 15 ? 3 : 4;
     if ((getMeta(pyromane).pyro_kills ?? 0) >= need) {
       return {
         winner: "Pyromane",
@@ -3954,7 +3954,6 @@ async function imprisonPlayer(gameId, playerId, reason = "vote") {
   return true;
 }
 function pyroThreshold(playerCount) {
-  if (playerCount <= 10) return 2;
   if (playerCount <= 15) return 3;
   return 4;
 }

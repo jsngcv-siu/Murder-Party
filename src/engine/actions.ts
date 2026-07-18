@@ -2956,10 +2956,12 @@ export async function imprisonPlayer(
 }
 
 // ── Pyromane (lot 5) : barème de victoire par taille de table ──
-// 2 morts par le feu (≤10 joueurs), 3 (11-15), 4 (16+). Plafond d'aspergés
-// vivants = barème + 1 (garde-fou anti « j'asperge tout le monde »).
+// 3 morts par le feu (≤15 joueurs), 4 (16+). Plafond d'aspergés vivants =
+// barème + 1 (garde-fou anti « j'asperge tout le monde »).
+// ⚠️ Calé par sim/pyromane.mjs (2026-07-18) : l'ancien barème 2 aux petites
+// tables donnait ~45-50 % de victoires (trop fort) ; à 3/4 → 22-38 %, dans la
+// cible Neutre/MAL (~25-40 %, réf. Empoisonneur ~36 %).
 export function pyroThreshold(playerCount: number): number {
-  if (playerCount <= 10) return 2;
   if (playerCount <= 15) return 3;
   return 4;
 }

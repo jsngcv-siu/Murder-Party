@@ -952,6 +952,296 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
+  // ── Nouveaux rôles 2026-07 (lots 1 à 5) ──
+  archiviste: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Chaque vote t'alimente",
+            body: "Tu lis le rôle de tout joueur emprisonné — pousse la table à voter, chaque détenu enrichit tes dossiers.",
+          },
+          {
+            tag: "Les registres suivent la doctrine",
+            body: "Les déguisements tiennent : un falsifié donne un dossier illisible, l'Usurpateur ressort sous sa couverture.",
+          },
+        ],
+      },
+    ],
+  },
+  physionomiste: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Le type parle",
+            body: "PROTECTEUR et SUPPORT n'existent que chez les Civils ; TROMPERIE et CONTRÔLE que chez les Méchants. Seuls TUEUR et INVESTIGATION restent ambigus.",
+          },
+          {
+            tag: "Chasse les gêneurs",
+            body: "Trouve le Majordome et les enquêteurs pour guider les kills de ton camp — c'est ta vraie mission.",
+          },
+        ],
+      },
+    ],
+  },
+  chat_du_manoir: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Une seule vie de réserve",
+            body: "La première attaque te laisse indemne — mais le miaulement est public : la table saura qu'une attaque a été absorbée quelque part.",
+          },
+          {
+            tag: "Personne ne hait le chat",
+            body: "Tu gagnes avec n'importe quel camp si tu survis. Ton arme : n'être une menace pour personne.",
+          },
+        ],
+      },
+    ],
+  },
+  photographe: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Photographie les condamnés",
+            body: "Tes clichés ne paient que si le sujet meurt APRÈS la photo. Lis les menaces mieux que les enquêteurs : qui est trop bruyant, trop utile, trop exposé ?",
+          },
+          {
+            tag: "Reste en vie",
+            body: "Une pellicule pleine ne vaut rien dans une tombe : ta victoire exige aussi ta survie.",
+          },
+        ],
+      },
+    ],
+  },
+  aubergiste: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Une chambre sur deux",
+            body: "Ta protection n'est disponible qu'une Enquête sur deux — choisis le bon soir et le bon client.",
+          },
+          {
+            tag: "Tu entends frapper",
+            body: "Si on attaque ton hôte, tu l'apprends (jamais qui). Ces secrets se monnayent au Débat.",
+          },
+        ],
+      },
+    ],
+  },
+  garde_chasse: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Tu venges, tu ne sauves pas",
+            body: "Ta patrouille tue l'attaquant mais n'empêche pas la mort de la cible : au matin, deux corps. Patrouille devant les cibles PROBABLES, pas devant tes amis sûrs.",
+          },
+          {
+            tag: "Toutes les attaques comptent",
+            body: "Même une attaque bloquée par une protection déclenche ta riposte — l'agresseur meurt quand même.",
+          },
+        ],
+      },
+    ],
+  },
+  bretteur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Tout est dans le timing",
+            body: "Une seule parade dans la partie. Joue l'appât, rends-toi suspect au bon moment — et lève ta garde LA nuit où l'on vient pour toi.",
+          },
+          {
+            tag: "Jamais d'erreur",
+            body: "Tu ne tues que qui t'attaque : aucun risque de friendly fire. Mais une garde levée pour rien est perdue à jamais.",
+          },
+        ],
+      },
+    ],
+  },
+  conjure: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Choisis bien ton complice",
+            body: "Un Civil convaincu accepte un kill juste ; un Méchant sollicité co-signera avec joie la mort d'un innocent. Ton pacte vaut ce que vaut ton jugement.",
+          },
+          {
+            tag: "Dépensé quoi qu'il arrive",
+            body: "Refusé ou accepté, ton unique pacte est consommé — et le complice sait désormais qu'un conjuré rôde.",
+          },
+        ],
+      },
+    ],
+  },
+  contrebandier: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Ta malle est convoitée",
+            body: "Le Voleur te ciblera : garde ton Double-fond, il encaisse le premier vol à ta place.",
+          },
+          {
+            tag: "Rien en cellule",
+            body: "Les livraisons ne passent pas les barreaux : emprisonné, ton trafic s'arrête.",
+          },
+        ],
+      },
+    ],
+  },
+  jardinier: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Les morts te fournissent",
+            body: "Chaque défunt laisse ses objets : fioles, couteaux, lettres… Ratisse tôt, avant que le Voleur ne pille les mêmes tombes.",
+          },
+          {
+            tag: "Au hasard",
+            body: "Tu ne choisis ni le mort ni l'objet — c'est la surprise du ratissage.",
+          },
+        ],
+      },
+    ],
+  },
+  detrousseur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Ton inventaire te trahit",
+            body: "Chaque kill remplit tes poches d'objets volés — un Monocle ou une fouille peut lire ton tableau de chasse.",
+          },
+          {
+            tag: "Braque au bon moment",
+            body: "Garde le braquage pour une cible chargée (Contrebandier, Apothicaire…) : tout rafler d'un coup, ça change une partie.",
+          },
+        ],
+      },
+    ],
+  },
+  franc_tireur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "La balle qui perce tout",
+            body: "Boucliers, bénédiction du Saint, sacrifice du Majordome, parade du Bretteur : rien n'arrête ta balle gravée. Une seule — choisis un moment décisif.",
+          },
+          {
+            tag: "Le chat retombe",
+            body: "Seule exception : la vie de réserve du Chat du Manoir absorbe même ta balle.",
+          },
+        ],
+      },
+    ],
+  },
+  geolier: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Le détenu peut mentir",
+            body: "Le parloir n'est qu'un canal : tout ce qui s'y dit vaut ce que vaut ton interlocuteur. Croise avec les enquêtes.",
+          },
+          {
+            tag: "Tu restes anonyme",
+            body: "Le prisonnier ne sait pas qui tu es — négocie, promets le Juge, intoxique : il ne pourra pas te dénoncer.",
+          },
+        ],
+      },
+    ],
+  },
+  poltergeist: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Ta partie commence à ta mort",
+            body: "Vivant, tu n'es personne. Mort, tu déplaces un objet par Enquête — personne ne voit rien.",
+          },
+          {
+            tag: "Fais voyager les lames",
+            body: "Tu gagnes si un objet déplacé tue : glisse les couteaux dans les poches impulsives, les fioles de mort chez les paranoïaques.",
+          },
+        ],
+      },
+    ],
+  },
+  vautour: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Les votes désignent tes proies",
+            body: "Tu ne tues que les joueurs votés au dernier Vote. Pousse les accusations au Débat : chaque voix posée peint une cible.",
+          },
+          {
+            tag: "Le doute te couvre",
+            body: "Quand ta victime avait des voix, la table croit avoir éliminé un coupable — savoure.",
+          },
+        ],
+      },
+    ],
+  },
+  ventriloque: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Indiscernable d'une vraie",
+            body: "Ta contrefaçon a la même forme qu'une lettre signée authentique. Un faux aveu, une fausse accusation — le joueur imité devra nier sans preuve.",
+          },
+          {
+            tag: "Une seule cartouche",
+            body: "1×/partie : forge au moment où la table est déjà à cran, pas au tour 1.",
+          },
+        ],
+      },
+    ],
+  },
+  pyromane: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Prépare en silence",
+            body: "L'aspersion est invisible et ne fait rien… jusqu'à l'allumette. Ne la craque que quand assez d'aspergés sont vivants et hors de prison.",
+          },
+          {
+            tag: "Le feu se contre",
+            body: "Protections et bénédictions sauvent du brasier, la prison ne brûle pas — et un aspergé mort d'autre chose ne compte pas.",
+          },
+        ],
+      },
+    ],
+  },
 };
 
 /** Récupère les infos supplémentaires d'un rôle (ou null s'il n'en a pas). */
