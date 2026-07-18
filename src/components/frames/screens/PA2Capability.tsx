@@ -1086,7 +1086,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
     <div ref={rootRef} className={`p-5 flex flex-col ${hasStickyFooter ? "pb-40" : ""}`}>
       {/* Hero du rôle — icône cerclée de la couleur de faction, nom Cinzel, badges */}
       {(() => {
-        const f = myRole?.slug === "vampire" ? "Méchant" : myRole?.faction;
+        // Vampire = NEUTRE (décision 2026-07-18 : fin de l'exception d'affichage).
+        const f = myRole?.faction;
         const factionColor =
           f === "Civil"
             ? "var(--citoyens)"

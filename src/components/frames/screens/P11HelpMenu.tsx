@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState, type ElementType } from "react";
 import type { FrameContext } from "../registry";
 import type { RoleRow } from "@/engine/actions";
-import { ITEM_CATALOG } from "@/engine/items";
+import { ITEM_CATALOG, type ItemSlug } from "@/engine/items";
+import { iconUrlForKey } from "@/lib/itemIcon";
 import { RoleIcon } from "@/components/RoleIcon";
 import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
 import { highlightCapacity } from "@/lib/highlightCapacity";
@@ -1195,8 +1196,9 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
   const counts = useMemo(() => {
     const c = { all: all.length, Civil: 0, Méchant: 0, Neutre: 0 } as Record<string, number>;
     for (const r of all) {
+      // Vampire = NEUTRE (décision 2026-07-18 : plus d'exception d'affichage).
       if (r.faction === "Civil") c.Civil++;
-      else if (r.faction === "Méchant" || r.slug === "vampire") c.Méchant++;
+      else if (r.faction === "Méchant") c.Méchant++;
       else c.Neutre++;
     }
     return c;
@@ -1205,8 +1207,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
   const filtered = useMemo(() => {
     const k = q.trim().toLowerCase();
     return all.filter((r) => {
-      const isVamp = r.slug === "vampire";
-      const f = isVamp ? "Méchant" : r.faction;
+      const f = r.faction;
       if (faction !== "all" && f !== faction) return false;
       if (!k) return true;
       return r.name_fr.toLowerCase().includes(k) || (r.description ?? "").toLowerCase().includes(k);
@@ -1214,7 +1215,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
   }, [all, q, faction]);
 
   const toneFor = (r: RoleRow) => {
-    const f = r.slug === "vampire" ? "Méchant" : r.faction;
+    const f = r.faction;
     if (f === "Civil")
       return {
         ring: "ring-citoyens/30",
@@ -1545,6 +1546,12 @@ const OBJ_ACCENT: Record<string, string> = {
   fiole_clairvoyance: "oklch(0.70 0.15 300)",
   couteau: "oklch(0.65 0.16 30)",
   lettre: "oklch(0.74 0.13 300)",
+  // Malle du Contrebandier (lot 3)
+  passe_partout: "oklch(0.78 0.14 85)",
+  gilet_matelasse: "oklch(0.65 0.10 250)",
+  rhum_contrebande: "oklch(0.70 0.14 60)",
+  monocle_douanier: "oklch(0.80 0.12 90)",
+  double_fond: "oklch(0.62 0.10 40)",
 };
 
 function CatalogCard({
@@ -1552,12 +1559,18 @@ function CatalogCard({
   glyph,
   name,
   desc,
+  iconKey,
 }: {
   accent: string;
   glyph: React.ReactNode;
   name: string;
   desc: string;
+  // Clé icon-objet : affiche la VRAIE icône de l'objet (comme l'inventaire),
+  // avec repli emoji tant que le fichier n'existe pas.
+  iconKey?: string;
 }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const url = iconKey ? iconUrlForKey(iconKey as ItemSlug) : null;
   return (
     <div
       className="flex items-start gap-3 rounded-xl border p-3"
@@ -1567,13 +1580,22 @@ function CatalogCard({
       }}
     >
       <span
-        className="shrink-0 grid place-items-center size-10 rounded-lg text-xl"
+        className="shrink-0 grid place-items-center size-10 rounded-lg text-xl overflow-hidden"
         style={{
           background: `color-mix(in oklab, ${accent} 14%, transparent)`,
           boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 30%, transparent)`,
         }}
       >
-        {glyph}
+        {url && !imgFailed ? (
+          <img
+            src={url}
+            alt=""
+            className="size-10 object-cover rounded-lg"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          glyph
+        )}
       </span>
       <div className="min-w-0">
         <div className="text-sm font-bold" style={{ color: accent }}>
@@ -1593,18 +1615,22 @@ function ObjectsList() {
       <CatalogCard
         accent={indiceAccent}
         glyph="🧩"
+        iconKey="indice"
         name="Indice"
         desc="Une information vraie sur la composition de cette partie, remise à certains invités dès le début. Certains indices sont coupés en deux moitiés : il faut réunir les deux porteurs pour révéler le secret."
       />
-      {Object.values(ITEM_CATALOG).map((it) => (
-        <CatalogCard
-          key={it.slug}
-          accent={OBJ_ACCENT[it.slug] ?? "var(--primary)"}
-          glyph={it.icon}
-          name={it.name}
-          desc={it.description}
-        />
-      ))}
+      {Object.values(ITEM_CATALOG)
+        .filter((it) => it.slug !== "indice")
+        .map((it) => (
+          <CatalogCard
+            key={it.slug}
+            accent={OBJ_ACCENT[it.slug] ?? "var(--primary)"}
+            glyph={it.icon}
+            iconKey={it.slug}
+            name={it.name}
+            desc={it.description}
+          />
+        ))}
     </div>
   );
 }
