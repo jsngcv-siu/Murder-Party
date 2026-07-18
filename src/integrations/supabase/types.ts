@@ -838,7 +838,6 @@ export type Database = {
         | "SUPPORT"
         | "TROMPERIE"
         | "CONTRÔLE"
-        | "BOULET"
         | "MAL"
         | "CHAOS"
         | "BÉNIN";
@@ -991,7 +990,6 @@ export const Constants = {
         "SUPPORT",
         "TROMPERIE",
         "CONTRÔLE",
-        "BOULET",
         "MAL",
         "CHAOS",
         "BÉNIN",

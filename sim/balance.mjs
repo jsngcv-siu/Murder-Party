@@ -71,7 +71,7 @@ function weightedPick(items, wfn) {
 }
 
 // ─────────── ROSTER (reconstruit des migrations, état final) ───────────
-// faction: Civil|Méchant|Neutre ; type: PROTECTEUR|TUEUR|INVESTIGATION|SUPPORT|TROMPERIE|BOULET|MAL|CHAOS|BÉNIN
+// faction: Civil|Méchant|Neutre ; type: PROTECTEUR|TUEUR|INVESTIGATION|SUPPORT|TROMPERIE|CONTRÔLE|MAL|CHAOS|BÉNIN
 // dw = draw_weight ; min = min_players
 const ROLES = [
   // — MÉCHANTS —
@@ -159,28 +159,24 @@ const CIVIL_QUOTAS = {
     PROTECTEUR: [0, 1],
     TUEUR: [0, 1],
     SUPPORT: [1, 2],
-    BOULET: [0, 0],
   },
   mid: {
     INVESTIGATION: [2, 2],
     PROTECTEUR: [1, 2],
     TUEUR: [1, 1],
     SUPPORT: [1, 2],
-    BOULET: [0, 1],
   },
   large: {
     INVESTIGATION: [2, 3],
     PROTECTEUR: [2, 2],
     TUEUR: [1, 2],
     SUPPORT: [2, 3],
-    BOULET: [0, 1],
   },
   xl: {
     INVESTIGATION: [3, 4],
     PROTECTEUR: [2, 3],
     TUEUR: [1, 2],
     SUPPORT: [2, 3],
-    BOULET: [0, 1],
   },
 };
 function acolytesCountFor(n) {
