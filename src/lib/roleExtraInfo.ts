@@ -406,23 +406,6 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
-  temoin: {
-    pages: [
-      {
-        title: "Subtilités",
-        notes: [
-          {
-            tag: "Un allié sûr",
-            body: "Dès le départ, tu connais l'identité et le rôle exact d'un Civil : une confiance garantie.",
-          },
-          {
-            tag: "À exploiter finement",
-            body: "Cet allié ignore que tu le connais. Défendre trop ouvertement quelqu'un peut te griller.",
-          },
-        ],
-      },
-    ],
-  },
   vengeur: {
     pages: [
       {

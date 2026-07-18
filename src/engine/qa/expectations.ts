@@ -41,7 +41,6 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   oracle: "investigate",
   medecin_legiste: "passive",
   medium: "passive",
-  temoin: "passive",
   guetteur: "investigate",
   avocat: "passive",
   paranoiaque: "passive",

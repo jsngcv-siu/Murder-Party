@@ -56,7 +56,7 @@ var init_client = __esm({
 
 // src/engine/notify.ts
 async function notify(opts) {
-  await supabase.from("notifications").insert({
+  const { error } = await supabase.from("notifications").insert({
     game_id: opts.gameId,
     player_id: opts.playerId,
     type: opts.type,
@@ -64,8 +64,9 @@ async function notify(opts) {
     body: opts.body ?? null,
     payload: opts.payload ?? {}
   });
+  if (error) console.error(`[engine] notify(${opts.type}) REFUS\xC9 (RLS ?)`, error, opts.title);
   if (opts.mjTitle) {
-    await supabase.from("notifications").insert({
+    const { error: mjError } = await supabase.from("notifications").insert({
       game_id: opts.gameId,
       player_id: null,
       type: opts.type,
@@ -73,10 +74,11 @@ async function notify(opts) {
       body: opts.mjBody ?? null,
       payload: { ...opts.payload ?? {}, mj_view: true }
     });
+    if (mjError) console.error(`[engine] notify MJ (${opts.type}) REFUS\xC9 (RLS ?)`, mjError);
   }
 }
 async function notifyMJ(opts) {
-  await supabase.from("notifications").insert({
+  const { error } = await supabase.from("notifications").insert({
     game_id: opts.gameId,
     player_id: null,
     type: opts.type,
@@ -84,6 +86,7 @@ async function notifyMJ(opts) {
     body: opts.body ?? null,
     payload: { ...opts.payload ?? {}, mj_view: true }
   });
+  if (error) console.error(`[engine] notifyMJ(${opts.type}) REFUS\xC9 (RLS ?)`, error, opts.title);
 }
 var init_notify = __esm({
   "src/engine/notify.ts"() {
@@ -173,6 +176,7 @@ async function evaluateWin(gameId) {
   if (alive.length === 0) return { winner: null, reason: "Aucun survivant" };
   const playerCount = real.length;
   const isRealMechant = (p) => {
+    if (getMeta(p).converted === true) return false;
     const r = p.role_slug ? rolesBySlug.get(p.role_slug) : null;
     return r?.faction === "M\xE9chant";
   };
@@ -206,7 +210,7 @@ async function evaluateWin(gameId) {
   };
   const mechantsAlive = alive.filter(isMechant).length;
   const vampiresAlive = alive.filter(isVampire).length;
-  const nonVampAlive = alive.filter((p) => !isVampire(p)).length;
+  const nonVampAlive = alive.filter((p) => !isVampire(p) && !isBenignNeutre(p)).length;
   const loversAlive = alive.filter(isLover);
   const entremetteurFactionActive = loversAlive.length === 2;
   const entremetteurFactionAlive = entremetteurFactionActive ? alive.filter(isEntremetteurFaction).length : 0;
@@ -219,7 +223,7 @@ async function evaluateWin(gameId) {
   for (const slug of soloNeutreSlugs) {
     const me = alive.find((p) => p.role_slug === slug);
     if (!me) continue;
-    const others = alive.filter((p) => p.id !== me.id);
+    const others = alive.filter((p) => p.id !== me.id && !isBenignNeutre(p));
     if (others.length === 0) {
       const label = slug === "veuve_noire" ? "Veuve noire" : "Parieur tricheur";
       return { winner: label, reason: `${me.pseudo} est le\xB7la seul\xB7e survivant\xB7e.` };
@@ -228,7 +232,8 @@ async function evaluateWin(gameId) {
   const empoisonneur = alive.find((p) => p.role_slug === "empoisonneur");
   if (empoisonneur) {
     const others = alive.filter((p) => p.id !== empoisonneur.id);
-    if (others.length > 0 && others.every((p) => getMeta(p).poisoned === true)) {
+    const mustPoison = others.filter((p) => !isBenignNeutre(p));
+    if (others.length > 0 && mustPoison.every((p) => getMeta(p).poisoned === true)) {
       return {
         winner: "Empoisonneur",
         reason: `${empoisonneur.pseudo} a empoisonn\xE9 tous les survivants libres.`
@@ -247,7 +252,7 @@ async function evaluateWin(gameId) {
     };
   }
   if (entremetteurFactionActive) {
-    const others = alive.filter((p) => !isEntremetteurFaction(p));
+    const others = alive.filter((p) => !isEntremetteurFaction(p) && !isBenignNeutre(p));
     if (others.length === 0) {
       const [a, b] = loversAlive;
       const entAlive = alive.some((p) => p.role_slug === "entremetteur");
@@ -601,13 +606,28 @@ async function applyAttack(intent, killer) {
 async function applyConvert(intent, converter) {
   const targetId = intent.target_player_id;
   if (!targetId) return { status: "cancelled", reason: "no_target" };
-  const { data: actorRow } = await supabase.from("players").select("is_alive").eq("id", intent.actor_player_id).single();
-  if (!actorRow?.is_alive) {
+  const { data: actorRow } = await supabase.from("players").select("is_alive, role_meta").eq("id", intent.actor_player_id).single();
+  const actor = actorRow;
+  if (!actor?.is_alive || getMeta(actor).pending_death) {
     return { status: "cancelled", reason: "biter_killed" };
   }
-  const { data: tgtRow } = await supabase.from("players").select("is_alive").eq("id", targetId).single();
-  if (!tgtRow?.is_alive) {
+  const { data: tgtRow } = await supabase.from("players").select("is_alive, role_meta").eq("id", targetId).single();
+  const tRow = tgtRow;
+  if (!tRow?.is_alive) {
     return { status: "cancelled", reason: "target_dead" };
+  }
+  const tMeta = getMeta(tRow);
+  const prot = tMeta.protected_until_cycle ?? -1;
+  const blessedUntil = tMeta.blessed_until_cycle ?? -1;
+  const isBlessed = tMeta.blessed_by_saint === true && blessedUntil >= intent.tour;
+  if (prot >= intent.tour || isBlessed) {
+    await notifyMJ({
+      gameId: intent.game_id,
+      type: "shielded",
+      title: "\u{1F6E1}\uFE0F Morsure bloqu\xE9e",
+      body: `${intent.payload?.target_pseudo ?? "Cible"} \xE9tait prot\xE9g\xE9(e) \u2014 la conversion n'a pas pris.`
+    });
+    return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }
   const ok = await converter(intent.game_id, intent.actor_player_id, targetId, intent.tour);
   return { status: ok ? "applied" : "cancelled", effect: "convert", target: targetId };
@@ -615,8 +635,9 @@ async function applyConvert(intent, converter) {
 async function applyPoison(intent) {
   const targetId = intent.target_player_id;
   if (!targetId) return { status: "cancelled", reason: "no_target" };
-  const { data: actorRow } = await supabase.from("players").select("is_alive").eq("id", intent.actor_player_id).single();
-  if (!actorRow?.is_alive) {
+  const { data: actorRow } = await supabase.from("players").select("is_alive, role_meta").eq("id", intent.actor_player_id).single();
+  const actor = actorRow;
+  if (!actor?.is_alive || getMeta(actor).pending_death) {
     return { status: "cancelled", reason: "poisoner_killed" };
   }
   const { data: tgt } = await supabase.from("players").select("role_meta, is_alive").eq("id", targetId).single();
@@ -868,26 +889,10 @@ var init_serverClock = __esm({
 });
 
 // src/engine/constants.ts
-var constants_exports = {};
-__export(constants_exports, {
-  BOT_TICK_BASE_MS: () => BOT_TICK_BASE_MS,
-  NEUTRE_TYPE_WEIGHTS: () => NEUTRE_TYPE_WEIGHTS,
-  acolyteQuotasFor: () => acolyteQuotasFor,
-  acolytesCountFor: () => acolytesCountFor,
-  civilQuotasFor: () => civilQuotasFor,
-  neutresCountFor: () => neutresCountFor
-});
-function bracket(n) {
-  if (n <= 8) return "small";
-  if (n <= 13) return "mid";
-  if (n <= 17) return "large";
-  return "xl";
-}
-function acolyteQuotasFor(playerCount) {
-  return ACOLYTE_QUOTAS[bracket(playerCount)];
-}
-function civilQuotasFor(playerCount) {
-  return CIVIL_QUOTAS[bracket(playerCount)];
+function acolytesCountFor(playerCount) {
+  if (playerCount <= 11) return 1;
+  if (playerCount <= 16) return 2;
+  return 3;
 }
 function neutresCountFor(playerCount) {
   if (playerCount <= 7) return 0;
@@ -895,64 +900,10 @@ function neutresCountFor(playerCount) {
   if (playerCount <= 17) return 2;
   return 3;
 }
-function acolytesCountFor(playerCount) {
-  if (playerCount <= 9) return 1;
-  if (playerCount <= 17) return 2;
-  return 3;
-}
-var BOT_TICK_BASE_MS, ACOLYTE_QUOTAS, CIVIL_QUOTAS, NEUTRE_TYPE_WEIGHTS;
+var NEUTRE_TYPE_WEIGHTS;
 var init_constants = __esm({
   "src/engine/constants.ts"() {
     "use strict";
-    BOT_TICK_BASE_MS = 4e3;
-    ACOLYTE_QUOTAS = {
-      small: {
-        INVESTIGATION: { min: 0, max: 1 },
-        TROMPERIE: { min: 0, max: 1 },
-        CONTR\u00D4LE: { min: 0, max: 1 }
-      },
-      mid: {
-        INVESTIGATION: { min: 1, max: 1 },
-        TROMPERIE: { min: 0, max: 1 },
-        CONTR\u00D4LE: { min: 0, max: 1 }
-      },
-      large: {
-        INVESTIGATION: { min: 1, max: 1 },
-        TROMPERIE: { min: 1, max: 2 },
-        CONTR\u00D4LE: { min: 0, max: 2 }
-      },
-      xl: {
-        INVESTIGATION: { min: 1, max: 2 },
-        TROMPERIE: { min: 1, max: 2 },
-        CONTR\u00D4LE: { min: 1, max: 2 }
-      }
-    };
-    CIVIL_QUOTAS = {
-      small: {
-        INVESTIGATION: { min: 1, max: 2 },
-        PROTECTEUR: { min: 0, max: 1 },
-        TUEUR: { min: 0, max: 1 },
-        SUPPORT: { min: 1, max: 2 }
-      },
-      mid: {
-        INVESTIGATION: { min: 2, max: 2 },
-        PROTECTEUR: { min: 1, max: 2 },
-        TUEUR: { min: 1, max: 1 },
-        SUPPORT: { min: 1, max: 2 }
-      },
-      large: {
-        INVESTIGATION: { min: 2, max: 3 },
-        PROTECTEUR: { min: 2, max: 2 },
-        TUEUR: { min: 1, max: 2 },
-        SUPPORT: { min: 2, max: 3 }
-      },
-      xl: {
-        INVESTIGATION: { min: 3, max: 4 },
-        PROTECTEUR: { min: 2, max: 3 },
-        TUEUR: { min: 1, max: 2 },
-        SUPPORT: { min: 2, max: 3 }
-      }
-    };
     NEUTRE_TYPE_WEIGHTS = {
       B\u00C9NIN: 1,
       MAL: 0.45,
@@ -975,7 +926,7 @@ function buildDefaultPool(target) {
   const slots = [];
   let i = 0;
   const nextId = () => `s${i++}`;
-  slots.push({ id: nextId(), faction: "M\xE9chant", type: "TUEUR", slug: "tueur", locked: true });
+  slots.push({ id: nextId(), faction: "M\xE9chant", type: "TUEUR", slug: null, locked: true });
   slots.push({
     id: nextId(),
     faction: "Civil",
@@ -1036,9 +987,9 @@ var init_poolConfig = __esm({
     init_constants();
     ACOLYTE_FILL = [
       "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
-      "INVESTIGATION",
-      "TROMPERIE/CONTR\xD4LE",
-      "TROMPERIE/CONTR\xD4LE"
+      "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
+      "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
+      "INVESTIGATION/TROMPERIE/CONTR\xD4LE"
     ];
     NEUTRE_FILL = [
       // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
@@ -1048,18 +999,7 @@ var init_poolConfig = __esm({
       "MAL/B\xC9NIN/CHAOS",
       "MAL/B\xC9NIN/CHAOS"
     ];
-    CIVIL_FILL = [
-      "TUEUR",
-      "SUPPORT",
-      "INVESTIGATION",
-      "PROTECTEUR",
-      "SUPPORT",
-      "INVESTIGATION",
-      "TUEUR",
-      "PROTECTEUR",
-      "SUPPORT",
-      "INVESTIGATION"
-    ];
+    CIVIL_FILL = ["INVESTIGATION/SUPPORT/TUEUR"];
   }
 });
 
@@ -1108,7 +1048,9 @@ async function grantItem(playerId, item) {
   const meta2 = row?.role_meta ?? {};
   const inv = meta2.inventory ?? [];
   const next = { ...meta2, inventory: [item, ...inv] };
-  await supabase.from("players").update({ role_meta: next }).eq("id", playerId);
+  const { data: wrote, error } = await supabase.from("players").update({ role_meta: next }).eq("id", playerId).select("id");
+  if (error || !wrote?.length)
+    console.error(`[engine] grantItem(${item.slug}) REFUS\xC9 sur ${playerId} (RLS ?)`, error ?? "0 ligne");
 }
 function readInventory(roleMeta) {
   if (!roleMeta) return [];
@@ -1250,8 +1192,18 @@ async function consumeItem(opts) {
       break;
     }
     case "fiole_clairvoyance": {
-      const r = target.role_slug ? opts.rolesBySlug.get(target.role_slug) : null;
-      message = r ? `${target.pseudo} = faction ${r.faction}` : `${target.pseudo} : faction inconnue`;
+      const { isKillerClass: isKillerClass2 } = await Promise.resolve().then(() => (init_actions(), actions_exports));
+      const { data: tRow } = await supabase.from("players").select("role_meta").eq("id", target.id).maybeSingle();
+      const tMeta = tRow?.role_meta ?? {};
+      if (tMeta.falsified === true) {
+        message = "Le joueur a \xE9t\xE9 falsifi\xE9";
+      } else {
+        const coverSlug = typeof tMeta.cover_slug === "string" ? tMeta.cover_slug : null;
+        const seenSlug = coverSlug ?? target.role_slug;
+        const r = seenSlug ? opts.rolesBySlug.get(seenSlug) : null;
+        const faction = r && isKillerClass2(r) ? "Civil" : r?.faction ?? null;
+        message = faction ? `${target.pseudo} = faction ${faction}` : `${target.pseudo} : faction inconnue`;
+      }
       await notify2(actorId, "\u{1F52E} Clairvoyance", message);
       break;
     }
@@ -1306,13 +1258,18 @@ async function consumeItem(opts) {
       const variant = item.payload?.variant ?? null;
       const def = variant ? RELIQUE_CATALOG[variant] : null;
       if (variant === "coeur_du_manoir") {
-        const { endGameWithWinner: endGameWithWinner2 } = await Promise.resolve().then(() => (init_actions(), actions_exports));
-        await endGameWithWinner2(
-          gameId,
-          "Conservateur",
-          `${opts.actorPseudo} a r\xE9v\xE9l\xE9 Le C\u0153ur du Manoir. Le Manoir le reconna\xEEt comme son gardien.`
-        );
-        message = "\u{1FAC0} Le C\u0153ur du Manoir bat dans tes mains \u2014 toutes les factions s'inclinent. Victoire du Conservateur.";
+        const { data: gardien } = await supabase.from("players").select("id").eq("game_id", gameId).eq("role_slug", "conservateur").limit(1).maybeSingle();
+        if (!gardien) {
+          message = "\u{1FAC0} Le C\u0153ur du Manoir bat faiblement\u2026 mais aucun gardien ne le r\xE9clame. Rien ne se passe.";
+        } else {
+          const { endGameWithWinner: endGameWithWinner2 } = await Promise.resolve().then(() => (init_actions(), actions_exports));
+          await endGameWithWinner2(
+            gameId,
+            "Conservateur",
+            `${opts.actorPseudo} a r\xE9v\xE9l\xE9 Le C\u0153ur du Manoir. Le Manoir le reconna\xEEt comme son gardien.`
+          );
+          message = "\u{1FAC0} Le C\u0153ur du Manoir bat dans tes mains \u2014 toutes les factions s'inclinent. Victoire du Conservateur.";
+        }
       } else if (variant === "oeil_damnation") {
         const { data: pool } = await supabase.from("players").select("id, pseudo, role_slug").eq("game_id", gameId).eq("is_alive", true).eq("is_mj", false).neq("id", actorId);
         const list = pool ?? [];
@@ -1745,10 +1702,12 @@ __export(actions_exports, {
   cancelVote: () => cancelVote,
   castVote: () => castVote,
   closeVote: () => closeVote,
+  deleteGame: () => deleteGame,
   drawRoles: () => drawRoles,
   endGameWithWinner: () => endGameWithWinner,
   executeCapability: () => executeCapability,
   imprisonPlayer: () => imprisonPlayer,
+  isKillerClass: () => isKillerClass,
   killPlayer: () => killPlayer,
   logCapability: () => logCapability,
   nextCycle: () => nextCycle,
@@ -1761,6 +1720,7 @@ __export(actions_exports, {
   resetGame: () => resetGame,
   ringGathering: () => ringGathering,
   rollRoles: () => rollRoles,
+  runExclusivePhaseAction: () => runExclusivePhaseAction,
   setForcedFrame: () => setForcedFrame,
   setPaused: () => setPaused,
   setPhase: () => setPhase,
@@ -1789,7 +1749,11 @@ async function patchMeta(playerId, patch) {
   const { data } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
   const cur = meta(data);
   const next = { ...cur, ...patch };
-  await supabase.from("players").update({ role_meta: next }).eq("id", playerId);
+  const { data: wrote, error } = await supabase.from("players").update({ role_meta: next }).eq("id", playerId).select("id");
+  if (error || !wrote?.length) {
+    console.error(`[engine] patchMeta REFUS\xC9 sur ${playerId} (RLS ?)`, error ?? "0 ligne", patch);
+    emit("write_denied", `patchMeta refus\xE9 sur ${playerId}`, { patch });
+  }
   return next;
 }
 function isHostileRole(role) {
@@ -1974,138 +1938,90 @@ function weightedDraw(pool, count) {
   }
   return picked;
 }
-function drawByQuotas(pool, quotas, totalSlots, preCounted = {}) {
-  const byType = /* @__PURE__ */ new Map();
-  for (const r of pool) {
-    const t = r.type ?? "AUTRE";
-    if (!byType.has(t)) byType.set(t, []);
-    byType.get(t).push(r);
-  }
+function drawSlots(opts) {
+  const { slots, allRoles, bannedSet, usedSlugs, need, playerCount } = opts;
   const picked = [];
-  const countByType = { ...preCounted };
-  for (const [type, q] of Object.entries(quotas)) {
-    const bucket = byType.get(type) ?? [];
-    const need = Math.min(
-      Math.max(0, q.min - (countByType[type] ?? 0)),
-      bucket.length,
-      totalSlots - picked.length
-    );
-    if (need <= 0) continue;
-    const drawn = weightedDraw(bucket, need);
-    picked.push(...drawn);
-    countByType[type] = (countByType[type] ?? 0) + drawn.length;
-    for (const r of drawn) {
-      const i = bucket.indexOf(r);
-      if (i >= 0) bucket.splice(i, 1);
+  const usedNeutreTypes = /* @__PURE__ */ new Set();
+  const eligible = (r, faction, types) => r.faction === faction && types.includes(r.type ?? "") && r.slug !== "chasseur_de_vampire" && !usedSlugs.has(r.slug) && !bannedSet.has(r.slug) && (r.min_players ?? 6) <= playerCount;
+  const ordered = shuffle2([...slots]);
+  for (const slot of ordered) {
+    if (picked.length >= need) break;
+    if (slot.slug && !usedSlugs.has(slot.slug) && !bannedSet.has(slot.slug)) {
+      picked.push(slot.slug);
+      usedSlugs.add(slot.slug);
     }
   }
-  while (picked.length < totalSlots) {
-    const candidates = [];
-    for (const [type, bucket2] of byType.entries()) {
-      const q = quotas[type];
-      const max = q?.max ?? 0;
-      if ((countByType[type] ?? 0) >= max) continue;
-      candidates.push(...bucket2);
-    }
-    if (candidates.length === 0) break;
-    const [r] = weightedDraw(candidates, 1);
-    if (!r) break;
-    picked.push(r);
-    countByType[r.type ?? "AUTRE"] = (countByType[r.type ?? "AUTRE"] ?? 0) + 1;
-    const bucket = byType.get(r.type ?? "AUTRE");
-    if (bucket) {
-      const i = bucket.indexOf(r);
-      if (i >= 0) bucket.splice(i, 1);
-    }
-  }
-  return picked;
-}
-function drawNeutresByTypeWeights(pool, count, typeWeights) {
-  const byType = /* @__PURE__ */ new Map();
-  for (const r of pool) {
-    const t = r.type ?? "AUTRE";
-    if (!(t in typeWeights)) continue;
-    if (!byType.has(t)) byType.set(t, []);
-    byType.get(t).push(r);
-  }
-  const picked = [];
-  for (let k = 0; k < count; k++) {
-    const availableTypes = [...byType.entries()].filter(([, b]) => b.length > 0);
-    if (availableTypes.length === 0) break;
-    const total = availableTypes.reduce((s, [t2]) => s + (typeWeights[t2] ?? 0), 0);
-    if (total <= 0) break;
-    let t = Math.random() * total;
-    let chosenType = availableTypes[0][0];
-    for (const [type] of availableTypes) {
-      t -= typeWeights[type] ?? 0;
-      if (t <= 0) {
-        chosenType = type;
-        break;
+  for (const slot of ordered) {
+    if (picked.length >= need) break;
+    if (slot.slug) continue;
+    const types = expandSlotTypes(slot.type);
+    let chosen;
+    if (slot.faction === "Neutre" && types.length > 1) {
+      const typesWithPool = types.filter((t) => allRoles.some((r) => eligible(r, "Neutre", [t])));
+      const freshTypes = typesWithPool.filter((t) => !usedNeutreTypes.has(t));
+      const candidateTypes = freshTypes.length > 0 ? freshTypes : typesWithPool;
+      if (candidateTypes.length > 0) {
+        const totalW = candidateTypes.reduce((s, t) => s + (NEUTRE_TYPE_WEIGHTS[t] ?? 1e-4), 0);
+        let x = Math.random() * totalW;
+        let pickedType = candidateTypes[0];
+        for (const t of candidateTypes) {
+          x -= NEUTRE_TYPE_WEIGHTS[t] ?? 1e-4;
+          if (x <= 0) {
+            pickedType = t;
+            break;
+          }
+        }
+        [chosen] = weightedDraw(
+          allRoles.filter((r) => eligible(r, "Neutre", [pickedType])),
+          1
+        );
+        if (chosen) usedNeutreTypes.add(pickedType);
       }
+    } else {
+      [chosen] = weightedDraw(
+        allRoles.filter((r) => eligible(r, slot.faction, types)),
+        1
+      );
     }
-    const bucket = byType.get(chosenType);
-    const [r] = weightedDraw(bucket, 1);
-    if (!r) break;
-    picked.push(r);
-    byType.delete(chosenType);
+    if (chosen) {
+      picked.push(chosen.slug);
+      usedSlugs.add(chosen.slug);
+    }
   }
   return picked;
 }
 async function drawRoles(playerCount, modeDetectivePlayer, bannedSlugs = []) {
-  const { acolyteQuotasFor: acolyteQuotasFor2, civilQuotasFor: civilQuotasFor2, acolytesCountFor: acolytesCountFor2, neutresCountFor: neutresCountFor2 } = await Promise.resolve().then(() => (init_constants(), constants_exports));
+  void modeDetectivePlayer;
   const { data: rolesData, error } = await supabase.from("roles").select("*").eq("set_id", "set1").eq("emergent", false).eq("is_disabled", false);
   if (error) throw error;
-  const roles = rolesData ?? [];
-  const banned = new Set(bannedSlugs);
-  banned.delete("tueur");
-  banned.delete("majordome");
-  banned.delete("assistant_du_detective");
-  void modeDetectivePlayer;
-  const eligible = roles.filter((r) => (r.min_players ?? 6) <= playerCount && !banned.has(r.slug));
-  const slugs = [];
-  const tueurs = eligible.filter((r) => r.faction === "M\xE9chant" && isKillerClass(r));
-  if (tueurs.length === 0) throw new Error("Aucun Tueur disponible (seed roles).");
-  const [leTueur] = weightedDraw(tueurs, 1);
-  slugs.push(leTueur.slug);
-  const assistant = roles.find((r) => r.slug === "assistant_du_detective");
-  if (assistant && !slugs.includes(assistant.slug)) slugs.push(assistant.slug);
-  const majordome = roles.find((r) => r.slug === "majordome");
-  if (majordome && !slugs.includes(majordome.slug)) slugs.push(majordome.slug);
-  const nAcolytes = acolytesCountFor2(playerCount);
-  const acolytePool = eligible.filter(
-    (r) => r.faction === "M\xE9chant" && !isKillerClass(r) && !slugs.includes(r.slug)
-  );
-  const acolytePicked = drawByQuotas(acolytePool, acolyteQuotasFor2(playerCount), nAcolytes);
-  slugs.push(...acolytePicked.map((r) => r.slug));
-  const nNeutres = neutresCountFor2(playerCount);
-  const { NEUTRE_TYPE_WEIGHTS: NEUTRE_TYPE_WEIGHTS2 } = await Promise.resolve().then(() => (init_constants(), constants_exports));
-  const neutresPool = eligible.filter(
-    (r) => r.faction === "Neutre" && r.slug !== "chasseur_de_vampire" && !slugs.includes(r.slug)
-  );
-  const neutresPicked = drawNeutresByTypeWeights(neutresPool, nNeutres, NEUTRE_TYPE_WEIGHTS2);
-  const neutresSlugs = neutresPicked.map((r) => r.slug);
-  slugs.push(...neutresSlugs);
-  const remaining = playerCount - slugs.length;
-  const civilPool = eligible.filter((r) => r.faction === "Civil" && !slugs.includes(r.slug));
-  const baseCivilTypes = {};
-  for (const s of slugs) {
-    const r = roles.find((rr) => rr.slug === s);
-    if (r?.faction === "Civil" && r.type)
-      baseCivilTypes[r.type] = (baseCivilTypes[r.type] ?? 0) + 1;
+  const allRoles = rolesData ?? [];
+  const bannedSet = new Set(bannedSlugs);
+  bannedSet.delete("tueur");
+  bannedSet.delete("majordome");
+  bannedSet.delete("assistant_du_detective");
+  const cfg = buildDefaultPool(playerCount);
+  const usedSlugs = /* @__PURE__ */ new Set();
+  const picked = drawSlots({
+    slots: cfg.slots,
+    allRoles,
+    bannedSet,
+    usedSlugs,
+    need: playerCount,
+    playerCount
+  });
+  if (picked.length < playerCount) {
+    const rest = shuffle2(
+      allRoles.filter(
+        (r) => r.slug !== "chasseur_de_vampire" && !usedSlugs.has(r.slug) && !bannedSet.has(r.slug) && (r.min_players ?? 6) <= playerCount
+      )
+    );
+    for (const r of rest) {
+      if (picked.length >= playerCount) break;
+      picked.push(r.slug);
+      usedSlugs.add(r.slug);
+    }
   }
-  const civilPicked = drawByQuotas(
-    civilPool,
-    civilQuotasFor2(playerCount),
-    remaining,
-    baseCivilTypes
-  );
-  const civilSlugs = civilPicked.map((r) => r.slug);
-  slugs.push(...civilSlugs);
-  if (slugs.length < playerCount) {
-    const fallback = civilPool.filter((r) => !slugs.includes(r.slug));
-    slugs.push(...weightedDraw(fallback, playerCount - slugs.length).map((r) => r.slug));
-  }
-  return shuffle2(slugs);
+  return shuffle2(picked).slice(0, playerCount);
 }
 async function rollRoles(gameId) {
   const { data: g, error: gErr } = await supabase.from("games").select().eq("id", gameId).single();
@@ -2127,36 +2043,21 @@ async function rollRoles(gameId) {
     const { asPoolConfig: asPoolConfig2 } = await Promise.resolve().then(() => (init_poolConfig(), poolConfig_exports));
     const cfg = asPoolConfig2(game.pool_config);
     if (cfg && cfg.slots.length > 0) {
-      const { data: rolesData } = await supabase.from("roles").select("*").eq("set_id", "set1").eq("emergent", false);
+      const { data: rolesData } = await supabase.from("roles").select("*").eq("set_id", "set1").eq("emergent", false).eq("is_disabled", false);
       const allRoles = rolesData ?? [];
       const bannedSet = new Set(allBanned);
       bannedSet.delete("tueur");
       bannedSet.delete("assistant_du_detective");
       bannedSet.delete("majordome");
       const usedSlugs = new Set(manuallyAssigned.map((p) => p.role_slug));
-      const slots = shuffle2([...cfg.slots]);
-      const picked = [];
-      for (const slot of slots) {
-        if (picked.length >= unassigned.length) break;
-        if (slot.slug && !usedSlugs.has(slot.slug) && !bannedSet.has(slot.slug)) {
-          picked.push(slot.slug);
-          usedSlugs.add(slot.slug);
-        }
-      }
-      const { expandSlotTypes: expandSlotTypes2 } = await Promise.resolve().then(() => (init_poolConfig(), poolConfig_exports));
-      for (const slot of slots) {
-        if (picked.length >= unassigned.length) break;
-        if (slot.slug) continue;
-        const acceptedTypes = expandSlotTypes2(slot.type);
-        const pool = allRoles.filter(
-          (r) => r.faction === slot.faction && acceptedTypes.includes(r.type) && !usedSlugs.has(r.slug) && !bannedSet.has(r.slug) && (r.min_players ?? 6) <= unassigned.length
-        );
-        const [chosen] = weightedDraw(pool, 1);
-        if (chosen) {
-          picked.push(chosen.slug);
-          usedSlugs.add(chosen.slug);
-        }
-      }
+      const picked = drawSlots({
+        slots: cfg.slots,
+        allRoles,
+        bannedSet,
+        usedSlugs,
+        need: unassigned.length,
+        playerCount: unassigned.length
+      });
       if (picked.length < unassigned.length) {
         const extra = await drawRoles(
           unassigned.length - picked.length,
@@ -2286,29 +2187,6 @@ async function applySetupEffects(gameId) {
         mjBody: `${who} a re\xE7u un indice${g.fragment ? " (fragment)" : ""}.`
       });
       await logSetup(g.playerId, g.text, { effect: "indice_setup" });
-    }
-  }
-  const temoin = ofSlug("temoin");
-  if (temoin) {
-    const civils = alive.filter((p) => {
-      if (p.id === temoin.id) return false;
-      const r = rolesBySlug.get(p.role_slug ?? "");
-      return r?.faction === "Civil";
-    });
-    const pick2 = civils[Math.floor(Math.random() * civils.length)];
-    if (pick2) {
-      const r = rolesBySlug.get(pick2.role_slug ?? "");
-      const body = `Tu reconnais ${pick2.pseudo} : ${r?.icon ?? ""} ${r?.name_fr ?? ""}`;
-      await notify({
-        gameId,
-        playerId: temoin.id,
-        type: "temoin_reveal",
-        title: "\u{1F441}\uFE0F T\xE9moin",
-        body,
-        mjTitle: "\u{1F441}\uFE0F T\xE9moin",
-        mjBody: `${temoin.pseudo} reconna\xEEt ${pick2.pseudo} (${r?.icon ?? ""} ${r?.name_fr ?? ""}).`
-      });
-      await logSetup(temoin.id, body, { targetId: pick2.id, effect: "temoin_reveal" });
     }
   }
   const entremetteur = ofSlug("entremetteur");
@@ -2589,6 +2467,19 @@ async function tickPhase(gameId) {
   } finally {
     _tickInFlight.delete(gameId);
   }
+}
+async function runExclusivePhaseAction(gameId, fn) {
+  const { data: won, error } = await supabase.rpc(
+    "claim_phase_tick",
+    { p_game_id: gameId }
+  );
+  if (error || !won) return false;
+  try {
+    await fn();
+  } finally {
+    await supabase.rpc("release_phase_tick", { p_game_id: gameId });
+  }
+  return true;
 }
 async function setPaused(gameId, paused) {
   await supabase.from("games").update({ paused }).eq("id", gameId);
@@ -2930,7 +2821,9 @@ async function tallyVote(gameId) {
 async function tallySuspicionVote(gameId) {
   const { data: ps } = await supabase.from("players").select("id, is_alive, is_imprisoned, is_mj, role_meta").eq("game_id", gameId);
   const players = ps ?? [];
-  const aliveIds = new Set(players.filter((p) => p.is_alive && !p.is_mj).map((p) => p.id));
+  const eligibleIds = new Set(
+    players.filter((p) => p.is_alive && !p.is_imprisoned && !p.is_mj).map((p) => p.id)
+  );
   const counts = {};
   for (const voter of players) {
     if (voter.is_mj) continue;
@@ -2939,7 +2832,7 @@ async function tallySuspicionVote(gameId) {
     for (const [targetId2, level] of Object.entries(board)) {
       if (level !== 3) continue;
       if (targetId2 === voter.id) continue;
-      if (!aliveIds.has(targetId2)) continue;
+      if (!eligibleIds.has(targetId2)) continue;
       counts[targetId2] = (counts[targetId2] ?? 0) + 1;
     }
   }
@@ -3913,6 +3806,10 @@ async function executeCapability(opts) {
       }
       case "chasseur_de_vampire": {
         if (!t1) return { ok: false, message: "Cible requise" };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "track_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
         const isVamp = t1.role_slug === "vampire" || meta(t1).converted === true;
         if (isVamp) {
           await submitIntent({
@@ -3972,7 +3869,8 @@ async function executeCapability(opts) {
             if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
           }
           if (a.type === "CONTR\xD4LE") {
-            if (b.type === "CONTR\xD4LE" || b.type === "TROMPERIE" || b.type === "SUPPORT") return true;
+            if (b.type === "CONTR\xD4LE" || b.type === "TROMPERIE" || b.type === "SUPPORT")
+              return true;
             if (b.faction === "Neutre" && (b.type === "MAL" || b.type === "CHAOS")) return true;
           }
           if (a.faction === "Neutre") {
@@ -4347,8 +4245,7 @@ async function executeCapability(opts) {
       }
       // ── Passifs (consultation manuelle) ──
       case "medecin_legiste":
-      case "medium":
-      case "temoin": {
+      case "medium": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacit\xE9 passive \u2014 voir notifications" };
       }
@@ -4630,8 +4527,13 @@ async function executeCapability(opts) {
           });
           msg = `${t1.pseudo} : soin \u2014 \xE0 l'Annonce.`;
         } else {
-          const r = opts.rolesBySlug.get(t1.role_slug ?? "");
-          msg = r ? `${t1.pseudo} = faction ${r.faction}` : `${t1.pseudo} : faction inconnue`;
+          const tMeta = meta(t1);
+          if (isFalsified(tMeta)) {
+            msg = FALSIFIED_MSG;
+          } else {
+            const f = apparentFaction(t1.role_slug, tMeta, opts.rolesBySlug);
+            msg = f ? `${t1.pseudo} = faction ${f}` : `${t1.pseudo} : faction inconnue`;
+          }
         }
         await commitMeta({ apo_self_used: selfUsed + 1 });
         await used({ effect: "use_fiole", fiole, on: t1.id });
@@ -5248,6 +5150,13 @@ async function addBotPlayers(gameId, count) {
   }
   return added;
 }
+async function deleteGame(gameId) {
+  await supabase.from("chat_messages").delete().eq("game_id", gameId);
+  await supabase.from("inventory").delete().eq("game_id", gameId);
+  await supabase.from("player_statuses").delete().eq("game_id", gameId);
+  const { error } = await supabase.from("games").delete().eq("id", gameId);
+  if (error) console.error("[deleteGame]", error);
+}
 async function resetGame(gameId) {
   await supabase.from("votes").delete().eq("game_id", gameId);
   await supabase.from("role_actions").delete().eq("game_id", gameId);
@@ -5273,6 +5182,8 @@ var init_actions = __esm({
     init_resolver();
     init_phaseTiming();
     init_serverClock();
+    init_poolConfig();
+    init_constants();
     listeners = /* @__PURE__ */ new Set();
     meta = (p) => p?.role_meta ?? {};
     PHASE_IDX = { free: 0, annonce: 1, gathering: 2, vote: 3 };

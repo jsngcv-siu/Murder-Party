@@ -116,7 +116,6 @@ const ROLES = [
   { slug: "facteur", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 8 },
   { slug: "medium", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 7 },
   { slug: "avocat", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 6 },
-  { slug: "temoin", faction: "Civil", type: "SUPPORT", dw: 1.0, min: 6, witness: true },
   { slug: "vengeur", faction: "Civil", type: "TUEUR", dw: 1.0, min: 7, avenger: true },
   { slug: "executeur", faction: "Civil", type: "TUEUR", dw: 1.0, min: 8, executioner: true },
   { slug: "cuisinier", faction: "Civil", type: "TUEUR", dw: 1.0, min: 7, vigilante: true },

@@ -447,7 +447,6 @@ function pickCapabilityTargets(
       return [pickRandom(others)];
     }
     // ── Setup / passifs / continus : pas de ciblage actif
-    case "temoin":
     case "oracle":
     case "avocat":
     case "medecin_legiste":

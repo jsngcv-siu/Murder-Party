@@ -1230,9 +1230,6 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         );
       })()}
 
-      {myRole?.slug === "temoin" && (
-        <WitnessRevealPanel meId={me.id} gameId={gameId} players={players} roles={roles} />
-      )}
       {(myRole?.slug === "cartomancien" || myRole?.slug === "journaliste") && (
         <CartomancienBoardPanel
           targetId={(meMeta.card_target_id as string | undefined) ?? null}
@@ -2164,7 +2161,6 @@ function FalsificateurPanel({
 // ───────── Liste des rôles qui n'ont PAS besoin du bandeau "Dernier résultat"
 // (panneau dédié, action purement passive, ou setup unique avec affichage propre)
 const NO_LAST_RESULT_ROLES = new Set<string>([
-  "temoin",
   "usurpateur",
   "avocat",
   "guetteur",
@@ -2245,7 +2241,6 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   policier: (t) => `Tu as arrêté ${t ?? "un joueur"}.`,
   saint: (t) => `Tu as béni ${t ?? "un joueur"}.`,
   stratege: (t) => `Tu as frappé ${t ?? "une cible"}.`,
-  temoin: (t) => `Tu as observé ${t ?? "un joueur"}.`,
   tueur: (t) => `Tu as tenté de tuer ${t ?? "un joueur"}.`,
   usurpateur: (t) => `Tu as usurpé ${t ?? "un joueur"}.`,
   vampire: (t) => `Tu as mordu ${t ?? "un joueur"}.`,
@@ -2944,78 +2939,6 @@ function ChatTab({
 }
 
 // StatusBadges supprimé : doublon avec StatusBandeau (barre du haut).
-
-// ───────── Panneau passif Témoin : Civil aléatoire révélé en setup (T1 free)
-function WitnessRevealPanel({
-  gameId,
-  meId,
-  players,
-  roles,
-}: {
-  gameId: string;
-  meId: string;
-  players: import("@/engine/actions").PlayerRow[];
-  roles: Map<string, RoleRow>;
-}) {
-  const [targetId, setTargetId] = useState<string | null>(null);
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from("role_actions")
-        .select("target_player_id,payload")
-        .eq("game_id", gameId)
-        .eq("actor_player_id", meId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      const row = (data ?? []).find(
-        (r) => (r as { payload: { effect?: string } }).payload?.effect === "temoin_reveal",
-      ) as { target_player_id: string | null } | undefined;
-      setTargetId(row?.target_player_id ?? null);
-    }
-    void load();
-    const ch = supabase
-      .channel(`temoin-${meId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "role_actions",
-          filter: `actor_player_id=eq.${meId}`,
-        },
-        () => void load(),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
-  }, [gameId, meId]);
-
-  const target = targetId ? (players.find((p) => p.id === targetId) ?? null) : null;
-  const targetRole = target ? roles.get(target.role_slug ?? "") : null;
-
-  return (
-    <PanelCard tone="amber" icon={Eye} label="Témoignage — Civil reconnu">
-      {!target && (
-        <div className="mt-2 text-xs text-muted-foreground italic">
-          En attente de la 1ʳᵉ Enquête…
-        </div>
-      )}
-      {target && (
-        <div className="mt-3 flex items-center gap-3 rounded-lg bg-background/40 border border-amber-500/30 p-3">
-          <RoleIcon role={targetRole} size={36} />
-          <div className="flex-1 min-w-0">
-            <div className="text-base font-semibold text-amber-100 truncate">{target.pseudo}</div>
-            <div className="text-sm text-amber-300/90 truncate">{targetRole?.name_fr ?? "?"}</div>
-          </div>
-          <div className="text-[10px] uppercase tracking-wider text-amber-400/80 font-mono">
-            Civil
-          </div>
-        </div>
-      )}
-    </PanelCard>
-  );
-}
 
 // ───────── Avocat : liste des prisonniers + leur faction (passif)
 function AvocatPrisonPanel({

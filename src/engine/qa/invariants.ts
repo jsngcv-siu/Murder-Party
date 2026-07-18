@@ -144,13 +144,12 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
   //    nomme le rôle d'un AUTRE joueur vivant. C'est le vrai canal de fuite.
   //    On IGNORE :
   //     - le flux MJ (player_id = null) : omniscient par design, jamais une fuite ;
-  //     - les révélations d'enquête/capacité légitimes (Mouchard, Témoin, autopsie…) ;
+  //     - les révélations d'enquête/capacité légitimes (Mouchard, autopsie…) ;
   //     - le sujet lui-même (apprendre SON rôle est normal) ;
   //     - deux coéquipiers Méchants (ils se connaissent : « Le Tueur a ciblé X »…).
   const LEGIT_REVEAL_TYPES = new Set<string>([
     "mouchard_reveal",
     "mouchard_setup",
-    "temoin_reveal",
     "imitate",
     "autopsy",
     "execution_reveal",

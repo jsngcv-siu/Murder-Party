@@ -1395,7 +1395,7 @@ function QuickAnalysis({
     ["death", "killed", "linked_death"].includes(e.type),
   ).length;
   const investigations = events.filter((e) =>
-    ["autopsy", "mouchard_info", "temoin_reveal"].includes(e.type),
+    ["autopsy", "mouchard_info"].includes(e.type),
   ).length;
   const protections = events.filter((e) =>
     ["protected", "shielded", "saved", "ward", "defended"].includes(e.type),
@@ -2342,7 +2342,7 @@ function EventsTab({
     },
     {
       title: "Enquêtes & informations",
-      types: ["autopsy", "mouchard_info", "temoin_reveal", "oracle_vision"],
+      types: ["autopsy", "mouchard_info", "oracle_vision"],
       tone: "border-l-sky-400",
       accent: "oklch(0.70 0.16 230)",
       Icon: Search,

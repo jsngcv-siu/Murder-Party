@@ -1,6 +1,6 @@
 // Colorise les mentions de rôles et factions dans un texte libre.
 // Utilisé par les résultats d'investigation (Détective, Boussole, Comptable,
-// Médecin légiste, Témoin, Mouchard, etc.) pour rendre les noms de rôles /
+// Médecin légiste, Mouchard, etc.) pour rendre les noms de rôles /
 // factions à la couleur de leur faction.
 import type { RoleRow } from "@/engine/actions";
 import { Fragment, type CSSProperties, type ReactNode } from "react";

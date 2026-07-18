@@ -799,31 +799,6 @@ async function applySetupEffects(gameId: string) {
     }
   }
 
-  // Témoin → reconnaît 1 Civil aléatoire (jamais un Méchant).
-  const temoin = ofSlug("temoin");
-  if (temoin) {
-    const civils = alive.filter((p) => {
-      if (p.id === temoin.id) return false;
-      const r = rolesBySlug.get(p.role_slug ?? "");
-      return r?.faction === "Civil";
-    });
-    const pick = civils[Math.floor(Math.random() * civils.length)];
-    if (pick) {
-      const r = rolesBySlug.get(pick.role_slug ?? "");
-      const body = `Tu reconnais ${pick.pseudo} : ${r?.icon ?? ""} ${r?.name_fr ?? ""}`;
-      await notify({
-        gameId,
-        playerId: temoin.id,
-        type: "temoin_reveal",
-        title: "👁️ Témoin",
-        body,
-        mjTitle: "👁️ Témoin",
-        mjBody: `${temoin.pseudo} reconnaît ${pick.pseudo} (${r?.icon ?? ""} ${r?.name_fr ?? ""}).`,
-      });
-      await logSetup(temoin.id, body, { targetId: pick.id, effect: "temoin_reveal" });
-    }
-  }
-
   // Chasseur de Vampire : PAS de pré-désignation. Il est choisi aléatoirement
   // à la 1ère morsure (résolue à l'Annonce) — voir applyVampireConversion.
 
@@ -3757,8 +3732,7 @@ export async function executeCapability(opts: {
 
       // ── Passifs (consultation manuelle) ──
       case "medecin_legiste":
-      case "medium":
-      case "temoin": {
+      case "medium": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacité passive — voir notifications" };
       }
