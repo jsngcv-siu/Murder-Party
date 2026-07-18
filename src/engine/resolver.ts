@@ -536,7 +536,10 @@ async function applyAttack(
   // absorbée (après les protections classiques — un bouclier posé sur le chat
   // épargne sa vie de réserve). Le tour est mémorisé : l'onglet Annonces en
   // tire l'annonce publique anonyme « un miaulement dans la nuit ».
-  if (tRow.role_slug === "chat_du_manoir" && tMeta.chat_life_used !== true) {
+  // La balle perforante du Franc-tireur (payload.pierce) « perce tout » (décision
+  // Jason, docs §11) : elle traverse aussi la vie de réserve → le Chat meurt sans
+  // la consommer. Cohérence avec bénédiction/bouclier/Majordome déjà percés.
+  if (!pierce && tRow.role_slug === "chat_du_manoir" && tMeta.chat_life_used !== true) {
     await supabase
       .from("players")
       .update({
