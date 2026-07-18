@@ -233,7 +233,21 @@ pour tous les rôles post-mortem.
 
 ---
 
-## Rejetés (trace des décisions, 2026-07-18)
+## 10. Troisième fournée — validés au tri du 2026-07-18
+
+1. **Le Jardinier — Civil/SUPPORT** : à chaque Enquête, **ratisse les parterres** :
+   récupère au hasard **1 objet de l'inventaire d'un mort** (s'il en reste). Les objets
+   des morts — aujourd'hui pillables uniquement par le Voleur — reviennent en
+   circulation côté ville. Implém : patron du Voleur (ciblage morts, pick aléatoire).
+   Léger.
+2. **L'Aubergiste — Neutre/BÉNIN** : **1 Enquête sur 2**, offre une chambre à 1 joueur :
+   s'il est attaqué ce tour, l'attaque échoue — et l'Aubergiste apprend seulement
+   **qu'on a frappé à la porte** (jamais qui). **Victoire** : vivant à la fin, peu
+   importe le camp. *(Nerf « 1 tour sur 2 » acté par Jason : à cadence pleine, la
+   densité de protection devient trop forte aux grandes tables — Majordome MUST +
+   protecteurs tirables + lui.)* **Vigilance équilibrage** : surveiller la protection
+   totale en jeu à 16-20 j. ; levier supplémentaire si besoin = poids de tirage bas
+   (comme Apothicaire 0.4). Implém : couche PROTECT existante + cadence alternée. Léger.
 
 - **Le Bouffon du Manoir** (gagne s'il est emprisonné) — rejeté : archétype pompé des
   autres jeux à rôles cachés, pas l'identité voulue.
@@ -252,3 +266,8 @@ pour tous les rôles post-mortem.
   purement sociaux ne prennent pas ; ce qui plaît = rôles **actifs et systémiques**
   (objets, chats, prison, moments spectaculaires). Seul post-mortem retenu : le
   Poltergeist (interactif).
+- **Non retenus au tri de la 3ᵉ fournée (2026-07-18)** : la Voyante de pacotille
+  (prédictions publiques Gazette), le Serrurier (verrous d'inventaire), la
+  Standardiste (chats privés éphémères), le Notaire (authentification
+  anti-Falsificateur), le Faussaire (contrefaçons d'objets), l'Embaumeur (maquille
+  le rôle des morts), l'Illusionniste (échange de capacités 1 tour).
