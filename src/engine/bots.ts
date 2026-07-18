@@ -454,7 +454,10 @@ function pickCapabilityTargets(
     case "garde_chasse":
     // Lot 3 : tueurs pillards — kill de base (les modes 1×/partie ne sont pas joués).
     case "detrousseur":
-    case "franc_tireur": {
+    case "franc_tireur":
+    // Lot 4 : le Vautour tente une proie au hasard — le handler refuse les
+    // non-votés (échec bénin, il retentera au tick suivant).
+    case "vautour": {
       return [pickRandom(others)];
     }
     // ── Setup / passifs / continus : pas de ciblage actif
@@ -464,6 +467,9 @@ function pickCapabilityTargets(
     case "conjure":
     case "contrebandier":
     case "jardinier":
+    // Lot 4 : Geôlier (les bots ne chattent pas) et Poltergeist (post-mortem).
+    case "geolier":
+    case "poltergeist":
     case "archiviste":
     case "chat_du_manoir":
     case "oracle":

@@ -136,6 +136,21 @@ function withPhotographeWinners(result: WinResult, players: PlayerRow[]): WinRes
   };
 }
 
+// Poltergeist (lot 4) : co-victoire au mérite — un mortel est mort d'un objet
+// qu'il a déplacé depuis l'au-delà (drapeau polt_win posé par le resolver).
+// Mort ou vif, la hantise accomplie paie.
+function withPoltergeistWinners(result: WinResult, players: PlayerRow[]): WinResult {
+  if (!result.winner) return result;
+  const winners = players.filter(
+    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true,
+  );
+  if (winners.length === 0) return result;
+  return {
+    winner: result.winner,
+    reason: `${result.reason} (👻 Le Poltergeist ${winners.map((w) => w.pseudo).join(", ")} a fait frapper un objet — victoire aussi.)`,
+  };
+}
+
 export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
   const players = (ps ?? []) as PlayerRow[];
@@ -335,6 +350,7 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
   r = withBenignSurvivorWinners(r, (ps2 ?? []) as PlayerRow[]);
   r = withPhotographeWinners(r, (ps2 ?? []) as PlayerRow[]);
+  r = withPoltergeistWinners(r, (ps2 ?? []) as PlayerRow[]);
   await cancelUnresolvedDeferredIntents(gameId, r);
   // Émettre l'annonce de fin AVANT de basculer le statut. Ces deux écritures sont
   // distinctes : tout observateur qui réagit au passage à `ended` (écran de fin

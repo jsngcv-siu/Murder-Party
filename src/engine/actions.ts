@@ -799,6 +799,32 @@ async function applySetupEffects(gameId: string) {
     }
   }
 
+  // Vautour (lot 4) → tour 1 : aucun vote n'a encore eu lieu, donc aucune proie
+  // marquée. Il reçoit un couteau (origine méchante — nettoyable par le Cleaner).
+  const vautour = ofSlug("vautour");
+  if (vautour) {
+    const { grantItem, buildItem } = await import("./items");
+    await grantItem(
+      vautour.id,
+      buildItem("couteau", {
+        from: "Charognard",
+        payload: { mechant_origin: true },
+        originFaction: "Méchant",
+        descriptionOverride:
+          "Premier tour : aucune proie désignée par le vote — sers-toi de ta lame.",
+      }),
+    );
+    await notify({
+      gameId,
+      playerId: vautour.id,
+      type: "vautour_knife",
+      title: "🦅 Ta lame de départ",
+      body: "Aucun vote encore : un couteau t'attend dans l'inventaire pour le premier tour.",
+      mjTitle: "🦅 Vautour",
+      mjBody: `${vautour.pseudo} (Vautour) reçoit son couteau de départ.`,
+    });
+  }
+
   // Chasseur de Vampire : PAS de pré-désignation. Il est choisi aléatoirement
   // à la 1ère morsure (résolue à l'Annonce) — voir applyVampireConversion.
 
@@ -2929,6 +2955,81 @@ export async function imprisonPlayer(
   return true;
 }
 
+// ── Poltergeist (lot 4) : déplacement d'objet depuis l'au-delà ──
+// Appelé par le panneau dédié (PA2) du Poltergeist MORT. 1 déplacement par
+// Enquête. Silencieux pour la source ET le receveur (l'objet garde sa fiche
+// d'origine) ; l'objet est marqué `polt_moved` — s'il tue plus tard, le
+// Poltergeist co-gagne (voir applyAttack + withPoltergeistWinners).
+export async function poltergeistMove(
+  gameId: string,
+  meId: string,
+  fromPlayerId: string,
+  itemId: string,
+  toPlayerId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const { data: meRow } = await supabase
+    .from("players")
+    .select("id, pseudo, role_slug, is_alive, role_meta")
+    .eq("id", meId)
+    .single();
+  const me = meRow as PlayerRow | null;
+  if (!me || me.role_slug !== "poltergeist")
+    return { ok: false, message: "Seul le Poltergeist hante." };
+  if (me.is_alive) return { ok: false, message: "Tu hantes seulement une fois mort." };
+  const { data: g } = await supabase
+    .from("games")
+    .select("current_tour, current_phase")
+    .eq("id", gameId)
+    .single();
+  const game = g as { current_tour: number; current_phase: string } | null;
+  const tour = game?.current_tour ?? 1;
+  if (game?.current_phase !== "free")
+    return { ok: false, message: "Tu ne peux hanter que pendant l'Enquête." };
+  const mm = meta(me);
+  if ((mm.polt_last_tour as number | undefined) === tour)
+    return { ok: false, message: "Tu as déjà hanté ce tour." };
+  if (fromPlayerId === toPlayerId)
+    return { ok: false, message: "Choisis deux joueurs différents." };
+  const { data: fromRow } = await supabase
+    .from("players")
+    .select("id, pseudo, is_alive, role_meta")
+    .eq("id", fromPlayerId)
+    .single();
+  const { data: toRow } = await supabase
+    .from("players")
+    .select("id, pseudo, is_alive, role_meta")
+    .eq("id", toPlayerId)
+    .single();
+  const from = fromRow as PlayerRow | null;
+  const to = toRow as PlayerRow | null;
+  if (!from?.is_alive || !to?.is_alive)
+    return { ok: false, message: "Source et destinataire doivent être vivants." };
+  const fromMeta = meta(from);
+  const fromInv = (fromMeta.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+  const idx = fromInv.findIndex((it) => it.id === itemId && it.consumed !== true);
+  if (idx < 0) return { ok: false, message: "Cet objet n'est plus là." };
+  const moved: Record<string, unknown> = {
+    ...fromInv[idx],
+    payload: { ...((fromInv[idx].payload as Record<string, unknown>) ?? {}), polt_moved: true },
+  };
+  await patchMeta(from.id, { inventory: fromInv.filter((_, i) => i !== idx) });
+  const toMeta = meta(to);
+  const toInv = (toMeta.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+  await patchMeta(to.id, { inventory: [moved, ...toInv] });
+  await patchMeta(me.id, {
+    polt_last_tour: tour,
+    polt_moved: [...((mm.polt_moved as string[] | undefined) ?? []), itemId],
+  });
+  const itemName = (moved.name as string | undefined) ?? "un objet";
+  await notifyMJ({
+    gameId,
+    type: "polt_move",
+    title: "👻 Poltergeist",
+    body: `${me.pseudo} (mort) déplace ${itemName} : ${from.pseudo} → ${to.pseudo}.`,
+  });
+  return { ok: true, message: `👻 ${itemName} glisse de ${from.pseudo} vers ${to.pseudo}.` };
+}
+
 // ── Franc-tireur / Détrousseur (lot 3) : armement des capacités 1×/partie ──
 // Boutons dédiés dans PA2 : arme le PROCHAIN tir/kill (balle perforante /
 // braquage total). Consommé par le handler au moment du tir.
@@ -3777,6 +3878,72 @@ export async function executeCapability(opts: {
         };
       }
 
+      // ── Geôlier (lot 4) : ouvre le parloir avec un prisonnier ──
+      // Chat privé éphémère (channel `parloir-<prisonnierId>-<tour>`), Geôlier
+      // anonyme. La cible DOIT être en prison — c'est tout l'intérêt du rôle.
+      case "geolier": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        const { data: tFresh2 } = await supabase
+          .from("players")
+          .select("is_imprisoned, is_alive")
+          .eq("id", t1.id)
+          .single();
+        const tf = tFresh2 as { is_imprisoned: boolean; is_alive: boolean } | null;
+        if (!tf?.is_alive || !tf.is_imprisoned)
+          return { ok: false, message: "Le parloir n'ouvre que pour un prisonnier vivant." };
+        await patchMeta(actor.id, { parloir_with: t1.id, parloir_cycle: opts.tour });
+        await patchMeta(t1.id, { parloir_open_cycle: opts.tour });
+        await used({ effect: "parloir_open", target: t1.id });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "parloir_open",
+          title: "🔐 Parloir",
+          body: "Le Geôlier t'accorde un parloir : un chat s'est ouvert dans ton onglet Capacité.",
+          mjTitle: "🔐 Geôlier",
+          mjBody: `${actor.pseudo} (Geôlier) ouvre le parloir avec ${t1.pseudo}.`,
+        });
+        return { ok: true, message: `🔐 Parloir ouvert avec ${t1.pseudo} pour ce tour.` };
+      }
+
+      // ── Vautour (lot 4, killer-class) : ne charogne que les votés du dernier Vote ──
+      case "vautour": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (opts.tour <= 1)
+          return {
+            ok: false,
+            message: "Aucun vote encore — sers-toi du couteau reçu au premier tour.",
+          };
+        const { data: lastVotes } = await supabase
+          .from("votes")
+          .select("target_player_id")
+          .eq("game_id", opts.gameId)
+          .eq("tour", opts.tour - 1);
+        const prey = new Set(
+          ((lastVotes ?? []) as Array<{ target_player_id: string }>).map(
+            (v) => v.target_player_id,
+          ),
+        );
+        if (!prey.has(t1.id))
+          return {
+            ok: false,
+            message: `${t1.pseudo} n'a reçu aucune voix au dernier Vote — pas une proie.`,
+          };
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:vautour",
+          payload: { kill_reason: "vautour", target_pseudo: t1.pseudo, mechant_mechanic: true },
+        });
+        await used({ effect: "vautour_kill", target: t1.id });
+        return { ok: true, message: `🦅 ${t1.pseudo} était marqué par les voix — à l'Annonce.` };
+      }
+
       // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
       case "jardinier": {
         const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
@@ -4149,9 +4316,12 @@ export async function executeCapability(opts: {
       }
 
       // ── Passifs (consultation manuelle) ──
+      // (Poltergeist : inerte de son VIVANT — son pouvoir post-mortem passe par
+      // poltergeistMove(), hors executeCapability.)
       case "medecin_legiste":
       case "medium":
       case "archiviste":
+      case "poltergeist":
       case "chat_du_manoir": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacité passive — voir notifications" };

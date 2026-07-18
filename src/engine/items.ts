@@ -577,7 +577,13 @@ export async function consumeItem(opts: {
         category: "ATTACK",
         timing: "DEFERRED",
         source: "item:fiole_mort",
-        payload: { kill_reason: "fiole_mort", target_pseudo: target!.pseudo },
+        payload: {
+          kill_reason: "fiole_mort",
+          target_pseudo: target!.pseudo,
+          // Poltergeist (lot 4) : objet déplacé depuis l'au-delà → un kill par
+          // cet objet fait co-gagner le fantôme (marqué à la résolution).
+          ...(item.payload?.polt_moved === true ? { polt_moved: true } : {}),
+        },
       });
       // Silencieux côté victime : elle ne sait pas qu'elle est empoisonnée
       // (cohérent avec les autres morts différées — couteau, Tueur…).
@@ -672,6 +678,8 @@ export async function consumeItem(opts: {
           target_pseudo: target!.pseudo,
           mechant_mechanic: mechantOrigin,
           weapon_from_slug: weaponFromSlug,
+          // Poltergeist (lot 4) : couteau déplacé depuis l'au-delà.
+          ...(item.payload?.polt_moved === true ? { polt_moved: true } : {}),
         },
       });
       // Si ce couteau a été remis par l'Armurier, on le prévient que SON arme a

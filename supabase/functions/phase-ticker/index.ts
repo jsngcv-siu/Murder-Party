@@ -202,6 +202,17 @@ function withPhotographeWinners(result, players) {
     reason: `${result.reason} (\u{1F4F8} Le Photographe ${winners.map((w) => w.pseudo).join(", ")} tient son scoop \u2014 victoire aussi.)`
   };
 }
+function withPoltergeistWinners(result, players) {
+  if (!result.winner) return result;
+  const winners = players.filter(
+    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true
+  );
+  if (winners.length === 0) return result;
+  return {
+    winner: result.winner,
+    reason: `${result.reason} (\u{1F47B} Le Poltergeist ${winners.map((w) => w.pseudo).join(", ")} a fait frapper un objet \u2014 victoire aussi.)`
+  };
+}
 async function evaluateWin(gameId) {
   const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
   const players = ps ?? [];
@@ -325,6 +336,7 @@ async function checkAndEndGame(gameId) {
   r = withEntremetteurWinner(r, ps2 ?? []);
   r = withBenignSurvivorWinners(r, ps2 ?? []);
   r = withPhotographeWinners(r, ps2 ?? []);
+  r = withPoltergeistWinners(r, ps2 ?? []);
   await cancelUnresolvedDeferredIntents(gameId, r);
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p) => ({
@@ -718,6 +730,23 @@ async function applyAttack(intent, killer) {
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
+  if (ok && payload.polt_moved === true) {
+    const { data: poltRow } = await supabase.from("players").select("id, pseudo, role_meta").eq("game_id", intent.game_id).eq("role_slug", "poltergeist").maybeSingle();
+    const polt = poltRow;
+    if (polt) {
+      const pm = getMeta(polt);
+      await supabase.from("players").update({ role_meta: { ...pm, polt_win: true } }).eq("id", polt.id);
+      await notify({
+        gameId: intent.game_id,
+        playerId: polt.id,
+        type: "polt_win",
+        title: "\u{1F47B} L'objet a frapp\xE9",
+        body: "Un objet que tu as d\xE9plac\xE9 vient de tuer. Ta hantise est accomplie \u2014 victoire assur\xE9e \xE0 la fin.",
+        mjTitle: "\u{1F47B} Poltergeist",
+        mjBody: `${polt.pseudo} (Poltergeist) : un objet d\xE9plac\xE9 a tu\xE9 \u2014 co-victoire acquise.`
+      });
+    }
+  }
   if (ok && intent.source === "role:detrousseur") {
     const lootMode = payload.loot === "all" ? "all" : "last";
     const { data: vRow } = await supabase.from("players").select("role_meta, pseudo").eq("id", targetId).single();
@@ -1385,7 +1414,13 @@ async function consumeItem(opts) {
         category: "ATTACK",
         timing: "DEFERRED",
         source: "item:fiole_mort",
-        payload: { kill_reason: "fiole_mort", target_pseudo: target.pseudo }
+        payload: {
+          kill_reason: "fiole_mort",
+          target_pseudo: target.pseudo,
+          // Poltergeist (lot 4) : objet déplacé depuis l'au-delà → un kill par
+          // cet objet fait co-gagner le fantôme (marqué à la résolution).
+          ...item.payload?.polt_moved === true ? { polt_moved: true } : {}
+        }
       });
       message = `${target.pseudo} : intention de mort \u2014 \xE0 l'Annonce.`;
       break;
@@ -1460,7 +1495,9 @@ async function consumeItem(opts) {
           kill_reason: "couteau",
           target_pseudo: target.pseudo,
           mechant_mechanic: mechantOrigin,
-          weapon_from_slug: weaponFromSlug
+          weapon_from_slug: weaponFromSlug,
+          // Poltergeist (lot 4) : couteau déplacé depuis l'au-delà.
+          ...item.payload?.polt_moved === true ? { polt_moved: true } : {}
         }
       });
       const giftedById = item.payload?.gifted_by_id;
@@ -1971,6 +2008,7 @@ __export(actions_exports, {
   openVote: () => openVote,
   parseTotalLimit: () => parseTotalLimit,
   policierVerdict: () => policierVerdict,
+  poltergeistMove: () => poltergeistMove,
   releasePlayer: () => releasePlayer,
   resetGame: () => resetGame,
   respondPact: () => respondPact,
@@ -2444,6 +2482,28 @@ async function applySetupEffects(gameId) {
       });
       await logSetup(g.playerId, g.text, { effect: "indice_setup" });
     }
+  }
+  const vautour = ofSlug("vautour");
+  if (vautour) {
+    const { grantItem: grantItem3, buildItem: buildItem3 } = await Promise.resolve().then(() => (init_items(), items_exports));
+    await grantItem3(
+      vautour.id,
+      buildItem3("couteau", {
+        from: "Charognard",
+        payload: { mechant_origin: true },
+        originFaction: "M\xE9chant",
+        descriptionOverride: "Premier tour : aucune proie d\xE9sign\xE9e par le vote \u2014 sers-toi de ta lame."
+      })
+    );
+    await notify({
+      gameId,
+      playerId: vautour.id,
+      type: "vautour_knife",
+      title: "\u{1F985} Ta lame de d\xE9part",
+      body: "Aucun vote encore : un couteau t'attend dans l'inventaire pour le premier tour.",
+      mjTitle: "\u{1F985} Vautour",
+      mjBody: `${vautour.pseudo} (Vautour) re\xE7oit son couteau de d\xE9part.`
+    });
   }
   const entremetteur = ofSlug("entremetteur");
   if (entremetteur) {
@@ -3869,6 +3929,53 @@ async function imprisonPlayer(gameId, playerId, reason = "vote") {
   await checkAndEndGame(gameId);
   return true;
 }
+async function poltergeistMove(gameId, meId, fromPlayerId, itemId, toPlayerId) {
+  const { data: meRow } = await supabase.from("players").select("id, pseudo, role_slug, is_alive, role_meta").eq("id", meId).single();
+  const me = meRow;
+  if (!me || me.role_slug !== "poltergeist")
+    return { ok: false, message: "Seul le Poltergeist hante." };
+  if (me.is_alive) return { ok: false, message: "Tu hantes seulement une fois mort." };
+  const { data: g } = await supabase.from("games").select("current_tour, current_phase").eq("id", gameId).single();
+  const game = g;
+  const tour = game?.current_tour ?? 1;
+  if (game?.current_phase !== "free")
+    return { ok: false, message: "Tu ne peux hanter que pendant l'Enqu\xEAte." };
+  const mm = meta(me);
+  if (mm.polt_last_tour === tour)
+    return { ok: false, message: "Tu as d\xE9j\xE0 hant\xE9 ce tour." };
+  if (fromPlayerId === toPlayerId)
+    return { ok: false, message: "Choisis deux joueurs diff\xE9rents." };
+  const { data: fromRow } = await supabase.from("players").select("id, pseudo, is_alive, role_meta").eq("id", fromPlayerId).single();
+  const { data: toRow } = await supabase.from("players").select("id, pseudo, is_alive, role_meta").eq("id", toPlayerId).single();
+  const from = fromRow;
+  const to = toRow;
+  if (!from?.is_alive || !to?.is_alive)
+    return { ok: false, message: "Source et destinataire doivent \xEAtre vivants." };
+  const fromMeta = meta(from);
+  const fromInv = fromMeta.inventory ?? [];
+  const idx = fromInv.findIndex((it) => it.id === itemId && it.consumed !== true);
+  if (idx < 0) return { ok: false, message: "Cet objet n'est plus l\xE0." };
+  const moved = {
+    ...fromInv[idx],
+    payload: { ...fromInv[idx].payload ?? {}, polt_moved: true }
+  };
+  await patchMeta(from.id, { inventory: fromInv.filter((_, i) => i !== idx) });
+  const toMeta = meta(to);
+  const toInv = toMeta.inventory ?? [];
+  await patchMeta(to.id, { inventory: [moved, ...toInv] });
+  await patchMeta(me.id, {
+    polt_last_tour: tour,
+    polt_moved: [...mm.polt_moved ?? [], itemId]
+  });
+  const itemName = moved.name ?? "un objet";
+  await notifyMJ({
+    gameId,
+    type: "polt_move",
+    title: "\u{1F47B} Poltergeist",
+    body: `${me.pseudo} (mort) d\xE9place ${itemName} : ${from.pseudo} \u2192 ${to.pseudo}.`
+  });
+  return { ok: true, message: `\u{1F47B} ${itemName} glisse de ${from.pseudo} vers ${to.pseudo}.` };
+}
 async function armFrancTireurPierce(playerId) {
   const { data: row } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
   const m = meta(row);
@@ -4489,6 +4596,62 @@ async function executeCapability(opts) {
           message: `\u{1F91D} Pacte propos\xE9 \xE0 ${t2.pseudo} contre ${t1.pseudo} \u2014 attends sa r\xE9ponse.`
         };
       }
+      // ── Geôlier (lot 4) : ouvre le parloir avec un prisonnier ──
+      // Chat privé éphémère (channel `parloir-<prisonnierId>-<tour>`), Geôlier
+      // anonyme. La cible DOIT être en prison — c'est tout l'intérêt du rôle.
+      case "geolier": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        const { data: tFresh2 } = await supabase.from("players").select("is_imprisoned, is_alive").eq("id", t1.id).single();
+        const tf = tFresh2;
+        if (!tf?.is_alive || !tf.is_imprisoned)
+          return { ok: false, message: "Le parloir n'ouvre que pour un prisonnier vivant." };
+        await patchMeta(actor.id, { parloir_with: t1.id, parloir_cycle: opts.tour });
+        await patchMeta(t1.id, { parloir_open_cycle: opts.tour });
+        await used({ effect: "parloir_open", target: t1.id });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "parloir_open",
+          title: "\u{1F510} Parloir",
+          body: "Le Ge\xF4lier t'accorde un parloir : un chat s'est ouvert dans ton onglet Capacit\xE9.",
+          mjTitle: "\u{1F510} Ge\xF4lier",
+          mjBody: `${actor.pseudo} (Ge\xF4lier) ouvre le parloir avec ${t1.pseudo}.`
+        });
+        return { ok: true, message: `\u{1F510} Parloir ouvert avec ${t1.pseudo} pour ce tour.` };
+      }
+      // ── Vautour (lot 4, killer-class) : ne charogne que les votés du dernier Vote ──
+      case "vautour": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (opts.tour <= 1)
+          return {
+            ok: false,
+            message: "Aucun vote encore \u2014 sers-toi du couteau re\xE7u au premier tour."
+          };
+        const { data: lastVotes } = await supabase.from("votes").select("target_player_id").eq("game_id", opts.gameId).eq("tour", opts.tour - 1);
+        const prey = new Set(
+          (lastVotes ?? []).map(
+            (v) => v.target_player_id
+          )
+        );
+        if (!prey.has(t1.id))
+          return {
+            ok: false,
+            message: `${t1.pseudo} n'a re\xE7u aucune voix au dernier Vote \u2014 pas une proie.`
+          };
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:vautour",
+          payload: { kill_reason: "vautour", target_pseudo: t1.pseudo, mechant_mechanic: true }
+        });
+        await used({ effect: "vautour_kill", target: t1.id });
+        return { ok: true, message: `\u{1F985} ${t1.pseudo} \xE9tait marqu\xE9 par les voix \u2014 \xE0 l'Annonce.` };
+      }
       // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
       case "jardinier": {
         const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
@@ -4831,9 +4994,12 @@ async function executeCapability(opts) {
         return { ok: true, message: `Lettre d\xE9pos\xE9e \xE0 ${t1.pseudo}` };
       }
       // ── Passifs (consultation manuelle) ──
+      // (Poltergeist : inerte de son VIVANT — son pouvoir post-mortem passe par
+      // poltergeistMove(), hors executeCapability.)
       case "medecin_legiste":
       case "medium":
       case "archiviste":
+      case "poltergeist":
       case "chat_du_manoir": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacit\xE9 passive \u2014 voir notifications" };

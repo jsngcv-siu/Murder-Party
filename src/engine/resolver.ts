@@ -607,6 +607,33 @@ async function applyAttack(
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
+  // ── Poltergeist (lot 4) : la victime est morte d'un objet déplacé depuis
+  // l'au-delà → le fantôme tient sa co-victoire (drapeau lu par winConditions).
+  if (ok && payload.polt_moved === true) {
+    const { data: poltRow } = await supabase
+      .from("players")
+      .select("id, pseudo, role_meta")
+      .eq("game_id", intent.game_id)
+      .eq("role_slug", "poltergeist")
+      .maybeSingle();
+    const polt = poltRow as { id: string; pseudo: string; role_meta: unknown } | null;
+    if (polt) {
+      const pm = getMeta(polt as { role_meta?: unknown });
+      await supabase
+        .from("players")
+        .update({ role_meta: { ...pm, polt_win: true } as never })
+        .eq("id", polt.id);
+      await notify({
+        gameId: intent.game_id,
+        playerId: polt.id,
+        type: "polt_win",
+        title: "👻 L'objet a frappé",
+        body: "Un objet que tu as déplacé vient de tuer. Ta hantise est accomplie — victoire assurée à la fin.",
+        mjTitle: "👻 Poltergeist",
+        mjBody: `${polt.pseudo} (Poltergeist) : un objet déplacé a tué — co-victoire acquise.`,
+      });
+    }
+  }
   // ── Détrousseur (lot 3) : le kill emporte le butin — dernier objet reçu, ou
   // TOUT l'inventaire en mode braquage (payload.loot = "all"). Transfert direct
   // de méta à méta ; les objets gardent leur nature, marqués « reçus de » la victime.

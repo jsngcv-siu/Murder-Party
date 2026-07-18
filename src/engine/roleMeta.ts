@@ -94,6 +94,16 @@ export interface RoleMeta {
   // ─── Détrousseur (lot 3) ───
   det_braquage_armed?: boolean;
   det_braquage_used?: boolean;
+  // ─── Geôlier (lot 4) ───
+  // Sur le GEÔLIER : prisonnier choisi + tour du parloir. Sur le PRISONNIER :
+  // tour où son onglet parloir est ouvert. Channel = `parloir-<prisonnierId>-<tour>`.
+  parloir_with?: string;
+  parloir_cycle?: number;
+  parloir_open_cycle?: number;
+  // ─── Poltergeist (lot 4, post-mortem) ───
+  polt_last_tour?: number;
+  polt_moved?: string[]; // ids d'objets déplacés depuis l'au-delà
+  polt_win?: boolean; // un mortel est mort d'un objet déplacé
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

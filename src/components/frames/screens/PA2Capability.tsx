@@ -12,6 +12,7 @@ import {
   respondPact,
   armFrancTireurPierce,
   armDetrousseurBraquage,
+  poltergeistMove,
   type CapabilityResult,
   type RoleRow,
 } from "@/engine/actions";
@@ -862,6 +863,39 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
     imitateurLastDead = deads[0] ?? null;
     targetable = imitateurLastDead ? [imitateurLastDead] : [];
   }
+  // Vautour (lot 4) : cibles restreintes aux joueurs ayant reçu ≥1 voix au
+  // dernier Vote (exigence : filtre dynamique de l'onglet capacité). Tour 1 :
+  // aucune proie — le couteau de départ fait le travail.
+  const [vautourPrey, setVautourPrey] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (myRole?.slug !== "vautour") return;
+    if (game.current_tour <= 1) {
+      setVautourPrey(new Set());
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from("votes")
+      .select("target_player_id")
+      .eq("game_id", gameId)
+      .eq("tour", game.current_tour - 1)
+      .then(({ data }) => {
+        if (!cancelled)
+          setVautourPrey(
+            new Set(
+              ((data ?? []) as Array<{ target_player_id: string }>).map(
+                (v) => v.target_player_id,
+              ),
+            ),
+          );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [myRole?.slug, gameId, game.current_tour]);
+  if (myRole?.slug === "vautour") {
+    targetable = vautourPrey ? targetable.filter((p) => vautourPrey.has(p.id)) : [];
+  }
 
   // Bandeau de résultat : auto-effacement après 3s pour ne pas encombrer l'UI.
   useEffect(() => {
@@ -1281,6 +1315,46 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "avocat" && <AvocatPrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "archiviste" && <ArchivistePrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "photographe" && <PhotographePanel me={me} players={players} />}
+      {myRole?.slug === "geolier" &&
+        (meMeta.parloir_cycle as number | undefined) === game.current_tour &&
+        !!meMeta.parloir_with && (
+          <PanelCard tone="amber" icon={KeyRound} label="Parloir ouvert">
+            <div className="text-[11px] text-muted-foreground mb-2">
+              Tu parles au détenu sous le nom « Le Geôlier » — il ne sait pas qui tu es. Le
+              parloir ferme à la fin du tour.
+            </div>
+            <ChatPanel
+              gameId={gameId}
+              channel={`parloir-${meMeta.parloir_with as string}-${game.current_tour}`}
+              meId={me.id}
+              mePseudo={me.pseudo}
+              canWrite
+              anonymous
+              placeholder="Interroger le détenu…"
+              emptyText="Le détenu n'a encore rien dit."
+            />
+          </PanelCard>
+        )}
+      {me.is_imprisoned &&
+        (meMeta.parloir_open_cycle as number | undefined) === game.current_tour && (
+          <PanelCard tone="amber" icon={KeyRound} label="Parloir — le Geôlier te parle">
+            <div className="text-[11px] text-muted-foreground mb-2">
+              Quelqu'un te parle à travers les barreaux. Tu peux répondre… ou mentir.
+            </div>
+            <ChatPanel
+              gameId={gameId}
+              channel={`parloir-${me.id}-${game.current_tour}`}
+              meId={me.id}
+              mePseudo={me.pseudo}
+              canWrite
+              placeholder="Répondre au Geôlier…"
+              emptyText="Le Geôlier ne t'a encore rien demandé."
+            />
+          </PanelCard>
+        )}
+      {myRole?.slug === "poltergeist" && !me.is_alive && (
+        <PoltergeistPanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
+      )}
       {myRole?.slug === "jardinier" && (
         <PanelCard tone="amber" icon={Sprout} label="Les parterres">
           <div className="text-[11px] text-muted-foreground mb-2">
@@ -2310,6 +2384,8 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   jardinier: () => `Tu as ratissé les parterres.`,
   detrousseur: (t) => `Tu as détroussé ${t ?? "un joueur"}.`,
   franc_tireur: (t) => `Tu as visé ${t ?? "un joueur"}.`,
+  geolier: (t) => `Tu as ouvert le parloir avec ${t ?? "un détenu"}.`,
+  vautour: (t) => `Tu as charogné ${t ?? "un joueur"}.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
   paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
@@ -3144,6 +3220,123 @@ function AvocatPrisonPanel({
           })}
         </div>
       )}
+    </PanelCard>
+  );
+}
+
+// ───────── Poltergeist (lot 4, post-mortem) : hanter — déplacer un objet
+// entre deux vivants. Inventaires LIVE (props players, realtime), flux en 2
+// temps : choisir l'objet à prendre, puis le destinataire. 1×/Enquête.
+function PoltergeistPanel({
+  gameId,
+  me,
+  players,
+  tour,
+}: {
+  gameId: string;
+  me: import("@/engine/actions").PlayerRow;
+  players: import("@/engine/actions").PlayerRow[];
+  tour: number;
+}) {
+  const [pickedItem, setPickedItem] = useState<{ fromId: string; itemId: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const meMeta = (me.role_meta && typeof me.role_meta === "object" ? me.role_meta : {}) as Record<
+    string,
+    unknown
+  >;
+  const hauntedThisTour = (meMeta.polt_last_tour as number | undefined) === tour;
+  const won = meMeta.polt_win === true;
+  const living = players.filter((p) => p.is_alive && !p.is_mj);
+  const holders = living
+    .map((p) => {
+      const inv = (
+        ((p.role_meta ?? {}) as Record<string, unknown>).inventory as
+          | Array<Record<string, unknown>>
+          | undefined
+      )?.filter((it) => it.consumed !== true);
+      return { p, inv: inv ?? [] };
+    })
+    .filter((h) => h.inv.length > 0);
+  const move = async (toId: string) => {
+    if (!pickedItem) return;
+    setBusy(true);
+    const r = await poltergeistMove(gameId, me.id, pickedItem.fromId, pickedItem.itemId, toId);
+    setMsg(r.message);
+    setPickedItem(null);
+    setBusy(false);
+  };
+  return (
+    <PanelCard tone="fuchsia" icon={Drama} label="Hanter le manoir">
+      {won && (
+        <div className="mb-2 text-sm text-fuchsia-200">
+          👻 Un objet déplacé a tué — ta victoire est acquise, continue de hanter pour le plaisir.
+        </div>
+      )}
+      {hauntedThisTour ? (
+        <div className="text-sm text-muted-foreground">
+          Tu as déjà hanté ce tour. Reviens à la prochaine Enquête.
+        </div>
+      ) : holders.length === 0 ? (
+        <div className="text-sm text-muted-foreground">
+          Aucun vivant ne transporte d'objet pour l'instant.
+        </div>
+      ) : !pickedItem ? (
+        <>
+          <div className="text-[11px] text-muted-foreground mb-2">
+            1/2 — Choisis l'objet à faire glisser hors d'une poche :
+          </div>
+          <div className="space-y-2">
+            {holders.map(({ p, inv }) => (
+              <div key={p.id} className="rounded-lg border border-border bg-background/40 p-2">
+                <div className="text-xs font-semibold mb-1.5">{p.pseudo}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {inv.map((it) => (
+                    <button
+                      key={it.id as string}
+                      disabled={busy}
+                      onClick={() =>
+                        setPickedItem({ fromId: p.id, itemId: it.id as string })
+                      }
+                      className="px-2 py-1 rounded-md bg-fuchsia-500/15 ring-1 ring-fuchsia-400/40 text-xs hover:bg-fuchsia-500/25 disabled:opacity-40"
+                    >
+                      {(it.icon as string) ?? "❔"} {(it.name as string) ?? "Objet"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-[11px] text-muted-foreground mb-2">
+            2/2 — Dans quelle poche le glisser ?
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {living
+              .filter((p) => p.id !== pickedItem.fromId)
+              .map((p) => (
+                <button
+                  key={p.id}
+                  disabled={busy}
+                  onClick={() => void move(p.id)}
+                  className="h-10 rounded-lg bg-card/60 ring-1 ring-border text-sm font-semibold hover:bg-fuchsia-500/20 disabled:opacity-40 truncate px-2"
+                >
+                  {p.pseudo}
+                </button>
+              ))}
+          </div>
+          <button
+            disabled={busy}
+            onClick={() => setPickedItem(null)}
+            className="mt-2 h-9 w-full rounded-lg bg-card/40 ring-1 ring-border text-xs text-muted-foreground"
+          >
+            ← Reprendre le choix de l'objet
+          </button>
+        </>
+      )}
+      {msg && <div className="mt-2 text-xs text-fuchsia-200">{msg}</div>}
     </PanelCard>
   );
 }
