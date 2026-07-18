@@ -1,9 +1,19 @@
 # Nouveaux rôles — shortlist retenue
 
-> **Statut : DESIGN — rien d'implémenté.** Liste validée en discussion le 2026-07-18,
-> tri final à faire avant implémentation. Pipeline d'implémentation : `docs/ROLES_FRAMEWORK.md`
-> (DB → handler → resolver → setup → UI → tirage) puis écran animé (skill murder-party-analyst,
-> Playbook E). Les ancrages techniques cités ci-dessous ont été vérifiés contre le code au 2026-07-18.
+> **Statut : ✅ LES 6 LOTS SONT IMPLÉMENTÉS** (branche `ajout-de-roles`, 2026-07-18) —
+> 17 rôles codés, testés (2 démos bots, QA 0 problème, audit statique 60/60), icônes
+> générées, livre d'aide écrit, Pyromane calé en sim (barème 3/4). **Les rôles sont
+> INSÉRÉS DÉSACTIVÉS en prod** (`is_disabled=true`).
+>
+> **Checklist d'ACTIVATION (à faire au merge)** :
+> 1. `npm run deploy:edge` (bundle phase-ticker à jour — OBLIGATOIRE, sinon
+>    résolution mixte ancien/nouveau moteur) ;
+> 2. merge `ajout-de-roles` → `main` (Vercel déploie le front) ;
+> 3. migration d'activation `is_disabled=false` sur les 17 slugs ;
+> 4. intégration des 17 rôles au modèle `sim/balance.mjs` + re-mesure 55/45 ;
+> 5. écrans de capacité animés (Playbook E) au fil de l'eau.
+>
+> Historique de design ci-dessous (validations, rejets, décisions).
 >
 > **Process (acté 2026-07-18)** : les nouvelles fournées de rôles se proposent **dans le
 > chat**, jamais directement ici. Seuls les rôles **validés** par Jason entrent dans ce
