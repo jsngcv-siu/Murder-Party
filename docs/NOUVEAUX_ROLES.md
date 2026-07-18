@@ -248,6 +248,66 @@ pour tous les rôles post-mortem.
 
 ---
 
+## 12. Cinquième fournée — Civil/TUEUR, validés au tri du 2026-07-18
+
+> Principe du type : un civil qui tue le fait **sur conviction, avec risque d'erreur** —
+> jamais de « tue si méchant » automatique.
+
+1. **Le Garde-chasse** : à chaque Enquête, **patrouille** devant la porte d'un joueur.
+   Si ce joueur est attaqué ce tour, **l'attaquant meurt** — mais la cible n'est **pas
+   sauvée** (deux corps au matin : la victime et son assassin). Il venge, il ne protège
+   pas. Loterie de position, auto-équilibré.
+2. **Le Bretteur** : **1×/partie**, lève sa garde pour un tour : s'il est attaqué cette
+   nuit-là, **il pare et embroche** — l'attaque échoue ET l'attaquant meurt. Tout est
+   dans le timing ; jouer l'appât est le jeu. Jamais de friendly fire (ne tue que qui
+   l'attaque).
+3. **Le Conjuré** : **1×/partie**, monte un **pacte d'assassinat** : une cible + un
+   complice. Le complice reçoit une demande **anonyme** (« quelqu'un te propose de tuer
+   X — acceptes-tu ? »). Accepte → la cible meurt à l'Annonce. Refuse → rien, mais le
+   complice sait qu'un conjuré rôde. Deux consciences au lieu d'une… sauf si le
+   complice sollicité est un Méchant ravi de co-signer.
+
+**Note moteur commune (Garde-chasse/Bretteur)** : introduire proprement une mécanique
+de **riposte** (« l'attaquant meurt en attaquant ») dans le resolver — une couche de
+réaction déclenchée par les intents ATTACK, cousine du sacrifice du Majordome. À
+spécifier UNE fois, réutilisée par les deux rôles.
+
+---
+
+## ORDRE D'IMPLÉMENTATION (validé 2026-07-18 — branche `ajout-de-roles`)
+
+> **17 rôles validés** au total. Garde-fous permanents à CHAQUE lot : migration DB
+> **avant** le code, `npx tsc --noEmit`, bundle phase-ticker **régénéré** si le moteur
+> change, partie démo bots + invariants QA — **la boucle 4 phases et le jeu actuel ne
+> doivent jamais casser**. Pipeline par rôle : `docs/ROLES_FRAMEWORK.md`.
+
+1. **Lot 1 — éclair** (patrons existants) : Archiviste, Physionomiste *(nom final à
+   trancher)*, Chat du Manoir, Photographe, Aubergiste.
+2. **Lot 2 — Civil/TUEUR** : spec commune « riposte » puis Garde-chasse, Bretteur,
+   Conjuré (flux pacte via notify + choix).
+3. **Lot 3 — objets** : spec de l'ordre de résolution des inventaires
+   (Voleur/Détrousseur/Jardinier/Poltergeist), puis malle du Contrebandier, Jardinier,
+   Détrousseur, Franc-tireur (règle balle perforante × sacrifice du Majordome écrite
+   noir sur blanc).
+4. **Lot 4 — UI riches** : Geôlier-parloir (onglet chat prisonnier), écran inventaires
+   live du Poltergeist, filtre de cibles du Vautour (+ couteau du tour 1).
+5. **Lot 5 — systèmes** : lettres signées (changement Facteur) + Ventriloque ;
+   Pyromane (passage en `sim/balance.mjs` AVANT implémentation).
+6. **Lot 6 — finitions transverses (demandé par Jason, à la FIN de tous les rôles)** :
+   - **Assistant du détective** : intégrer les 17 nouveaux rôles à la matrice de
+     compatibilité des **trios/leurres** (actions.ts) ; même passe pour les
+     couvertures de l'Usurpateur et le **verdict Policier** (`police_verdict`) de
+     chaque nouveau rôle.
+   - **Livre d'aide** : subtilités (`roleExtraInfo`), textes joueur, cartes — chaque
+     perso aligné avec son type, sa faction et son rôle réel.
+   - **Icônes d'avatar** : générer les 17 icônes dans le style du set (réf. bucket
+     `icon-role`, modèle Nano Banana 2), intégrées en WebP local `public/icons/`
+     (contrainte egress).
+   - **Passe finale** : bots pour chaque rôle, expectations QA, roster `sim/balance`,
+     partie démo complète, re-mesure d'équilibrage.
+
+---
+
 ## Rejetés (trace des décisions, 2026-07-18)
 
 - **Le Bouffon du Manoir** (gagne s'il est emprisonné) — rejeté : archétype pompé des
@@ -280,3 +340,7 @@ pour tous les rôles post-mortem.
 - **Annonces d'attribution (idée transverse, abandonnée 2026-07-18)** : révéler au
   sauvé qui l'a protégé / révéler la cause de la mort en Gazette — zappé par Jason
   (complexité d'infos sur l'app). Ne pas re-proposer.
+- **Le Forgeron** (Civil/TUEUR passif d'escalade : couteaux aux 3ᵉ/6ᵉ morts civiles) —
+  non retenu au tri de la 5ᵉ fournée (2026-07-18).
+- **Le Témoin (rôle existant) — SUPPRIMÉ du jeu le 2026-07-18** (migration
+  20260718140000) : passif à miettes, Civil/SUPPORT en surpoids.
