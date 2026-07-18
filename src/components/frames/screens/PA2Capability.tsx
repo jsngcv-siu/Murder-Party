@@ -32,6 +32,8 @@ import {
   CircleCheck,
   CircleHelp,
   Crown,
+  Archive,
+  Camera,
   Dices,
   Drama,
   Droplet,
@@ -1273,6 +1275,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       )}
       {myRole?.slug === "medecin_legiste" && <LegisteAutopsiesPanel gameId={gameId} meId={me.id} />}
       {myRole?.slug === "avocat" && <AvocatPrisonPanel players={players} roles={roles} />}
+      {myRole?.slug === "archiviste" && <ArchivistePrisonPanel players={players} roles={roles} />}
+      {myRole?.slug === "photographe" && <PhotographePanel me={me} players={players} />}
       {isOraclePending && (
         <PanelCard tone="fuchsia" icon={Sparkles} label="Prophétie — choisis le camp gagnant">
           <div className="grid grid-cols-3 gap-2">
@@ -2161,6 +2165,9 @@ function FalsificateurPanel({
 // ───────── Liste des rôles qui n'ont PAS besoin du bandeau "Dernier résultat"
 // (panneau dédié, action purement passive, ou setup unique avec affichage propre)
 const NO_LAST_RESULT_ROLES = new Set<string>([
+  "archiviste",
+  "chat_du_manoir",
+  "photographe",
   "usurpateur",
   "avocat",
   "guetteur",
@@ -2235,6 +2242,9 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   medecin_legiste: (t) => `Tu as autopsié ${t ?? "un joueur"}.`,
   medium: () => `Tu as contacté les morts.`,
   mouchard: (t) => `Tu as espionné ${t ?? "un joueur"}.`,
+  physionomiste: (t) => `Tu as dévisagé ${t ?? "un joueur"}.`,
+  photographe: (t) => `Tu as photographié ${t ?? "un joueur"}.`,
+  aubergiste: (t) => `Tu as hébergé ${t ?? "un joueur"}.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
   paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
@@ -3067,6 +3077,134 @@ function AvocatPrisonPanel({
               </div>
             );
           })}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Archiviste (lot 1) : dossiers d'écrou — rôle APPARENT des détenus
+// (doctrine des déguisements : falsifié → illisible, Usurpateur → couverture,
+// tueur camouflé → « Citoyen » — seul l'Assistant du détective perce).
+function ArchivistePrisonPanel({
+  players,
+  roles,
+}: {
+  players: import("@/engine/actions").PlayerRow[];
+  roles: Map<string, RoleRow>;
+}) {
+  const prisoners = players.filter((p) => p.is_imprisoned && p.is_alive && !p.is_mj);
+  return (
+    <PanelCard
+      tone="amber"
+      icon={Archive}
+      label="Dossiers d'écrou"
+      action={
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/18 text-amber-200">
+          {prisoners.length}
+        </span>
+      }
+    >
+      <div className="text-[11px] text-muted-foreground mb-2">
+        Tu lis le rôle des détenus (registres de la prison).
+      </div>
+      {prisoners.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border py-5 text-center text-xs text-muted-foreground">
+          Aucun joueur en prison actuellement.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {prisoners.map((p) => {
+            const pm = (
+              p.role_meta && typeof p.role_meta === "object" ? p.role_meta : {}
+            ) as Record<string, unknown>;
+            const falsified = pm.falsified === true;
+            const cover = pm.cover_slug as string | undefined;
+            const r = roles.get(cover ?? p.role_slug ?? "");
+            const label = falsified
+              ? "Dossier falsifié — illisible"
+              : !cover && r?.is_killer_class
+                ? "Citoyen"
+                : r
+                  ? `${r.icon ?? ""} ${r.name_fr}`
+                  : "?";
+            const av = avatarOf(pm.avatar as string | undefined, p.id);
+            return (
+              <div
+                key={p.id}
+                className="rounded-xl border border-border bg-background/40 p-2.5 flex items-center gap-3"
+              >
+                <AvatarImg avatar={av} size={40} rounded="lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate">{p.pseudo}</div>
+                  <div className="text-xs text-amber-200/90 truncate">{label}</div>
+                </div>
+                <Lock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Photographe mondain (lot 1) : la pellicule — clichés + progression
+function PhotographePanel({
+  me,
+  players,
+}: {
+  me: import("@/engine/actions").PlayerRow;
+  players: import("@/engine/actions").PlayerRow[];
+}) {
+  const meMeta = (me.role_meta && typeof me.role_meta === "object" ? me.role_meta : {}) as Record<
+    string,
+    unknown
+  >;
+  const film = (meMeta.photos as Array<{ id: string; tour: number }> | undefined) ?? [];
+  const real = players.filter((p) => !p.is_mj);
+  const need = real.length <= 10 ? 2 : real.length <= 15 ? 3 : 4;
+  const shots = film
+    .map((ph) => ({ ph, subject: players.find((q) => q.id === ph.id) ?? null }))
+    .filter((s) => s.subject != null);
+  const deadCount = shots.filter((s) => !s.subject!.is_alive).length;
+  return (
+    <PanelCard
+      tone="amber"
+      icon={Camera}
+      label="Ta pellicule"
+      action={
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/18 text-amber-200">
+          {deadCount}/{need}
+        </span>
+      }
+    >
+      <div className="text-[11px] text-muted-foreground mb-2">
+        Objectif : {need} photographiés morts (photo prise de leur vivant) — et survivre.
+      </div>
+      {shots.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border py-5 text-center text-xs text-muted-foreground">
+          Aucun cliché pour l'instant. Photographie un invité pendant l'Enquête.
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {shots.map(({ ph, subject }) => (
+            <div
+              key={ph.id}
+              className="rounded-lg border border-border bg-background/40 px-2.5 py-1.5 flex items-center gap-2 text-sm"
+            >
+              <Camera className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="flex-1 truncate">{subject!.pseudo}</span>
+              <span className="text-[10px] text-muted-foreground">T{ph.tour}</span>
+              {subject!.is_alive ? (
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  vivant
+                </span>
+              ) : (
+                <Skull className="size-3.5 text-amber-300" aria-hidden />
+              )}
+            </div>
+          ))}
         </div>
       )}
     </PanelCard>

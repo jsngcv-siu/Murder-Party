@@ -279,6 +279,12 @@ async function applyProtect(intent: RoleActionRow): Promise<Record<string, unkno
     nextMeta.guarded_by = intent.actor_player_id;
     nextMeta.guarded_by_cycle = intent.tour;
   }
+  // Aubergiste (lot 1) : tag la cible hébergée → si une attaque est bloquée
+  // pendant la fenêtre de protection, l'Aubergiste apprend qu'on a frappé (jamais qui).
+  if (intent.source === "role:aubergiste") {
+    nextMeta.innkeeper_by = intent.actor_player_id;
+    nextMeta.innkeeper_by_cycle = intent.tour;
+  }
   await supabase
     .from("players")
     .update({
@@ -346,10 +352,15 @@ async function applyAttack(
   // Re-check protection LIVE (un PROTECT vient d'être appliqué dans la même couche précédente).
   const { data: tgt } = await supabase
     .from("players")
-    .select("role_meta, is_alive")
+    .select("role_meta, is_alive, role_slug, pseudo")
     .eq("id", targetId)
     .single();
-  const tRow = tgt as { role_meta: Record<string, unknown>; is_alive: boolean } | null;
+  const tRow = tgt as {
+    role_meta: Record<string, unknown>;
+    is_alive: boolean;
+    role_slug: string | null;
+    pseudo: string;
+  } | null;
   if (!tRow || !tRow.is_alive) {
     await decrementCharge(intent.item_id); // fiole utilisée même si rate
     return { status: "cancelled", reason: "target_dead" };
@@ -367,6 +378,22 @@ async function applyAttack(
       title: "🛡️ Attaque bloquée",
       body: `${(intent.payload as Record<string, unknown> | null)?.target_pseudo ?? "Cible"} a été attaqué (${intent.source ?? "?"}) mais une protection l'a sauvé.`,
     });
+    // Aubergiste (lot 1) : sa chambre vient d'encaisser une attaque → il apprend
+    // qu'on a frappé à la porte (jamais QUI, jamais quelle arme). Fenêtre = même
+    // durée que la protection standard (tour de pose + le suivant).
+    const innkeeperId = tMeta.innkeeper_by;
+    const innkeeperCycle = tMeta.innkeeper_by_cycle ?? -1;
+    if (typeof innkeeperId === "string" && innkeeperId.length > 0 && intent.tour <= innkeeperCycle + 1) {
+      await notify({
+        gameId: intent.game_id,
+        playerId: innkeeperId,
+        type: "innkeeper_knock",
+        title: "🏨 On a frappé à la porte",
+        body: `Quelqu'un s'en est pris à ${tRow.pseudo} cette nuit — la chambre a tenu bon.`,
+        mjTitle: "🏨 Aubergiste",
+        mjBody: `La chambre de l'Aubergiste a bloqué une attaque sur ${tRow.pseudo} (${intent.source ?? "?"}).`,
+      });
+    }
     // Si la cible est bénite et l'attaque vient d'une source hostile, notifie le Saint avec auteur.
     const saintId = tMeta.blessed_by_saint_id;
     if (isBlessed && saintId) {
@@ -446,6 +473,35 @@ async function applyAttack(
       resolves_at: resolvesAt,
     };
   }
+  // Chat du Manoir (lot 1) : une vie. La PREMIÈRE attaque qui le vise est
+  // absorbée (après les protections classiques — un bouclier posé sur le chat
+  // épargne sa vie de réserve). Le tour est mémorisé : l'onglet Annonces en
+  // tire l'annonce publique anonyme « un miaulement dans la nuit ».
+  if (tRow.role_slug === "chat_du_manoir" && tMeta.chat_life_used !== true) {
+    await supabase
+      .from("players")
+      .update({
+        role_meta: {
+          ...tMeta,
+          chat_life_used: true,
+          chat_life_lost_cycle: intent.tour,
+        } as never,
+      })
+      .eq("id", targetId);
+    await decrementCharge(intent.item_id); // l'arme est consommée : elle a « touché »
+    await notify({
+      gameId: intent.game_id,
+      playerId: targetId,
+      type: "chat_life_lost",
+      title: "😾 Une vie de moins",
+      body: "On a tenté de te tuer cette nuit. Tu retombes sur tes pattes — c'était ta seule vie de réserve.",
+      mjTitle: "🐈 Chat du Manoir",
+      mjBody: `${tRow.pseudo} (Chat du Manoir) absorbe une attaque (${intent.source ?? "?"}) — vie consommée.`,
+    });
+    // Pour l'attaquant : même retour que « protégé » (aucune fuite du mécanisme).
+    return { status: "protected", reason: "chat_life" };
+  }
+
   // Kill direct (Tueur, fiole_mort, marionnette forcée).
   const payload = (intent.payload as Record<string, unknown> | null) ?? {};
   const reason =

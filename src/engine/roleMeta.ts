@@ -55,6 +55,21 @@ export interface RoleMeta {
   prophecy?: string;
   // ─── Guetteur ───
   guetteur_watch_history?: Record<string, GuetteurWatch>;
+  // ─── Chat du Manoir (lot 1) ───
+  // Une vie : la 1ʳᵉ attaque le visant est absorbée (chat_life_used passe à true)
+  // et le tour est mémorisé pour l'annonce publique anonyme « miaulement ».
+  chat_life_used?: boolean;
+  chat_life_lost_cycle?: number;
+  // ─── Aubergiste (lot 1) ───
+  // Posés sur la CIBLE hébergée par applyProtect (source role:aubergiste) : si une
+  // attaque est bloquée pendant la fenêtre, l'Aubergiste est prévenu (jamais QUI).
+  innkeeper_by?: string;
+  innkeeper_by_cycle?: number;
+  // Posé sur l'AUBERGISTE : dernier tour d'usage (cadence 1 Enquête sur 2).
+  innkeeper_last_tour?: number;
+  // ─── Photographe mondain (lot 1) ───
+  // Pellicule : joueurs photographiés de leur vivant (id + tour du cliché).
+  photos?: Array<{ id: string; tour: number }>;
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

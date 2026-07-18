@@ -64,6 +64,12 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   facteur: "manipulate",
   entremetteur: "manipulate",
   veuve_noire: "manipulate",
+  // ── Lot 1 (2026-07-18) ──
+  archiviste: "passive",
+  physionomiste: "investigate",
+  chat_du_manoir: "passive",
+  photographe: "investigate",
+  aubergiste: "protect",
 };
 
 function effectFor(role: RoleRow): EffectCategory {

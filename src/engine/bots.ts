@@ -446,7 +446,15 @@ function pickCapabilityTargets(
     case "guetteur": {
       return [pickRandom(others)];
     }
+    // Lot 1 : actifs à cible unique (le handler gère cadence/refus, ex. Aubergiste 1/2).
+    case "physionomiste":
+    case "photographe":
+    case "aubergiste": {
+      return [pickRandom(others)];
+    }
     // ── Setup / passifs / continus : pas de ciblage actif
+    case "archiviste":
+    case "chat_du_manoir":
     case "oracle":
     case "avocat":
     case "medecin_legiste":

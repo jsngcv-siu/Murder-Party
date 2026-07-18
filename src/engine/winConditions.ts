@@ -88,6 +88,54 @@ function withEntremetteurWinner(result: WinResult, players: PlayerRow[]): WinRes
   };
 }
 
+// Survivants bénins du lot 1 (Chat du Manoir, Aubergiste) : co-victoire simple
+// « en vie à la fin, quel que soit le camp vainqueur » — même mécanique d'append
+// au reason que l'Oracle (le winner de faction reste inchangé).
+function withBenignSurvivorWinners(result: WinResult, players: PlayerRow[]): WinResult {
+  if (!result.winner) return result;
+  const LABELS: Record<string, string> = {
+    chat_du_manoir: "🐈 Le Chat du Manoir",
+    aubergiste: "🏨 L'Aubergiste",
+  };
+  let reason = result.reason;
+  for (const [slug, label] of Object.entries(LABELS)) {
+    const survivors = players.filter((p) => p.role_slug === slug && p.is_alive && !p.is_mj);
+    if (survivors.length > 0) {
+      reason = `${reason} (${label} ${survivors.map((w) => w.pseudo).join(", ")} a survécu — victoire aussi.)`;
+    }
+  }
+  return { winner: result.winner, reason };
+}
+
+// Photographe mondain (lot 1) : co-victoire si vivant ET assez de joueurs
+// photographiés DE LEUR VIVANT sont morts (le handler n'autorise que des cibles
+// vivantes → toute photo d'un mort actuel a forcément précédé sa mort).
+// Barème par taille de table : 2 (≤10), 3 (11-15), 4 (16+).
+function photographeThreshold(playerCount: number): number {
+  if (playerCount <= 10) return 2;
+  if (playerCount <= 15) return 3;
+  return 4;
+}
+function withPhotographeWinners(result: WinResult, players: PlayerRow[]): WinResult {
+  if (!result.winner) return result;
+  const real = players.filter((p) => !p.is_mj && getMeta(p).immortal !== true);
+  const need = photographeThreshold(real.length);
+  const winners = real.filter((p) => {
+    if (p.role_slug !== "photographe" || !p.is_alive) return false;
+    const film = getMeta(p).photos ?? [];
+    const deadOnFilm = film.filter((ph) => {
+      const subject = players.find((q) => q.id === ph.id);
+      return subject != null && !subject.is_alive;
+    }).length;
+    return deadOnFilm >= need;
+  });
+  if (winners.length === 0) return result;
+  return {
+    winner: result.winner,
+    reason: `${result.reason} (📸 Le Photographe ${winners.map((w) => w.pseudo).join(", ")} tient son scoop — victoire aussi.)`,
+  };
+}
+
 export async function evaluateWin(gameId: string): Promise<WinResult | null> {
   const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
   const players = (ps ?? []) as PlayerRow[];
@@ -285,6 +333,8 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   const { data: ps2 } = await supabase.from("players").select().eq("game_id", gameId);
   r = withOracleWinners(r, (ps2 ?? []) as PlayerRow[]);
   r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
+  r = withBenignSurvivorWinners(r, (ps2 ?? []) as PlayerRow[]);
+  r = withPhotographeWinners(r, (ps2 ?? []) as PlayerRow[]);
   await cancelUnresolvedDeferredIntents(gameId, r);
   // Émettre l'annonce de fin AVANT de basculer le statut. Ces deux écritures sont
   // distinctes : tout observateur qui réagit au passage à `ended` (écran de fin

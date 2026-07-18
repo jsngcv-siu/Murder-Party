@@ -1321,6 +1321,24 @@ async function resolveCycleTransition(gameId: string) {
           mjTitle: "🛡️ Poison neutralisé",
           mjBody: `${p.pseudo} a été sauvé du poison par une protection.`,
         });
+      } else if (p.role_slug === "chat_du_manoir" && m.chat_life_used !== true) {
+        // Chat du Manoir (lot 1) : le poison létal différé compte comme une
+        // attaque — sa vie de réserve l'absorbe (cohérence avec applyAttack).
+        await patchMeta(p.id, {
+          poison_resolves_cycle: null,
+          poisoned: false,
+          chat_life_used: true,
+          chat_life_lost_cycle: nextCycleN,
+        });
+        await notify({
+          gameId,
+          playerId: p.id,
+          type: "chat_life_lost",
+          title: "😾 Une vie de moins",
+          body: "Un poison devait t'emporter cette nuit. Tu retombes sur tes pattes — c'était ta seule vie de réserve.",
+          mjTitle: "🐈 Chat du Manoir",
+          mjBody: `${p.pseudo} (Chat du Manoir) survit au poison — vie consommée.`,
+        });
       } else {
         await patchMeta(p.id, { poison_resolves_cycle: null, poisoned: false });
         await killPlayer(gameId, p.id, "poison");
@@ -2812,6 +2830,62 @@ export async function imprisonPlayer(
     }
   }
 
+  // ── Archiviste (lot 1) : chaque emprisonnement lui livre le dossier d'écrou ──
+  // Rôle EXACT du détenu, mais la doctrine des déguisements s'applique (seul
+  // l'Assistant du détective perce) : mêmes règles que le Mouchard — falsifié →
+  // dossier illisible ; Usurpateur → sa couverture ; tueur camouflé → « Citoyen ».
+  // L'Archiviste emprisonné garde ses dossiers (il est sur place).
+  {
+    const prisonerRow = p as {
+      role_slug?: string | null;
+      role_meta?: unknown;
+    } | null;
+    const { data: archRow } = await supabase
+      .from("players")
+      .select("id, pseudo, is_alive")
+      .eq("game_id", gameId)
+      .eq("role_slug", "archiviste")
+      .eq("is_alive", true)
+      .maybeSingle();
+    const arch = archRow as { id: string; pseudo: string } | null;
+    if (arch && arch.id !== playerId && prisonerRow?.role_slug) {
+      const pm = meta(prisonerRow as { role_meta: unknown });
+      let label: string;
+      if (isFalsified(pm)) {
+        label = "dossier falsifié — illisible";
+      } else {
+        const cover = pm.cover_slug as string | undefined;
+        const seenSlug = apparentSlug(prisonerRow.role_slug, pm);
+        const { data: roleRow } = await supabase
+          .from("roles")
+          .select("name_fr, icon, faction, is_killer_class")
+          .eq("slug", seenSlug)
+          .maybeSingle();
+        const r = roleRow as {
+          name_fr: string;
+          icon: string | null;
+          faction: string;
+          is_killer_class: boolean | null;
+        } | null;
+        label =
+          !cover && r?.is_killer_class
+            ? "Citoyen"
+            : r
+              ? `${r.icon ?? ""} ${r.name_fr} (${r.faction})`
+              : "rôle inconnu";
+      }
+      await notify({
+        gameId,
+        playerId: arch.id,
+        type: "archiviste_dossier",
+        title: "🗄️ Dossier d'écrou",
+        body: `${prisonerName} vient d'être emprisonné : ${label}.`,
+        mjTitle: "🗄️ Archiviste",
+        mjBody: `${arch.pseudo} (Archiviste) lit le dossier de ${prisonerName} : ${label}.`,
+      });
+    }
+  }
+
   await checkAndEndGame(gameId);
   return true;
 }
@@ -3466,6 +3540,36 @@ export async function executeCapability(opts: {
         });
         return { ok: true, message: `${t1.pseudo} gardé au prochain tour` };
       }
+      // ── Aubergiste (lot 1) : chambre protectrice, une Enquête sur deux ──
+      // Protection standard (couche PROTECT, tour courant) posée sur un AUTRE
+      // joueur. applyProtect tagge la cible `innkeeper_by` → si une attaque est
+      // bloquée pendant la fenêtre, l'Aubergiste apprend « on a frappé » (jamais qui).
+      case "aubergiste": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas t'offrir une chambre à toi-même." };
+        const lastTour = m.innkeeper_last_tour as number | undefined;
+        if (lastTour != null && lastTour >= opts.tour - 1) {
+          return {
+            ok: false,
+            message: "La chambre n'est pas encore prête — une Enquête sur deux.",
+          };
+        }
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "PROTECT",
+          timing: "DEFERRED",
+          source: "role:aubergiste",
+          payload: { target_pseudo: t1.pseudo },
+        });
+        await patchMeta(actor.id, { innkeeper_last_tour: opts.tour });
+        await used({ effect: "innkeeper_room", target: t1.id });
+        return { ok: true, message: `🏨 ${t1.pseudo} dort à l'auberge ce tour — à l'Annonce.` };
+      }
       case "ange_gardien": {
         const target = (m.ward as string | undefined) ?? t1?.id;
         if (!target) return { ok: false, message: "Cible requise" };
@@ -3732,7 +3836,9 @@ export async function executeCapability(opts: {
 
       // ── Passifs (consultation manuelle) ──
       case "medecin_legiste":
-      case "medium": {
+      case "medium":
+      case "archiviste":
+      case "chat_du_manoir": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacité passive — voir notifications" };
       }
@@ -4311,6 +4417,48 @@ export async function executeCapability(opts: {
           mjBody: `${actor.pseudo} (Mouchard) apprend que ${t1.pseudo} est ${label}.`,
         });
         return { ok: true, message: `${t1.pseudo} = ${label}` };
+      }
+
+      // ── Physionomiste (lot 1) : révèle le TYPE de rôle (jamais le rôle exact) ──
+      // Mêmes règles de brouillage que le Mouchard : falsification → rien ;
+      // déguisements NON percés (l'Usurpateur ressort sous le type de sa couverture).
+      case "physionomiste": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te dévisager." };
+        if (isFalsified(meta(t1))) {
+          await used({ effect: "physio_falsified", target: t1.id });
+          return { ok: true, message: FALSIFIED_MSG };
+        }
+        const seenRole = opts.rolesBySlug.get(apparentSlug(t1.role_slug, meta(t1)));
+        const typeLabel = seenRole?.type ?? "?";
+        await used({ effect: "physio_reveal", target: t1.id, role_type: typeLabel });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "physio_reveal",
+          title: "🧐 Physionomiste",
+          body: `${t1.pseudo} a le profil d'un rôle ${typeLabel}.`,
+          mjTitle: "🧐 Physionomiste",
+          mjBody: `${actor.pseudo} (Physionomiste) jauge ${t1.pseudo} → type ${typeLabel}.`,
+        });
+        return { ok: true, message: `${t1.pseudo} : type ${typeLabel}` };
+      }
+
+      // ── Photographe mondain (lot 1) : cliché discret, pellicule en méta ──
+      // Aucun effet sur la cible, aucune notification. La pellicule sert la
+      // condition de victoire (checkAndEndGame → co-victoire si N photographiés morts).
+      case "photographe": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Pas d'autoportrait — photographie un invité." };
+        const film = [...((m.photos as Array<{ id: string; tour: number }> | undefined) ?? [])];
+        if (film.some((ph) => ph.id === t1.id)) {
+          return { ok: false, message: `${t1.pseudo} est déjà sur ta pellicule.` };
+        }
+        film.push({ id: t1.id, tour: opts.tour });
+        await patchMeta(actor.id, { photos: film });
+        await used({ effect: "photo_taken", target: t1.id });
+        return { ok: true, message: `📸 Cliché de ${t1.pseudo} ajouté à ta pellicule.` };
       }
 
       // ── Stratège (refonte) : 3 modes, jamais le même deux tours de suite ──

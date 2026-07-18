@@ -150,6 +150,7 @@ export function runInvariants(ctx: InvariantCtx): FindingInput[] {
   const LEGIT_REVEAL_TYPES = new Set<string>([
     "mouchard_reveal",
     "mouchard_setup",
+    "archiviste_dossier",
     "imitate",
     "autopsy",
     "execution_reveal",

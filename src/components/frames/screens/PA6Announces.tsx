@@ -3,6 +3,7 @@
 // et expose un hook pour afficher un badge / des toasts ailleurs dans l'app.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  Cat,
   ChevronDown,
   Crosshair,
   Droplet,
@@ -68,6 +69,7 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
   //  • émergence du Chasseur → via `chasseur_awakened_cycle`
   const biteCycles = new Set<number>();
   const chasseurCycles = new Set<number>();
+  const meowCycles = new Set<number>();
   for (const p of players) {
     if (p.is_mj) continue;
     const m = (p.role_meta ?? {}) as Record<string, unknown>;
@@ -98,6 +100,10 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     if (p.role_slug === "chasseur_de_vampire" && typeof m.chasseur_awakened_cycle === "number") {
       chasseurCycles.add(m.chasseur_awakened_cycle as number);
     }
+    // Chat du Manoir : vie de réserve consommée → annonce anonyme « miaulement ».
+    if (typeof m.chat_life_lost_cycle === "number") {
+      meowCycles.add(m.chat_life_lost_cycle as number);
+    }
   }
   for (const tour of biteCycles) {
     events.push({
@@ -117,6 +123,15 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
       icon: <Crosshair className="size-5" aria-hidden />,
       heading: "★ UN CHASSEUR DE VAMPIRE S'ÉVEILLE",
       text: "Un joueur devient Chasseur..",
+    });
+  }
+  for (const tour of meowCycles) {
+    events.push({
+      kind: "special",
+      tour,
+      icon: <Cat className="size-5" aria-hidden />,
+      heading: "★ UN MIAULEMENT DANS LA NUIT",
+      text: "Une lame a frappé… et n'a trouvé que du vide. Quelqu'un a entendu un miaulement.",
     });
   }
   // Indices distribués au setup → annonce générique au tour 1 (jamais QUI).
