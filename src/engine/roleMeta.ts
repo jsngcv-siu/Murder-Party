@@ -88,6 +88,12 @@ export interface RoleMeta {
   } | null;
   // Posé sur le CONJURÉ : son unique pacte est joué (accepté OU refusé).
   pact_spent?: boolean;
+  // ─── Franc-tireur (lot 3) ───
+  ft_pierce_armed?: boolean;
+  ft_pierce_used?: boolean;
+  // ─── Détrousseur (lot 3) ───
+  det_braquage_armed?: boolean;
+  det_braquage_used?: boolean;
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

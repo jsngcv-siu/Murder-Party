@@ -1368,6 +1368,45 @@ async function resolveCycleTransition(gameId: string) {
     });
   }
 
+  // ── Contrebandier (lot 3) : livraison de la malle tous les 2 tours ──
+  // 1 objet aléatoire EXCLUSIF (pondéré, jamais du catalogue commun), à chaque
+  // tour PAIR. Pas de livraison en cellule (le trafic ne passe pas les barreaux).
+  if (nextCycleN % 2 === 0) {
+    const contrebandiers = allPs.filter(
+      (p) => p.role_slug === "contrebandier" && p.is_alive && !p.is_imprisoned,
+    );
+    for (const cb of contrebandiers) {
+      const { grantItem, buildItem } = await import("./items");
+      const MALLE: Array<{ slug: Parameters<typeof buildItem>[0]; w: number }> = [
+        { slug: "rhum_contrebande", w: 30 },
+        { slug: "monocle_douanier", w: 25 },
+        { slug: "gilet_matelasse", w: 20 },
+        { slug: "passe_partout", w: 15 },
+        { slug: "double_fond", w: 10 },
+      ];
+      const total = MALLE.reduce((s, e) => s + e.w, 0);
+      let r = Math.random() * total;
+      let picked = MALLE[0].slug;
+      for (const e of MALLE) {
+        r -= e.w;
+        if (r <= 0) {
+          picked = e.slug;
+          break;
+        }
+      }
+      await grantItem(cb.id, buildItem(picked, { from: "Contrebande", originFaction: "Civil" }));
+      await notify({
+        gameId,
+        playerId: cb.id,
+        type: "contraband_drop",
+        title: "🎒 Livraison de la malle",
+        body: "Tes connexions ont encore frappé — un nouvel objet t'attend dans l'inventaire.",
+        mjTitle: "🎒 Contrebandier",
+        mjBody: `${cb.pseudo} (Contrebandier) reçoit un objet de contrebande (tour ${nextCycleN}).`,
+      });
+    }
+  }
+
   // ── Marionnettiste : applique la manipulation programmée pour le tour à venir.
   // À la transition tour N → N+1, si un Marionnettiste a verrouillé une cible avec
   // puppet_active_tour === nextCycleN, on bloque la capacité de la cible et on lui
@@ -2890,6 +2929,39 @@ export async function imprisonPlayer(
   return true;
 }
 
+// ── Franc-tireur / Détrousseur (lot 3) : armement des capacités 1×/partie ──
+// Boutons dédiés dans PA2 : arme le PROCHAIN tir/kill (balle perforante /
+// braquage total). Consommé par le handler au moment du tir.
+export async function armFrancTireurPierce(
+  playerId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const { data: row } = await supabase
+    .from("players")
+    .select("role_meta")
+    .eq("id", playerId)
+    .single();
+  const m = meta(row as { role_meta: unknown });
+  if (m.ft_pierce_used === true || m.ft_pierce_armed === true)
+    return { ok: false, message: "Ta balle perforante est déjà armée ou tirée." };
+  await patchMeta(playerId, { ft_pierce_armed: true });
+  return { ok: true, message: "🎯 Balle perforante armée : ton prochain tir percera tout." };
+}
+
+export async function armDetrousseurBraquage(
+  playerId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const { data: row } = await supabase
+    .from("players")
+    .select("role_meta")
+    .eq("id", playerId)
+    .single();
+  const m = meta(row as { role_meta: unknown });
+  if (m.det_braquage_used === true || m.det_braquage_armed === true)
+    return { ok: false, message: "Ton braquage est déjà armé ou joué." };
+  await patchMeta(playerId, { det_braquage_armed: true, det_braquage_used: true });
+  return { ok: true, message: "💰 Braquage armé : ton prochain kill raflera TOUT l'inventaire." };
+}
+
 // ── Conjuré (lot 2) : réponse du complice au pacte d'assassinat ──
 // Appelé par le panneau PactOfferPanel (PA2) du complice. Accepter pose une
 // intention ATTACK différée portée par le CONJURÉ (c'est lui le tueur — s'il
@@ -3702,6 +3774,113 @@ export async function executeCapability(opts: {
         return {
           ok: true,
           message: `🤝 Pacte proposé à ${t2.pseudo} contre ${t1.pseudo} — attends sa réponse.`,
+        };
+      }
+
+      // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
+      case "jardinier": {
+        const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
+        const lootable: Array<{ owner: PlayerRow; idx: number; item: Record<string, unknown> }> =
+          [];
+        for (const d of deads) {
+          const inv =
+            ((meta(d).inventory as Array<Record<string, unknown>> | undefined) ?? []).map(
+              (it, idx) => ({ owner: d, idx, item: it }),
+            );
+          for (const e of inv) if (e.item.consumed !== true) lootable.push(e);
+        }
+        if (lootable.length === 0) {
+          await used({ effect: "rake_empty" });
+          return { ok: true, message: "🌱 Rien dans les parterres — les morts n'ont rien laissé." };
+        }
+        const pick = lootable[Math.floor(Math.random() * lootable.length)];
+        const ownerInv =
+          (meta(pick.owner).inventory as Array<Record<string, unknown>> | undefined) ?? [];
+        await patchMeta(pick.owner.id, {
+          inventory: ownerInv.filter((_, i) => i !== pick.idx),
+        });
+        const myInv = (m.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+        const found = {
+          ...pick.item,
+          received_from: pick.owner.pseudo,
+          received_at: new Date().toISOString(),
+        };
+        await patchMeta(actor.id, { inventory: [found, ...myInv] });
+        const itemName = (pick.item.name as string | undefined) ?? "un objet";
+        await used({ effect: "rake_loot", target: pick.owner.id, item: pick.item.slug });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "rake_loot",
+          title: "🌱 Trouvaille",
+          body: `En ratissant, tu déterres ${itemName} (appartenait à ${pick.owner.pseudo}).`,
+          mjTitle: "🌱 Jardinier",
+          mjBody: `${actor.pseudo} (Jardinier) récupère ${itemName} sur ${pick.owner.pseudo}.`,
+        });
+        return { ok: true, message: `🌱 Tu déterres ${itemName}.` };
+      }
+
+      // ── Détrousseur (lot 3, killer-class) : tue + empoche le dernier objet.
+      // Braquage 1×/partie (armé via armDetrousseurBraquage) : rafle TOUT l'inventaire.
+      case "detrousseur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te détrousser." };
+        const braquage = m.det_braquage_armed === true;
+        if (braquage) await patchMeta(actor.id, { det_braquage_armed: false });
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:detrousseur",
+          payload: {
+            kill_reason: "detrousseur",
+            target_pseudo: t1.pseudo,
+            mechant_mechanic: true,
+            loot: braquage ? "all" : "last",
+          },
+        });
+        await used({ effect: braquage ? "detrousse_braquage" : "detrousse", target: t1.id });
+        return {
+          ok: true,
+          message: braquage
+            ? `💰 Braquage sur ${t1.pseudo} — mort ET malle raflée à l'Annonce.`
+            : `💰 ${t1.pseudo} : mort + dernier objet empoché à l'Annonce.`,
+        };
+      }
+
+      // ── Franc-tireur (lot 3, killer-class) : tue ; balle perforante 1×/partie
+      // (armée via armFrancTireurPierce) → ignore TOUTES les protections.
+      case "franc_tireur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te viser." };
+        const pierce = m.ft_pierce_armed === true;
+        if (pierce) await patchMeta(actor.id, { ft_pierce_armed: false, ft_pierce_used: true });
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:franc_tireur",
+          payload: {
+            kill_reason: "franc_tireur",
+            target_pseudo: t1.pseudo,
+            mechant_mechanic: true,
+            ...(pierce ? { pierce: true } : {}),
+          },
+        });
+        await used({ effect: pierce ? "ft_shot_pierce" : "ft_shot", target: t1.id });
+        return {
+          ok: true,
+          message: pierce
+            ? `🎯 Balle perforante sur ${t1.pseudo} — rien ne l'arrêtera. À l'Annonce.`
+            : `🎯 ${t1.pseudo} dans ta lunette — à l'Annonce.`,
         };
       }
 
@@ -4760,6 +4939,33 @@ export async function executeCapability(opts: {
             mjBody: `${actor.pseudo} (Voleur) tente de voler ${t1.pseudo} — inventaire vide.`,
           });
           return { ok: true, message: `${t1.pseudo} n'a rien à voler` };
+        }
+        // Double-fond (lot 3, malle du Contrebandier) : le premier vol échoue,
+        // le Double-fond est sacrifié à la place de l'objet convoité.
+        const dfIdx = inv.findIndex((it) => it.slug === "double_fond" && it.consumed !== true);
+        if (dfIdx >= 0) {
+          const invSansDF = inv.filter((_, i) => i !== dfIdx);
+          await patchMeta(t1.id, { inventory: invSansDF });
+          await used({ effect: "steal_blocked_double_fond", target: t1.id });
+          await notify({
+            gameId: opts.gameId,
+            playerId: actor.id,
+            type: "steal_blocked",
+            title: "🥷 Vol raté",
+            body: `La malle de ${t1.pseudo} avait un double-fond — tes doigts reviennent vides.`,
+            mjTitle: "🥷 Voleur",
+            mjBody: `${actor.pseudo} (Voleur) échoue sur le double-fond de ${t1.pseudo}.`,
+          });
+          if (t1.is_alive) {
+            await notify({
+              gameId: opts.gameId,
+              playerId: t1.id,
+              type: "double_fond_used",
+              title: "🎒 Double-fond sacrifié",
+              body: "On a tenté de te voler — ton Double-fond a encaissé le coup.",
+            });
+          }
+          return { ok: true, message: `Le double-fond de ${t1.pseudo} a bloqué ton vol.` };
         }
         const [stolen, ...rest] = inv;
         await patchMeta(t1.id, { inventory: rest });

@@ -607,6 +607,65 @@ async function applyAttack(
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
+  // ── Détrousseur (lot 3) : le kill emporte le butin — dernier objet reçu, ou
+  // TOUT l'inventaire en mode braquage (payload.loot = "all"). Transfert direct
+  // de méta à méta ; les objets gardent leur nature, marqués « reçus de » la victime.
+  if (ok && intent.source === "role:detrousseur") {
+    const lootMode = payload.loot === "all" ? "all" : "last";
+    const { data: vRow } = await supabase
+      .from("players")
+      .select("role_meta, pseudo")
+      .eq("id", targetId)
+      .single();
+    const vMetaAll = ((vRow as { role_meta: unknown } | null)?.role_meta ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const vInv = (vMetaAll.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+    const lootable = vInv.filter((it) => it.consumed !== true);
+    if (lootable.length > 0) {
+      const taken = lootMode === "all" ? lootable : [lootable[0]];
+      const keep = vInv.filter((it) => !taken.includes(it));
+      await supabase
+        .from("players")
+        .update({ role_meta: { ...vMetaAll, inventory: keep } as never })
+        .eq("id", targetId);
+      const { data: aRow } = await supabase
+        .from("players")
+        .select("role_meta")
+        .eq("id", intent.actor_player_id)
+        .single();
+      const aMetaAll = ((aRow as { role_meta: unknown } | null)?.role_meta ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const aInv = (aMetaAll.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+      const vPseudo = (vRow as { pseudo: string } | null)?.pseudo ?? "?";
+      const stamped = taken.map((it) => ({
+        ...it,
+        received_from: vPseudo,
+        received_at: new Date().toISOString(),
+      }));
+      await supabase
+        .from("players")
+        .update({
+          role_meta: { ...aMetaAll, inventory: [...stamped, ...aInv] } as never,
+        })
+        .eq("id", intent.actor_player_id);
+      await notify({
+        gameId: intent.game_id,
+        playerId: intent.actor_player_id,
+        type: "detrousse_loot",
+        title: lootMode === "all" ? "💰 Braquage complet" : "💰 Butin empoché",
+        body:
+          lootMode === "all"
+            ? `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).`
+            : `Tu empoches le dernier objet de ${vPseudo}.`,
+        mjTitle: "💰 Détrousseur",
+        mjBody: `Le Détrousseur pille ${vPseudo} (${stamped.length} objet(s), mode ${lootMode}).`,
+      });
+    }
+  }
   return { status: ok ? "applied" : "cancelled", effect: "kill", target: targetId, reason };
 }
 

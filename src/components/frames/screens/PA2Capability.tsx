@@ -10,6 +10,8 @@ import {
   usesOf,
   parseTotalLimit,
   respondPact,
+  armFrancTireurPierce,
+  armDetrousseurBraquage,
   type CapabilityResult,
   type RoleRow,
 } from "@/engine/actions";
@@ -58,6 +60,7 @@ import {
   ShieldCheck,
   Skull,
   Sparkles,
+  Sprout,
   Stethoscope,
   Swords,
   Target,
@@ -1278,6 +1281,44 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "avocat" && <AvocatPrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "archiviste" && <ArchivistePrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "photographe" && <PhotographePanel me={me} players={players} />}
+      {myRole?.slug === "jardinier" && (
+        <PanelCard tone="amber" icon={Sprout} label="Les parterres">
+          <div className="text-[11px] text-muted-foreground mb-2">
+            Ratisse pour récupérer un objet au hasard laissé par un mort.
+          </div>
+          <button
+            disabled={busy}
+            onClick={() => void runCapacity({ skipTargetCheck: true })}
+            className="h-11 w-full rounded-lg bg-amber-500/25 ring-1 ring-amber-400 text-amber-50 font-semibold disabled:opacity-40"
+          >
+            🌱 Ratisser les parterres
+          </button>
+        </PanelCard>
+      )}
+      {myRole?.slug === "franc_tireur" && (
+        <ArmOneShotPanel
+          title="La balle perforante"
+          desc="Une seule dans la partie : arme-la, et ton PROCHAIN tir ignorera toutes les protections — bénédiction comprise."
+          armedLabel="🎯 Balle perforante armée — ton prochain tir percera tout."
+          usedLabel="La balle gravée a été tirée."
+          buttonLabel="🎯 Armer la balle perforante"
+          armed={meMeta.ft_pierce_armed === true}
+          used={meMeta.ft_pierce_used === true && meMeta.ft_pierce_armed !== true}
+          onArm={() => armFrancTireurPierce(me.id)}
+        />
+      )}
+      {myRole?.slug === "detrousseur" && (
+        <ArmOneShotPanel
+          title="Le braquage"
+          desc="Une seule fois dans la partie : arme-le, et ton PROCHAIN kill raflera TOUT l'inventaire de la victime."
+          armedLabel="💰 Braquage armé — ton prochain kill rafle tout."
+          usedLabel="Le braquage a été joué."
+          buttonLabel="💰 Armer le braquage"
+          armed={meMeta.det_braquage_armed === true}
+          used={meMeta.det_braquage_used === true && meMeta.det_braquage_armed !== true}
+          onArm={() => armDetrousseurBraquage(me.id)}
+        />
+      )}
       {myRole?.slug === "bretteur" && (
         <BretteurPanel
           guardActive={(meMeta.bretteur_guard_cycle as number | undefined) === game.current_tour}
@@ -2266,6 +2307,9 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   garde_chasse: (t) => `Tu as patrouillé devant chez ${t ?? "un joueur"}.`,
   bretteur: () => `Tu as levé ta garde.`,
   conjure: (t) => `Tu as proposé un pacte contre ${t ?? "un joueur"}.`,
+  jardinier: () => `Tu as ratissé les parterres.`,
+  detrousseur: (t) => `Tu as détroussé ${t ?? "un joueur"}.`,
+  franc_tireur: (t) => `Tu as visé ${t ?? "un joueur"}.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
   paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
@@ -3099,6 +3143,57 @@ function AvocatPrisonPanel({
             );
           })}
         </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Lot 3 : panneau générique « armer un one-shot » (balle / braquage)
+function ArmOneShotPanel({
+  title,
+  desc,
+  armedLabel,
+  usedLabel,
+  buttonLabel,
+  armed,
+  used,
+  onArm,
+}: {
+  title: string;
+  desc: string;
+  armedLabel: string;
+  usedLabel: string;
+  buttonLabel: string;
+  armed: boolean;
+  used: boolean;
+  onArm: () => Promise<{ ok: boolean; message: string }>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <PanelCard tone="amber" icon={Target} label={title}>
+      {armed ? (
+        <div className="text-sm text-amber-200">{armedLabel}</div>
+      ) : used ? (
+        <div className="text-sm text-muted-foreground">{usedLabel}</div>
+      ) : (
+        <>
+          <div className="text-[11px] text-muted-foreground mb-2">{desc}</div>
+          <button
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void onArm().then((r) => {
+                setMsg(r.message);
+                setBusy(false);
+              });
+            }}
+            className="h-11 w-full rounded-lg bg-amber-500/25 ring-1 ring-amber-400 text-amber-50 font-semibold disabled:opacity-40"
+          >
+            {buttonLabel}
+          </button>
+          {msg && <div className="mt-2 text-xs text-amber-200">{msg}</div>}
+        </>
       )}
     </PanelCard>
   );

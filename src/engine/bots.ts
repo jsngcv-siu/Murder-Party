@@ -451,7 +451,10 @@ function pickCapabilityTargets(
     case "photographe":
     case "aubergiste":
     // Lot 2 : le Garde-chasse patrouille une porte au hasard.
-    case "garde_chasse": {
+    case "garde_chasse":
+    // Lot 3 : tueurs pillards — kill de base (les modes 1×/partie ne sont pas joués).
+    case "detrousseur":
+    case "franc_tireur": {
       return [pickRandom(others)];
     }
     // ── Setup / passifs / continus : pas de ciblage actif
@@ -459,6 +462,8 @@ function pickCapabilityTargets(
     // les jouent pas, pour ne pas gaspiller/fausser les parties démo.)
     case "bretteur":
     case "conjure":
+    case "contrebandier":
+    case "jardinier":
     case "archiviste":
     case "chat_du_manoir":
     case "oracle":

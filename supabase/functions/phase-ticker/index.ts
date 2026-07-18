@@ -718,6 +718,39 @@ async function applyAttack(intent, killer) {
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
+  if (ok && intent.source === "role:detrousseur") {
+    const lootMode = payload.loot === "all" ? "all" : "last";
+    const { data: vRow } = await supabase.from("players").select("role_meta, pseudo").eq("id", targetId).single();
+    const vMetaAll = vRow?.role_meta ?? {};
+    const vInv = vMetaAll.inventory ?? [];
+    const lootable = vInv.filter((it) => it.consumed !== true);
+    if (lootable.length > 0) {
+      const taken = lootMode === "all" ? lootable : [lootable[0]];
+      const keep = vInv.filter((it) => !taken.includes(it));
+      await supabase.from("players").update({ role_meta: { ...vMetaAll, inventory: keep } }).eq("id", targetId);
+      const { data: aRow } = await supabase.from("players").select("role_meta").eq("id", intent.actor_player_id).single();
+      const aMetaAll = aRow?.role_meta ?? {};
+      const aInv = aMetaAll.inventory ?? [];
+      const vPseudo = vRow?.pseudo ?? "?";
+      const stamped = taken.map((it) => ({
+        ...it,
+        received_from: vPseudo,
+        received_at: (/* @__PURE__ */ new Date()).toISOString()
+      }));
+      await supabase.from("players").update({
+        role_meta: { ...aMetaAll, inventory: [...stamped, ...aInv] }
+      }).eq("id", intent.actor_player_id);
+      await notify({
+        gameId: intent.game_id,
+        playerId: intent.actor_player_id,
+        type: "detrousse_loot",
+        title: lootMode === "all" ? "\u{1F4B0} Braquage complet" : "\u{1F4B0} Butin empoch\xE9",
+        body: lootMode === "all" ? `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).` : `Tu empoches le dernier objet de ${vPseudo}.`,
+        mjTitle: "\u{1F4B0} D\xE9trousseur",
+        mjBody: `Le D\xE9trousseur pille ${vPseudo} (${stamped.length} objet(s), mode ${lootMode}).`
+      });
+    }
+  }
   return { status: ok ? "applied" : "cancelled", effect: "kill", target: targetId, reason };
 }
 async function applyConvert(intent, converter) {
@@ -1183,6 +1216,8 @@ function itemNeedsTarget(slug, payload) {
     const sent = !!payload?.sent;
     return sent ? "none" : "single";
   }
+  if (slug === "passe_partout" || slug === "gilet_matelasse" || slug === "double_fond")
+    return "none";
   return "single";
 }
 function itemIsUsable(slug, payload) {
@@ -1194,7 +1229,8 @@ function itemIsUsable(slug, payload) {
   if (slug === "lettre") {
     return !payload?.sent;
   }
-  return slug === "fiole_mort" || slug === "fiole_vie" || slug === "fiole_clairvoyance" || slug === "couteau";
+  return slug === "fiole_mort" || slug === "fiole_vie" || slug === "fiole_clairvoyance" || slug === "couteau" || // Malle du Contrebandier — le double-fond est passif (consultation seule).
+  slug === "passe_partout" || slug === "gilet_matelasse" || slug === "rhum_contrebande" || slug === "monocle_douanier";
 }
 function rollRelique() {
   const entries = Object.entries(RELIQUE_CATALOG);
@@ -1270,6 +1306,73 @@ async function consumeItem(opts) {
       message = `\u{1F4E8} Lettre envoy\xE9e \xE0 ${target.pseudo}.`;
       item.payload = { ...item.payload ?? {}, message: msg, sent: true, sent_to: target.pseudo };
       break;
+    }
+    // ── La Malle du Contrebandier (lot 3) ──
+    case "passe_partout": {
+      const { data: meRow } = await supabase.from("players").select("is_imprisoned").eq("id", actorId).maybeSingle();
+      if (!meRow?.is_imprisoned) {
+        return { ok: false, message: "Ce passe ne sert qu'en cellule \u2014 garde-le pr\xE9cieusement." };
+      }
+      const { releasePlayer: releasePlayer2 } = await Promise.resolve().then(() => (init_actions(), actions_exports));
+      await releasePlayer2(gameId, actorId);
+      message = "\u{1F5DD}\uFE0F La serrure c\xE8de \u2014 tu t'\xE9vades de prison.";
+      await notify2(actorId, "\u{1F5DD}\uFE0F \xC9vasion", message);
+      break;
+    }
+    case "gilet_matelasse": {
+      const { data: row2 } = await supabase.from("players").select("role_meta").eq("id", actorId).maybeSingle();
+      const meta0 = row2?.role_meta ?? {};
+      const protUntil = Math.max(
+        meta0.protected_until_cycle ?? -1,
+        tour + 1
+      );
+      await supabase.from("players").update({ role_meta: { ...meta0, protected_until_cycle: protUntil } }).eq("id", actorId);
+      message = "\u{1F9E5} Gilet enfil\xE9 : la prochaine attaque contre toi \xE9chouera (ce tour).";
+      await notify2(actorId, "\u{1F9E5} Gilet matelass\xE9", message);
+      break;
+    }
+    case "rhum_contrebande": {
+      if (!target) {
+        message = "Cible requise pour offrir le rhum.";
+        break;
+      }
+      const { data: row2 } = await supabase.from("players").select("role_meta").eq("id", target.id).maybeSingle();
+      const meta0 = row2?.role_meta ?? {};
+      await supabase.from("players").update({
+        role_meta: {
+          ...meta0,
+          blocked_from_cycle: tour + 1,
+          blocked_until_cycle: Math.max(
+            meta0.blocked_until_cycle ?? -1,
+            tour + 1
+          )
+        }
+      }).eq("id", target.id);
+      await notify2(
+        target.id,
+        "\u{1F943} Un verre de trop",
+        "Quelqu'un t'a offert un verre\u2026 cors\xE9. Ta capacit\xE9 sera coup\xE9e au prochain tour."
+      );
+      message = `\u{1F943} ${target.pseudo} sera ivre au prochain tour \u2014 capacit\xE9 coup\xE9e.`;
+      break;
+    }
+    case "monocle_douanier": {
+      if (!target) {
+        message = "Cible requise pour l'inspection.";
+        break;
+      }
+      const { data: row2 } = await supabase.from("players").select("role_meta").eq("id", target.id).maybeSingle();
+      const tInv = (row2?.role_meta ?? {}).inventory ?? [];
+      const names = tInv.filter((it) => !it.consumed).map((it) => `${it.icon} ${it.name}`);
+      message = names.length === 0 ? `\u{1F9D0} ${target.pseudo} ne transporte rien.` : `\u{1F9D0} ${target.pseudo} transporte : ${names.join(" \xB7 ")}.`;
+      await notify2(actorId, "\u{1F9D0} Inspection douani\xE8re", message);
+      break;
+    }
+    case "double_fond": {
+      return {
+        ok: false,
+        message: "Le Double-fond agit tout seul : il encaissera le premier vol \xE0 ta place."
+      };
     }
     case "fiole_mort": {
       const { submitIntent: submitIntent2 } = await Promise.resolve().then(() => (init_resolver(), resolver_exports));
@@ -1516,6 +1619,39 @@ var init_items = __esm({
         name: "Indice",
         icon: "\u{1F9E9}",
         description: "Une information vraie sur cette partie. Consultation seule."
+      },
+      // ── La Malle du Contrebandier (lot 3). Distribués UNIQUEMENT par le drip du
+      // Contrebandier (1 objet aléatoire tous les 2 tours) — jamais par le catalogue
+      // commun. Le Voleur peut les voler : duel Voleur ↔ Contrebandier voulu.
+      passe_partout: {
+        slug: "passe_partout",
+        name: "Le Passe-partout",
+        icon: "\u{1F5DD}\uFE0F",
+        description: "Utilisable uniquement en cellule : tu t'\xE9vades imm\xE9diatement de prison."
+      },
+      gilet_matelasse: {
+        slug: "gilet_matelasse",
+        name: "Le Gilet matelass\xE9",
+        icon: "\u{1F9E5}",
+        description: "Enfile-le : la prochaine attaque contre toi \xE9choue (protection ce tour)."
+      },
+      rhum_contrebande: {
+        slug: "rhum_contrebande",
+        name: "Le Rhum de contrebande",
+        icon: "\u{1F943}",
+        description: "Offre discr\xE8tement une bouteille : la cible est ivre au prochain tour, sa capacit\xE9 est coup\xE9e."
+      },
+      monocle_douanier: {
+        slug: "monocle_douanier",
+        name: "Le Monocle du douanier",
+        icon: "\u{1F9D0}",
+        description: "Inspecte un joueur : tu vois l'inventaire complet qu'il transporte."
+      },
+      double_fond: {
+        slug: "double_fond",
+        name: "Le Double-fond",
+        icon: "\u{1F392}",
+        description: "Passif tant qu'il est dans ta malle : le premier vol du Voleur contre toi \xE9choue (le Double-fond est sacrifi\xE9 \xE0 la place)."
       }
     };
     RELIQUE_CATALOG = {
@@ -1815,6 +1951,8 @@ __export(actions_exports, {
   addBotPlayer: () => addBotPlayer,
   addBotPlayers: () => addBotPlayers,
   allowedActivePhases: () => allowedActivePhases,
+  armDetrousseurBraquage: () => armDetrousseurBraquage,
+  armFrancTireurPierce: () => armFrancTireurPierce,
   beginGame: () => beginGame,
   cancelVote: () => cancelVote,
   castVote: () => castVote,
@@ -2694,6 +2832,41 @@ async function resolveCycleTransition(gameId) {
       mjTitle: "\u2696\uFE0F Juge",
       mjBody: `${p.pseudo} est lib\xE9r\xE9 de prison (ordre du Juge au tour ${nextCycleN - 1}).`
     });
+  }
+  if (nextCycleN % 2 === 0) {
+    const contrebandiers = allPs.filter(
+      (p) => p.role_slug === "contrebandier" && p.is_alive && !p.is_imprisoned
+    );
+    for (const cb of contrebandiers) {
+      const { grantItem: grantItem2, buildItem: buildItem2 } = await Promise.resolve().then(() => (init_items(), items_exports));
+      const MALLE = [
+        { slug: "rhum_contrebande", w: 30 },
+        { slug: "monocle_douanier", w: 25 },
+        { slug: "gilet_matelasse", w: 20 },
+        { slug: "passe_partout", w: 15 },
+        { slug: "double_fond", w: 10 }
+      ];
+      const total = MALLE.reduce((s, e) => s + e.w, 0);
+      let r = Math.random() * total;
+      let picked = MALLE[0].slug;
+      for (const e of MALLE) {
+        r -= e.w;
+        if (r <= 0) {
+          picked = e.slug;
+          break;
+        }
+      }
+      await grantItem2(cb.id, buildItem2(picked, { from: "Contrebande", originFaction: "Civil" }));
+      await notify({
+        gameId,
+        playerId: cb.id,
+        type: "contraband_drop",
+        title: "\u{1F392} Livraison de la malle",
+        body: "Tes connexions ont encore frapp\xE9 \u2014 un nouvel objet t'attend dans l'inventaire.",
+        mjTitle: "\u{1F392} Contrebandier",
+        mjBody: `${cb.pseudo} (Contrebandier) re\xE7oit un objet de contrebande (tour ${nextCycleN}).`
+      });
+    }
   }
   for (const pup of allPs) {
     if (!pup.is_alive) continue;
@@ -3696,6 +3869,22 @@ async function imprisonPlayer(gameId, playerId, reason = "vote") {
   await checkAndEndGame(gameId);
   return true;
 }
+async function armFrancTireurPierce(playerId) {
+  const { data: row } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
+  const m = meta(row);
+  if (m.ft_pierce_used === true || m.ft_pierce_armed === true)
+    return { ok: false, message: "Ta balle perforante est d\xE9j\xE0 arm\xE9e ou tir\xE9e." };
+  await patchMeta(playerId, { ft_pierce_armed: true });
+  return { ok: true, message: "\u{1F3AF} Balle perforante arm\xE9e : ton prochain tir percera tout." };
+}
+async function armDetrousseurBraquage(playerId) {
+  const { data: row } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
+  const m = meta(row);
+  if (m.det_braquage_used === true || m.det_braquage_armed === true)
+    return { ok: false, message: "Ton braquage est d\xE9j\xE0 arm\xE9 ou jou\xE9." };
+  await patchMeta(playerId, { det_braquage_armed: true, det_braquage_used: true });
+  return { ok: true, message: "\u{1F4B0} Braquage arm\xE9 : ton prochain kill raflera TOUT l'inventaire." };
+}
 async function respondPact(gameId, playerId, accept) {
   const { data: meRow } = await supabase.from("players").select("id, pseudo, role_meta, is_alive").eq("id", playerId).single();
   const me = meRow;
@@ -4298,6 +4487,103 @@ async function executeCapability(opts) {
         return {
           ok: true,
           message: `\u{1F91D} Pacte propos\xE9 \xE0 ${t2.pseudo} contre ${t1.pseudo} \u2014 attends sa r\xE9ponse.`
+        };
+      }
+      // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
+      case "jardinier": {
+        const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
+        const lootable = [];
+        for (const d of deads) {
+          const inv = (meta(d).inventory ?? []).map(
+            (it, idx) => ({ owner: d, idx, item: it })
+          );
+          for (const e of inv) if (e.item.consumed !== true) lootable.push(e);
+        }
+        if (lootable.length === 0) {
+          await used({ effect: "rake_empty" });
+          return { ok: true, message: "\u{1F331} Rien dans les parterres \u2014 les morts n'ont rien laiss\xE9." };
+        }
+        const pick2 = lootable[Math.floor(Math.random() * lootable.length)];
+        const ownerInv = meta(pick2.owner).inventory ?? [];
+        await patchMeta(pick2.owner.id, {
+          inventory: ownerInv.filter((_, i) => i !== pick2.idx)
+        });
+        const myInv = m.inventory ?? [];
+        const found = {
+          ...pick2.item,
+          received_from: pick2.owner.pseudo,
+          received_at: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        await patchMeta(actor.id, { inventory: [found, ...myInv] });
+        const itemName = pick2.item.name ?? "un objet";
+        await used({ effect: "rake_loot", target: pick2.owner.id, item: pick2.item.slug });
+        await notify({
+          gameId: opts.gameId,
+          playerId: actor.id,
+          type: "rake_loot",
+          title: "\u{1F331} Trouvaille",
+          body: `En ratissant, tu d\xE9terres ${itemName} (appartenait \xE0 ${pick2.owner.pseudo}).`,
+          mjTitle: "\u{1F331} Jardinier",
+          mjBody: `${actor.pseudo} (Jardinier) r\xE9cup\xE8re ${itemName} sur ${pick2.owner.pseudo}.`
+        });
+        return { ok: true, message: `\u{1F331} Tu d\xE9terres ${itemName}.` };
+      }
+      // ── Détrousseur (lot 3, killer-class) : tue + empoche le dernier objet.
+      // Braquage 1×/partie (armé via armDetrousseurBraquage) : rafle TOUT l'inventaire.
+      case "detrousseur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te d\xE9trousser." };
+        const braquage = m.det_braquage_armed === true;
+        if (braquage) await patchMeta(actor.id, { det_braquage_armed: false });
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:detrousseur",
+          payload: {
+            kill_reason: "detrousseur",
+            target_pseudo: t1.pseudo,
+            mechant_mechanic: true,
+            loot: braquage ? "all" : "last"
+          }
+        });
+        await used({ effect: braquage ? "detrousse_braquage" : "detrousse", target: t1.id });
+        return {
+          ok: true,
+          message: braquage ? `\u{1F4B0} Braquage sur ${t1.pseudo} \u2014 mort ET malle rafl\xE9e \xE0 l'Annonce.` : `\u{1F4B0} ${t1.pseudo} : mort + dernier objet empoch\xE9 \xE0 l'Annonce.`
+        };
+      }
+      // ── Franc-tireur (lot 3, killer-class) : tue ; balle perforante 1×/partie
+      // (armée via armFrancTireurPierce) → ignore TOUTES les protections.
+      case "franc_tireur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te viser." };
+        const pierce = m.ft_pierce_armed === true;
+        if (pierce) await patchMeta(actor.id, { ft_pierce_armed: false, ft_pierce_used: true });
+        await submitIntent({
+          gameId: opts.gameId,
+          tour: opts.tour,
+          phase: opts.phase,
+          actorId: actor.id,
+          targetId: t1.id,
+          category: "ATTACK",
+          timing: "DEFERRED",
+          source: "role:franc_tireur",
+          payload: {
+            kill_reason: "franc_tireur",
+            target_pseudo: t1.pseudo,
+            mechant_mechanic: true,
+            ...pierce ? { pierce: true } : {}
+          }
+        });
+        await used({ effect: pierce ? "ft_shot_pierce" : "ft_shot", target: t1.id });
+        return {
+          ok: true,
+          message: pierce ? `\u{1F3AF} Balle perforante sur ${t1.pseudo} \u2014 rien ne l'arr\xEAtera. \xC0 l'Annonce.` : `\u{1F3AF} ${t1.pseudo} dans ta lunette \u2014 \xE0 l'Annonce.`
         };
       }
       case "ange_gardien": {
@@ -5226,6 +5512,31 @@ async function executeCapability(opts) {
             mjBody: `${actor.pseudo} (Voleur) tente de voler ${t1.pseudo} \u2014 inventaire vide.`
           });
           return { ok: true, message: `${t1.pseudo} n'a rien \xE0 voler` };
+        }
+        const dfIdx = inv.findIndex((it) => it.slug === "double_fond" && it.consumed !== true);
+        if (dfIdx >= 0) {
+          const invSansDF = inv.filter((_, i) => i !== dfIdx);
+          await patchMeta(t1.id, { inventory: invSansDF });
+          await used({ effect: "steal_blocked_double_fond", target: t1.id });
+          await notify({
+            gameId: opts.gameId,
+            playerId: actor.id,
+            type: "steal_blocked",
+            title: "\u{1F977} Vol rat\xE9",
+            body: `La malle de ${t1.pseudo} avait un double-fond \u2014 tes doigts reviennent vides.`,
+            mjTitle: "\u{1F977} Voleur",
+            mjBody: `${actor.pseudo} (Voleur) \xE9choue sur le double-fond de ${t1.pseudo}.`
+          });
+          if (t1.is_alive) {
+            await notify({
+              gameId: opts.gameId,
+              playerId: t1.id,
+              type: "double_fond_used",
+              title: "\u{1F392} Double-fond sacrifi\xE9",
+              body: "On a tent\xE9 de te voler \u2014 ton Double-fond a encaiss\xE9 le coup."
+            });
+          }
+          return { ok: true, message: `Le double-fond de ${t1.pseudo} a bloqu\xE9 ton vol.` };
         }
         const [stolen, ...rest] = inv;
         await patchMeta(t1.id, { inventory: rest });

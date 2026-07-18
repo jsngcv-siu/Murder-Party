@@ -10,7 +10,13 @@ export type ItemSlug =
   | "couteau"
   | "lettre"
   | "relique"
-  | "indice";
+  | "indice"
+  // ── La Malle du Contrebandier (lot 3) — objets EXCLUSIFS à ce rôle ──
+  | "passe_partout"
+  | "gilet_matelasse"
+  | "rhum_contrebande"
+  | "monocle_douanier"
+  | "double_fond";
 
 /** Faction du rôle dont provient un objet (pour colorer son contour). */
 export type ItemFaction = "Civil" | "Méchant" | "Neutre";
@@ -109,6 +115,41 @@ export const ITEM_CATALOG: Record<
     icon: "🧩",
     description: "Une information vraie sur cette partie. Consultation seule.",
   },
+  // ── La Malle du Contrebandier (lot 3). Distribués UNIQUEMENT par le drip du
+  // Contrebandier (1 objet aléatoire tous les 2 tours) — jamais par le catalogue
+  // commun. Le Voleur peut les voler : duel Voleur ↔ Contrebandier voulu.
+  passe_partout: {
+    slug: "passe_partout",
+    name: "Le Passe-partout",
+    icon: "🗝️",
+    description: "Utilisable uniquement en cellule : tu t'évades immédiatement de prison.",
+  },
+  gilet_matelasse: {
+    slug: "gilet_matelasse",
+    name: "Le Gilet matelassé",
+    icon: "🧥",
+    description: "Enfile-le : la prochaine attaque contre toi échoue (protection ce tour).",
+  },
+  rhum_contrebande: {
+    slug: "rhum_contrebande",
+    name: "Le Rhum de contrebande",
+    icon: "🥃",
+    description:
+      "Offre discrètement une bouteille : la cible est ivre au prochain tour, sa capacité est coupée.",
+  },
+  monocle_douanier: {
+    slug: "monocle_douanier",
+    name: "Le Monocle du douanier",
+    icon: "🧐",
+    description: "Inspecte un joueur : tu vois l'inventaire complet qu'il transporte.",
+  },
+  double_fond: {
+    slug: "double_fond",
+    name: "Le Double-fond",
+    icon: "🎒",
+    description:
+      "Passif tant qu'il est dans ta malle : le premier vol du Voleur contre toi échoue (le Double-fond est sacrifié à la place).",
+  },
 };
 
 export function buildItem(
@@ -181,6 +222,10 @@ export function itemNeedsTarget(
     const sent = !!payload?.sent;
     return sent ? "none" : "single";
   }
+  // Malle du Contrebandier : évasion et gilet s'appliquent à soi ; le double-fond
+  // est passif (jamais « utilisé »).
+  if (slug === "passe_partout" || slug === "gilet_matelasse" || slug === "double_fond")
+    return "none";
   return "single";
 }
 
@@ -199,7 +244,12 @@ export function itemIsUsable(slug: ItemSlug, payload?: Record<string, unknown> |
     slug === "fiole_mort" ||
     slug === "fiole_vie" ||
     slug === "fiole_clairvoyance" ||
-    slug === "couteau"
+    slug === "couteau" ||
+    // Malle du Contrebandier — le double-fond est passif (consultation seule).
+    slug === "passe_partout" ||
+    slug === "gilet_matelasse" ||
+    slug === "rhum_contrebande" ||
+    slug === "monocle_douanier"
   );
 }
 
@@ -420,6 +470,99 @@ export async function consumeItem(opts: {
       message = `📨 Lettre envoyée à ${target.pseudo}.`;
       item.payload = { ...(item.payload ?? {}), message: msg, sent: true, sent_to: target.pseudo };
       break;
+    }
+    // ── La Malle du Contrebandier (lot 3) ──
+    case "passe_partout": {
+      const { data: meRow } = await supabase
+        .from("players")
+        .select("is_imprisoned")
+        .eq("id", actorId)
+        .maybeSingle();
+      if (!(meRow as { is_imprisoned: boolean } | null)?.is_imprisoned) {
+        return { ok: false, message: "Ce passe ne sert qu'en cellule — garde-le précieusement." };
+      }
+      const { releasePlayer } = await import("./actions");
+      await releasePlayer(gameId, actorId);
+      message = "🗝️ La serrure cède — tu t'évades de prison.";
+      await notify(actorId, "🗝️ Évasion", message);
+      break;
+    }
+    case "gilet_matelasse": {
+      const { data: row } = await supabase
+        .from("players")
+        .select("role_meta")
+        .eq("id", actorId)
+        .maybeSingle();
+      const meta0 = (row?.role_meta ?? {}) as Record<string, unknown>;
+      const protUntil = Math.max(
+        (meta0.protected_until_cycle as number | undefined) ?? -1,
+        tour + 1,
+      );
+      await supabase
+        .from("players")
+        .update({ role_meta: { ...meta0, protected_until_cycle: protUntil } as never })
+        .eq("id", actorId);
+      message = "🧥 Gilet enfilé : la prochaine attaque contre toi échouera (ce tour).";
+      await notify(actorId, "🧥 Gilet matelassé", message);
+      break;
+    }
+    case "rhum_contrebande": {
+      if (!target) {
+        message = "Cible requise pour offrir le rhum.";
+        break;
+      }
+      const { data: row } = await supabase
+        .from("players")
+        .select("role_meta")
+        .eq("id", target.id)
+        .maybeSingle();
+      const meta0 = (row?.role_meta ?? {}) as Record<string, unknown>;
+      await supabase
+        .from("players")
+        .update({
+          role_meta: {
+            ...meta0,
+            blocked_from_cycle: tour + 1,
+            blocked_until_cycle: Math.max(
+              (meta0.blocked_until_cycle as number | undefined) ?? -1,
+              tour + 1,
+            ),
+          } as never,
+        })
+        .eq("id", target.id);
+      await notify(
+        target.id,
+        "🥃 Un verre de trop",
+        "Quelqu'un t'a offert un verre… corsé. Ta capacité sera coupée au prochain tour.",
+      );
+      message = `🥃 ${target.pseudo} sera ivre au prochain tour — capacité coupée.`;
+      break;
+    }
+    case "monocle_douanier": {
+      if (!target) {
+        message = "Cible requise pour l'inspection.";
+        break;
+      }
+      const { data: row } = await supabase
+        .from("players")
+        .select("role_meta")
+        .eq("id", target.id)
+        .maybeSingle();
+      const tInv = (((row?.role_meta ?? {}) as Record<string, unknown>).inventory ??
+        []) as Item[];
+      const names = tInv.filter((it) => !it.consumed).map((it) => `${it.icon} ${it.name}`);
+      message =
+        names.length === 0
+          ? `🧐 ${target.pseudo} ne transporte rien.`
+          : `🧐 ${target.pseudo} transporte : ${names.join(" · ")}.`;
+      await notify(actorId, "🧐 Inspection douanière", message);
+      break;
+    }
+    case "double_fond": {
+      return {
+        ok: false,
+        message: "Le Double-fond agit tout seul : il encaissera le premier vol à ta place.",
+      };
     }
     case "fiole_mort": {
       // V2 : intention ATTACK/DEFERRED. La fiole est consommée ci-dessous
