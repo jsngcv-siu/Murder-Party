@@ -366,10 +366,67 @@ async function applyAttack(
     return { status: "cancelled", reason: "target_dead" };
   }
   const tMeta = getMeta(tRow);
+
+  // ── Riposte du Garde-chasse (lot 2) : si la cible est PATROUILLÉE ce tour,
+  // l'attaquant meurt — que l'attaque aboutisse, soit bloquée ou parée. La
+  // cible n'est jamais sauvée par la patrouille elle-même. Garde-chasse mort ou
+  // condamné ce tour → pas de riposte (symétrie « acteur mort → effet annulé »).
+  const ripostePatrol = async (): Promise<void> => {
+    const gcId = tMeta.patrolled_by;
+    if (typeof gcId !== "string" || gcId.length === 0) return;
+    if ((tMeta.patrolled_by_cycle ?? -1) !== intent.tour) return;
+    if (gcId === intent.actor_player_id) return; // il ne s'embusque pas lui-même
+    const { data: gcRow } = await supabase
+      .from("players")
+      .select("is_alive, role_meta, pseudo")
+      .eq("id", gcId)
+      .single();
+    const gc = gcRow as { is_alive: boolean; role_meta: unknown; pseudo: string } | null;
+    if (!gc?.is_alive || getMeta(gc as { role_meta?: unknown }).pending_death) return;
+    await killer(intent.game_id, intent.actor_player_id, "garde_chasse", gcId);
+    await notify({
+      gameId: intent.game_id,
+      playerId: gcId,
+      type: "patrol_riposte",
+      title: "🌲 Ta patrouille a frappé",
+      body: `Quelqu'un s'en est pris à ${tRow.pseudo} — tu l'as abattu sur place.`,
+      mjTitle: "🌲 Garde-chasse",
+      mjBody: `${gc.pseudo} (Garde-chasse) abat l'attaquant de ${tRow.pseudo}.`,
+    });
+  };
+
+  // ── Parade du Bretteur (lot 2) : garde levée CE tour → l'attaque échoue ET
+  // l'attaquant est embroché. La balle perforante du Franc-tireur (payload.pierce)
+  // passe outre la parade — l'acier ne pare pas le plomb.
+  const intentPayload = (intent.payload as Record<string, unknown> | null) ?? {};
+  const pierce = intentPayload.pierce === true;
+  if (
+    !pierce &&
+    tRow.role_slug === "bretteur" &&
+    (tMeta.bretteur_guard_cycle ?? -1) === intent.tour
+  ) {
+    await decrementCharge(intent.item_id);
+    await killer(intent.game_id, intent.actor_player_id, "bretteur_parade", targetId);
+    await notify({
+      gameId: intent.game_id,
+      playerId: targetId,
+      type: "bretteur_parry",
+      title: "🤺 Parade !",
+      body: "On est venu pour toi cette nuit — ta lame a répondu. L'attaquant est mort.",
+      mjTitle: "🤺 Bretteur",
+      mjBody: `${tRow.pseudo} (Bretteur) pare l'attaque (${intent.source ?? "?"}) et embroche l'attaquant.`,
+    });
+    await ripostePatrol();
+    return { status: "protected", reason: "bretteur_parade" };
+  }
+
   const prot = tMeta.protected_until_cycle ?? -1;
   const blessedUntil = tMeta.blessed_until_cycle ?? -1;
   const isBlessed = tMeta.blessed_by_saint === true && blessedUntil >= intent.tour;
-  if (prot >= intent.tour || isBlessed) {
+  // Balle perforante (lot 3) : ignore boucliers, bénédiction ET le sacrifice du
+  // Majordome (la protection ne se déclenche pas — la cible meurt, le Majordome
+  // survit sans riposter). Décision actée docs/NOUVEAUX_ROLES.md §11.
+  if (!pierce && (prot >= intent.tour || isBlessed)) {
     await decrementCharge(intent.item_id); // fiole consommée même si protégée
     // MJ-only : la cible ne doit pas savoir qu'elle a été protégée.
     await notifyMJ({
@@ -447,6 +504,8 @@ async function applyAttack(
         killer: intent.actor_player_id,
       };
     }
+    // Patrouille : l'attaquant est abattu même si sa cible était protégée.
+    await ripostePatrol();
     return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }
 
@@ -499,6 +558,7 @@ async function applyAttack(
       mjBody: `${tRow.pseudo} (Chat du Manoir) absorbe une attaque (${intent.source ?? "?"}) — vie consommée.`,
     });
     // Pour l'attaquant : même retour que « protégé » (aucune fuite du mécanisme).
+    await ripostePatrol();
     return { status: "protected", reason: "chat_life" };
   }
 
@@ -546,6 +606,7 @@ async function applyAttack(
     weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : undefined,
   );
   await decrementCharge(intent.item_id);
+  if (ok) await ripostePatrol();
   return { status: ok ? "applied" : "cancelled", effect: "kill", target: targetId, reason };
 }
 

@@ -70,6 +70,24 @@ export interface RoleMeta {
   // ─── Photographe mondain (lot 1) ───
   // Pellicule : joueurs photographiés de leur vivant (id + tour du cliché).
   photos?: Array<{ id: string; tour: number }>;
+  // ─── Garde-chasse (lot 2) ───
+  // Posés sur la CIBLE patrouillée : toute attaque sur elle CE tour riposte
+  // (l'attaquant meurt), sans sauver la cible.
+  patrolled_by?: string;
+  patrolled_by_cycle?: number;
+  // ─── Bretteur (lot 2) ───
+  // Posé sur le BRETTEUR : tour où sa garde est levée (pare + embroche).
+  bretteur_guard_cycle?: number;
+  // ─── Conjuré (lot 2) ───
+  // Posé sur le COMPLICE sollicité : demande de pacte en attente de réponse.
+  pact_offer?: {
+    from: string; // id du Conjuré (jamais montré au complice)
+    target_id: string;
+    target_pseudo: string;
+    tour: number;
+  } | null;
+  // Posé sur le CONJURÉ : son unique pacte est joué (accepté OU refusé).
+  pact_spent?: boolean;
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

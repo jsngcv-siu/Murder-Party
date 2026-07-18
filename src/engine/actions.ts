@@ -2890,6 +2890,71 @@ export async function imprisonPlayer(
   return true;
 }
 
+// ── Conjuré (lot 2) : réponse du complice au pacte d'assassinat ──
+// Appelé par le panneau PactOfferPanel (PA2) du complice. Accepter pose une
+// intention ATTACK différée portée par le CONJURÉ (c'est lui le tueur — s'il
+// meurt ou est emprisonné avant l'Annonce, le resolver annule). Refuser ne fait
+// rien, mais le complice sait désormais qu'un conjuré rôde. Réponse anonyme
+// dans les deux sens : le complice n'apprend jamais QUI proposait.
+export async function respondPact(
+  gameId: string,
+  playerId: string,
+  accept: boolean,
+): Promise<{ ok: boolean; message: string }> {
+  const { data: meRow } = await supabase
+    .from("players")
+    .select("id, pseudo, role_meta, is_alive")
+    .eq("id", playerId)
+    .single();
+  const me = meRow as PlayerRow | null;
+  if (!me) return { ok: false, message: "Joueur introuvable" };
+  const offer = meta(me).pact_offer as
+    | { from: string; target_id: string; target_pseudo: string; tour: number }
+    | null
+    | undefined;
+  if (!offer) return { ok: false, message: "Aucun pacte en attente." };
+  await patchMeta(me.id, { pact_offer: null });
+  if (!accept) {
+    await notify({
+      gameId,
+      playerId: offer.from,
+      type: "pact_refused",
+      title: "🤝 Pacte refusé",
+      body: `Ton complice a refusé — ${offer.target_pseudo} vivra. Ton pacte est consumé.`,
+      mjTitle: "🤝 Conjuré",
+      mjBody: `${me.pseudo} refuse le pacte contre ${offer.target_pseudo}.`,
+    });
+    return { ok: true, message: "Tu as refusé. Quelqu'un, ici, voulait un meurtre…" };
+  }
+  const { data: g } = await supabase
+    .from("games")
+    .select("current_tour")
+    .eq("id", gameId)
+    .single();
+  const tour = (g as { current_tour: number } | null)?.current_tour ?? offer.tour;
+  await submitIntent({
+    gameId,
+    tour,
+    phase: "free",
+    actorId: offer.from,
+    targetId: offer.target_id,
+    category: "ATTACK",
+    timing: "DEFERRED",
+    source: "role:conjure",
+    payload: { kill_reason: "conjure", target_pseudo: offer.target_pseudo },
+  });
+  await notify({
+    gameId,
+    playerId: offer.from,
+    type: "pact_sealed",
+    title: "🤝 Pacte scellé",
+    body: `Ton complice a accepté — ${offer.target_pseudo} mourra à l'Annonce.`,
+    mjTitle: "🤝 Conjuré",
+    mjBody: `${me.pseudo} accepte le pacte : ${offer.target_pseudo} est condamné (résolution à l'Annonce).`,
+  });
+  return { ok: true, message: `Le pacte est scellé. ${offer.target_pseudo} ne verra pas l'aube.` };
+}
+
 export async function releasePlayer(gameId: string, playerId: string) {
   const { data: p } = await supabase
     .from("players")
@@ -3570,6 +3635,76 @@ export async function executeCapability(opts: {
         await used({ effect: "innkeeper_room", target: t1.id });
         return { ok: true, message: `🏨 ${t1.pseudo} dort à l'auberge ce tour — à l'Annonce.` };
       }
+      // ── Garde-chasse (lot 2) : patrouille — riposte sans sauvetage ──
+      // Tag posé sur la cible pour CE tour ; la riposte vit dans applyAttack
+      // (resolver) : tout attaquant du patrouillé meurt, la cible n'est PAS sauvée.
+      case "garde_chasse": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas patrouiller devant ta propre porte." };
+        await patchMeta(t1.id, { patrolled_by: actor.id, patrolled_by_cycle: opts.tour });
+        await used({ effect: "patrol", target: t1.id });
+        await notifyMJ({
+          gameId: opts.gameId,
+          type: "patrol",
+          title: "🌲 Garde-chasse",
+          body: `${actor.pseudo} patrouille devant chez ${t1.pseudo} ce tour.`,
+        });
+        return { ok: true, message: `🌲 Tu patrouilles devant chez ${t1.pseudo} cette nuit.` };
+      }
+
+      // ── Bretteur (lot 2) : 1×/partie, garde levée pour CE tour ──
+      // La parade vit dans applyAttack : attaque échouée + attaquant embroché.
+      case "bretteur": {
+        if ((m.bretteur_guard_cycle as number | undefined) === opts.tour)
+          return { ok: false, message: "Ta garde est déjà levée pour ce tour." };
+        await patchMeta(actor.id, { bretteur_guard_cycle: opts.tour });
+        await used({ effect: "bretteur_guard" });
+        await notifyMJ({
+          gameId: opts.gameId,
+          type: "bretteur_guard",
+          title: "🤺 Bretteur",
+          body: `${actor.pseudo} lève sa garde pour ce tour.`,
+        });
+        return { ok: true, message: "🤺 Garde levée : quiconque t'attaque cette nuit s'embroche." };
+      }
+
+      // ── Conjuré (lot 2) : pacte d'assassinat — cible (t1) + complice (t2) ──
+      // Le complice reçoit une demande ANONYME (meta pact_offer + panneau dédié) ;
+      // sa réponse passe par respondPact(). Le pacte est dépensé dès la proposition.
+      case "conjure": {
+        if (!t1 || !t2) return { ok: false, message: "Choisis la victime PUIS le complice." };
+        if (t1.id === actor.id || t2.id === actor.id)
+          return { ok: false, message: "Tu ne peux être ni la victime ni le complice." };
+        if (t1.id === t2.id)
+          return { ok: false, message: "La victime et le complice doivent être distincts." };
+        if (m.pact_spent === true)
+          return { ok: false, message: "Ton unique pacte est déjà joué." };
+        await patchMeta(actor.id, { pact_spent: true });
+        await patchMeta(t2.id, {
+          pact_offer: {
+            from: actor.id,
+            target_id: t1.id,
+            target_pseudo: t1.pseudo,
+            tour: opts.tour,
+          },
+        });
+        await used({ effect: "pact_offer", target: t1.id });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t2.id,
+          type: "pact_offer",
+          title: "🤝 Une proposition murmurée",
+          body: `Quelqu'un te propose un pacte : la mort de ${t1.pseudo}. Réponds depuis ton onglet Capacité.`,
+          mjTitle: "🤝 Conjuré",
+          mjBody: `${actor.pseudo} (Conjuré) propose à ${t2.pseudo} d'assassiner ${t1.pseudo}.`,
+        });
+        return {
+          ok: true,
+          message: `🤝 Pacte proposé à ${t2.pseudo} contre ${t1.pseudo} — attends sa réponse.`,
+        };
+      }
+
       case "ange_gardien": {
         const target = (m.ward as string | undefined) ?? t1?.id;
         if (!target) return { ok: false, message: "Cible requise" };

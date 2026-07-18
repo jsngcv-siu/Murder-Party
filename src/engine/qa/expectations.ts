@@ -70,6 +70,10 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   chat_du_manoir: "passive",
   photographe: "investigate",
   aubergiste: "protect",
+  // ── Lot 2 (2026-07-18) ──
+  garde_chasse: "kill",
+  bretteur: "kill",
+  conjure: "kill",
 };
 
 function effectFor(role: RoleRow): EffectCategory {

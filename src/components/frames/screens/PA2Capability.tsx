@@ -9,6 +9,7 @@ import {
   whyCannotUse,
   usesOf,
   parseTotalLimit,
+  respondPact,
   type CapabilityResult,
   type RoleRow,
 } from "@/engine/actions";
@@ -1277,6 +1278,23 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "avocat" && <AvocatPrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "archiviste" && <ArchivistePrisonPanel players={players} roles={roles} />}
       {myRole?.slug === "photographe" && <PhotographePanel me={me} players={players} />}
+      {myRole?.slug === "bretteur" && (
+        <BretteurPanel
+          guardActive={(meMeta.bretteur_guard_cycle as number | undefined) === game.current_tour}
+          used={usesOf(meMeta, "bretteur") > 0}
+          busy={busy}
+          onAct={() => void runCapacity({ skipTargetCheck: true })}
+        />
+      )}
+      {!!meMeta.pact_offer && (
+        <PactOfferPanel
+          gameId={gameId}
+          meId={me.id}
+          offer={
+            meMeta.pact_offer as { target_id: string; target_pseudo: string; tour: number }
+          }
+        />
+      )}
       {isOraclePending && (
         <PanelCard tone="fuchsia" icon={Sparkles} label="Prophétie — choisis le camp gagnant">
           <div className="grid grid-cols-3 gap-2">
@@ -2245,6 +2263,9 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   physionomiste: (t) => `Tu as dévisagé ${t ?? "un joueur"}.`,
   photographe: (t) => `Tu as photographié ${t ?? "un joueur"}.`,
   aubergiste: (t) => `Tu as hébergé ${t ?? "un joueur"}.`,
+  garde_chasse: (t) => `Tu as patrouillé devant chez ${t ?? "un joueur"}.`,
+  bretteur: () => `Tu as levé ta garde.`,
+  conjure: (t) => `Tu as proposé un pacte contre ${t ?? "un joueur"}.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
   paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
@@ -3078,6 +3099,98 @@ function AvocatPrisonPanel({
             );
           })}
         </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Bretteur (lot 2) : bouton « lever la garde » (1×/partie, sans cible)
+function BretteurPanel({
+  guardActive,
+  used,
+  busy,
+  onAct,
+}: {
+  guardActive: boolean;
+  used: boolean;
+  busy: boolean;
+  onAct: () => void;
+}) {
+  return (
+    <PanelCard tone="amber" icon={Swords} label="Ta garde">
+      {guardActive ? (
+        <div className="text-sm text-amber-200">
+          🤺 Garde levée pour ce tour — quiconque t'attaque cette nuit s'embroche.
+        </div>
+      ) : used ? (
+        <div className="text-sm text-muted-foreground">
+          Ta parade est consumée. Il ne te reste que ton flair.
+        </div>
+      ) : (
+        <>
+          <div className="text-[11px] text-muted-foreground mb-2">
+            Une seule fois dans la partie : si on t'attaque le tour où ta garde est levée,
+            l'attaque échoue et l'attaquant meurt.
+          </div>
+          <button
+            disabled={busy}
+            onClick={onAct}
+            className="h-11 w-full rounded-lg bg-amber-500/25 ring-1 ring-amber-400 text-amber-50 font-semibold disabled:opacity-40"
+          >
+            🤺 Lever la garde ce tour
+          </button>
+        </>
+      )}
+    </PanelCard>
+  );
+}
+
+// ───────── Conjuré (lot 2) : panneau du COMPLICE sollicité — accepter/refuser
+function PactOfferPanel({
+  gameId,
+  meId,
+  offer,
+}: {
+  gameId: string;
+  meId: string;
+  offer: { target_id: string; target_pseudo: string; tour: number };
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const answer = async (accept: boolean) => {
+    setBusy(true);
+    const r = await respondPact(gameId, meId, accept);
+    setMsg(r.message);
+    setBusy(false);
+  };
+  return (
+    <PanelCard tone="rose" icon={Drama} label="Une proposition murmurée">
+      {msg ? (
+        <div className="text-sm text-amber-100">{msg}</div>
+      ) : (
+        <>
+          <div className="text-sm mb-3">
+            Quelqu'un — tu ne sauras jamais qui — te propose un pacte :{" "}
+            <span className="font-semibold text-rose-200">la mort de {offer.target_pseudo}</span>.
+            Si tu acceptes, le crime sera commis à l'Annonce.
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              disabled={busy}
+              onClick={() => void answer(true)}
+              className="h-11 rounded-lg bg-rose-500/25 ring-1 ring-rose-400 text-rose-50 font-semibold disabled:opacity-40"
+            >
+              🗡️ Accepter
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => void answer(false)}
+              className="h-11 rounded-lg bg-card/60 ring-1 ring-border font-semibold disabled:opacity-40"
+            >
+              Refuser
+            </button>
+          </div>
+        </>
       )}
     </PanelCard>
   );

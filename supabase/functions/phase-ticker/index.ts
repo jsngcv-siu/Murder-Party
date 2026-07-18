@@ -542,10 +542,46 @@ async function applyAttack(intent, killer) {
     return { status: "cancelled", reason: "target_dead" };
   }
   const tMeta = getMeta(tRow);
+  const ripostePatrol = async () => {
+    const gcId = tMeta.patrolled_by;
+    if (typeof gcId !== "string" || gcId.length === 0) return;
+    if ((tMeta.patrolled_by_cycle ?? -1) !== intent.tour) return;
+    if (gcId === intent.actor_player_id) return;
+    const { data: gcRow } = await supabase.from("players").select("is_alive, role_meta, pseudo").eq("id", gcId).single();
+    const gc = gcRow;
+    if (!gc?.is_alive || getMeta(gc).pending_death) return;
+    await killer(intent.game_id, intent.actor_player_id, "garde_chasse", gcId);
+    await notify({
+      gameId: intent.game_id,
+      playerId: gcId,
+      type: "patrol_riposte",
+      title: "\u{1F332} Ta patrouille a frapp\xE9",
+      body: `Quelqu'un s'en est pris \xE0 ${tRow.pseudo} \u2014 tu l'as abattu sur place.`,
+      mjTitle: "\u{1F332} Garde-chasse",
+      mjBody: `${gc.pseudo} (Garde-chasse) abat l'attaquant de ${tRow.pseudo}.`
+    });
+  };
+  const intentPayload = intent.payload ?? {};
+  const pierce = intentPayload.pierce === true;
+  if (!pierce && tRow.role_slug === "bretteur" && (tMeta.bretteur_guard_cycle ?? -1) === intent.tour) {
+    await decrementCharge(intent.item_id);
+    await killer(intent.game_id, intent.actor_player_id, "bretteur_parade", targetId);
+    await notify({
+      gameId: intent.game_id,
+      playerId: targetId,
+      type: "bretteur_parry",
+      title: "\u{1F93A} Parade !",
+      body: "On est venu pour toi cette nuit \u2014 ta lame a r\xE9pondu. L'attaquant est mort.",
+      mjTitle: "\u{1F93A} Bretteur",
+      mjBody: `${tRow.pseudo} (Bretteur) pare l'attaque (${intent.source ?? "?"}) et embroche l'attaquant.`
+    });
+    await ripostePatrol();
+    return { status: "protected", reason: "bretteur_parade" };
+  }
   const prot = tMeta.protected_until_cycle ?? -1;
   const blessedUntil = tMeta.blessed_until_cycle ?? -1;
   const isBlessed = tMeta.blessed_by_saint === true && blessedUntil >= intent.tour;
-  if (prot >= intent.tour || isBlessed) {
+  if (!pierce && (prot >= intent.tour || isBlessed)) {
     await decrementCharge(intent.item_id);
     await notifyMJ({
       gameId: intent.game_id,
@@ -607,6 +643,7 @@ async function applyAttack(intent, killer) {
         killer: intent.actor_player_id
       };
     }
+    await ripostePatrol();
     return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }
   const subEffect = intent.payload?.sub_effect;
@@ -643,6 +680,7 @@ async function applyAttack(intent, killer) {
       mjTitle: "\u{1F408} Chat du Manoir",
       mjBody: `${tRow.pseudo} (Chat du Manoir) absorbe une attaque (${intent.source ?? "?"}) \u2014 vie consomm\xE9e.`
     });
+    await ripostePatrol();
     return { status: "protected", reason: "chat_life" };
   }
   const payload = intent.payload ?? {};
@@ -679,6 +717,7 @@ async function applyAttack(intent, killer) {
     weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : void 0
   );
   await decrementCharge(intent.item_id);
+  if (ok) await ripostePatrol();
   return { status: ok ? "applied" : "cancelled", effect: "kill", target: targetId, reason };
 }
 async function applyConvert(intent, converter) {
@@ -1796,6 +1835,7 @@ __export(actions_exports, {
   policierVerdict: () => policierVerdict,
   releasePlayer: () => releasePlayer,
   resetGame: () => resetGame,
+  respondPact: () => respondPact,
   ringGathering: () => ringGathering,
   rollRoles: () => rollRoles,
   runExclusivePhaseAction: () => runExclusivePhaseAction,
@@ -3656,6 +3696,49 @@ async function imprisonPlayer(gameId, playerId, reason = "vote") {
   await checkAndEndGame(gameId);
   return true;
 }
+async function respondPact(gameId, playerId, accept) {
+  const { data: meRow } = await supabase.from("players").select("id, pseudo, role_meta, is_alive").eq("id", playerId).single();
+  const me = meRow;
+  if (!me) return { ok: false, message: "Joueur introuvable" };
+  const offer = meta(me).pact_offer;
+  if (!offer) return { ok: false, message: "Aucun pacte en attente." };
+  await patchMeta(me.id, { pact_offer: null });
+  if (!accept) {
+    await notify({
+      gameId,
+      playerId: offer.from,
+      type: "pact_refused",
+      title: "\u{1F91D} Pacte refus\xE9",
+      body: `Ton complice a refus\xE9 \u2014 ${offer.target_pseudo} vivra. Ton pacte est consum\xE9.`,
+      mjTitle: "\u{1F91D} Conjur\xE9",
+      mjBody: `${me.pseudo} refuse le pacte contre ${offer.target_pseudo}.`
+    });
+    return { ok: true, message: "Tu as refus\xE9. Quelqu'un, ici, voulait un meurtre\u2026" };
+  }
+  const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
+  const tour = g?.current_tour ?? offer.tour;
+  await submitIntent({
+    gameId,
+    tour,
+    phase: "free",
+    actorId: offer.from,
+    targetId: offer.target_id,
+    category: "ATTACK",
+    timing: "DEFERRED",
+    source: "role:conjure",
+    payload: { kill_reason: "conjure", target_pseudo: offer.target_pseudo }
+  });
+  await notify({
+    gameId,
+    playerId: offer.from,
+    type: "pact_sealed",
+    title: "\u{1F91D} Pacte scell\xE9",
+    body: `Ton complice a accept\xE9 \u2014 ${offer.target_pseudo} mourra \xE0 l'Annonce.`,
+    mjTitle: "\u{1F91D} Conjur\xE9",
+    mjBody: `${me.pseudo} accepte le pacte : ${offer.target_pseudo} est condamn\xE9 (r\xE9solution \xE0 l'Annonce).`
+  });
+  return { ok: true, message: `Le pacte est scell\xE9. ${offer.target_pseudo} ne verra pas l'aube.` };
+}
 async function releasePlayer(gameId, playerId) {
   const { data: p } = await supabase.from("players").select("pseudo, role_slug, role_meta").eq("id", playerId).single();
   await supabase.from("players").update({ is_imprisoned: false }).eq("id", playerId);
@@ -4149,6 +4232,73 @@ async function executeCapability(opts) {
         await patchMeta(actor.id, { innkeeper_last_tour: opts.tour });
         await used({ effect: "innkeeper_room", target: t1.id });
         return { ok: true, message: `\u{1F3E8} ${t1.pseudo} dort \xE0 l'auberge ce tour \u2014 \xE0 l'Annonce.` };
+      }
+      // ── Garde-chasse (lot 2) : patrouille — riposte sans sauvetage ──
+      // Tag posé sur la cible pour CE tour ; la riposte vit dans applyAttack
+      // (resolver) : tout attaquant du patrouillé meurt, la cible n'est PAS sauvée.
+      case "garde_chasse": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas patrouiller devant ta propre porte." };
+        await patchMeta(t1.id, { patrolled_by: actor.id, patrolled_by_cycle: opts.tour });
+        await used({ effect: "patrol", target: t1.id });
+        await notifyMJ({
+          gameId: opts.gameId,
+          type: "patrol",
+          title: "\u{1F332} Garde-chasse",
+          body: `${actor.pseudo} patrouille devant chez ${t1.pseudo} ce tour.`
+        });
+        return { ok: true, message: `\u{1F332} Tu patrouilles devant chez ${t1.pseudo} cette nuit.` };
+      }
+      // ── Bretteur (lot 2) : 1×/partie, garde levée pour CE tour ──
+      // La parade vit dans applyAttack : attaque échouée + attaquant embroché.
+      case "bretteur": {
+        if (m.bretteur_guard_cycle === opts.tour)
+          return { ok: false, message: "Ta garde est d\xE9j\xE0 lev\xE9e pour ce tour." };
+        await patchMeta(actor.id, { bretteur_guard_cycle: opts.tour });
+        await used({ effect: "bretteur_guard" });
+        await notifyMJ({
+          gameId: opts.gameId,
+          type: "bretteur_guard",
+          title: "\u{1F93A} Bretteur",
+          body: `${actor.pseudo} l\xE8ve sa garde pour ce tour.`
+        });
+        return { ok: true, message: "\u{1F93A} Garde lev\xE9e : quiconque t'attaque cette nuit s'embroche." };
+      }
+      // ── Conjuré (lot 2) : pacte d'assassinat — cible (t1) + complice (t2) ──
+      // Le complice reçoit une demande ANONYME (meta pact_offer + panneau dédié) ;
+      // sa réponse passe par respondPact(). Le pacte est dépensé dès la proposition.
+      case "conjure": {
+        if (!t1 || !t2) return { ok: false, message: "Choisis la victime PUIS le complice." };
+        if (t1.id === actor.id || t2.id === actor.id)
+          return { ok: false, message: "Tu ne peux \xEAtre ni la victime ni le complice." };
+        if (t1.id === t2.id)
+          return { ok: false, message: "La victime et le complice doivent \xEAtre distincts." };
+        if (m.pact_spent === true)
+          return { ok: false, message: "Ton unique pacte est d\xE9j\xE0 jou\xE9." };
+        await patchMeta(actor.id, { pact_spent: true });
+        await patchMeta(t2.id, {
+          pact_offer: {
+            from: actor.id,
+            target_id: t1.id,
+            target_pseudo: t1.pseudo,
+            tour: opts.tour
+          }
+        });
+        await used({ effect: "pact_offer", target: t1.id });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t2.id,
+          type: "pact_offer",
+          title: "\u{1F91D} Une proposition murmur\xE9e",
+          body: `Quelqu'un te propose un pacte : la mort de ${t1.pseudo}. R\xE9ponds depuis ton onglet Capacit\xE9.`,
+          mjTitle: "\u{1F91D} Conjur\xE9",
+          mjBody: `${actor.pseudo} (Conjur\xE9) propose \xE0 ${t2.pseudo} d'assassiner ${t1.pseudo}.`
+        });
+        return {
+          ok: true,
+          message: `\u{1F91D} Pacte propos\xE9 \xE0 ${t2.pseudo} contre ${t1.pseudo} \u2014 attends sa r\xE9ponse.`
+        };
       }
       case "ange_gardien": {
         const target = m.ward ?? t1?.id;

@@ -449,10 +449,16 @@ function pickCapabilityTargets(
     // Lot 1 : actifs à cible unique (le handler gère cadence/refus, ex. Aubergiste 1/2).
     case "physionomiste":
     case "photographe":
-    case "aubergiste": {
+    case "aubergiste":
+    // Lot 2 : le Garde-chasse patrouille une porte au hasard.
+    case "garde_chasse": {
       return [pickRandom(others)];
     }
     // ── Setup / passifs / continus : pas de ciblage actif
+    // (Bretteur/Conjuré : capacités 1×/partie à fort enjeu social — les bots ne
+    // les jouent pas, pour ne pas gaspiller/fausser les parties démo.)
+    case "bretteur":
+    case "conjure":
     case "archiviste":
     case "chat_du_manoir":
     case "oracle":
