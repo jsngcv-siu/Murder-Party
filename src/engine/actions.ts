@@ -2955,6 +2955,147 @@ export async function imprisonPlayer(
   return true;
 }
 
+// ── Pyromane (lot 5) : barème de victoire par taille de table ──
+// 2 morts par le feu (≤10 joueurs), 3 (11-15), 4 (16+). Plafond d'aspergés
+// vivants = barème + 1 (garde-fou anti « j'asperge tout le monde »).
+export function pyroThreshold(playerCount: number): number {
+  if (playerCount <= 10) return 2;
+  if (playerCount <= 15) return 3;
+  return 4;
+}
+
+// L'allumette du Pyromane (1×/partie, bouton dédié) : une intention ATTACK par
+// aspergé VIVANT et LIBRE (la cellule de pierre ne brûle pas). Les protections
+// s'appliquent normalement par cible à la résolution (Annonce).
+export async function pyromaneIgnite(
+  gameId: string,
+  meId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const { data: meRow } = await supabase
+    .from("players")
+    .select("id, pseudo, role_slug, is_alive, is_imprisoned, role_meta")
+    .eq("id", meId)
+    .single();
+  const me = meRow as PlayerRow | null;
+  if (!me || me.role_slug !== "pyromane") return { ok: false, message: "Réservé au Pyromane." };
+  if (!me.is_alive || me.is_imprisoned)
+    return { ok: false, message: "Impossible depuis la tombe ou la cellule." };
+  const mm = meta(me);
+  if (mm.pyro_ignited === true) return { ok: false, message: "Ton allumette est déjà craquée." };
+  const { data: g } = await supabase
+    .from("games")
+    .select("current_tour, current_phase")
+    .eq("id", gameId)
+    .single();
+  const game = g as { current_tour: number; current_phase: string } | null;
+  if (game?.current_phase !== "free")
+    return { ok: false, message: "L'allumette se craque pendant l'Enquête." };
+  const tour = game?.current_tour ?? 1;
+  const doused = (mm.pyro_doused as string[] | undefined) ?? [];
+  if (doused.length === 0)
+    return { ok: false, message: "Personne n'est aspergé — l'allumette attendra." };
+  const { data: ps } = await supabase
+    .from("players")
+    .select("id, pseudo, is_alive, is_imprisoned")
+    .eq("game_id", gameId)
+    .in("id", doused);
+  const targets = (
+    (ps ?? []) as Array<{ id: string; pseudo: string; is_alive: boolean; is_imprisoned: boolean }>
+  ).filter((p) => p.is_alive && !p.is_imprisoned);
+  if (targets.length === 0)
+    return { ok: false, message: "Aucun aspergé vivant et libre — l'allumette attendra." };
+  await patchMeta(me.id, { pyro_ignited: true });
+  for (const t of targets) {
+    await submitIntent({
+      gameId,
+      tour,
+      phase: "free",
+      actorId: me.id,
+      targetId: t.id,
+      category: "ATTACK",
+      timing: "DEFERRED",
+      source: "role:pyromane",
+      payload: { kill_reason: "pyromane", target_pseudo: t.pseudo },
+    });
+  }
+  await notifyMJ({
+    gameId,
+    type: "pyro_ignite",
+    title: "🔥 ALLUMETTE",
+    body: `${me.pseudo} (Pyromane) met le feu : ${targets.map((t) => t.pseudo).join(", ")} — résolution à l'Annonce.`,
+  });
+  return {
+    ok: true,
+    message: `🔥 L'allumette craque — ${targets.length} silhouette(s) s'embrasent à l'Annonce.`,
+  };
+}
+
+// ── Ventriloque (lot 5) : forge une lettre signée d'un AUTRE joueur ──
+// Reproduit à l'identique la forme d'une vraie lettre envoyée (items.ts case
+// "lettre") : nom, description, notification — indiscernable pour la victime.
+export async function ventriloqueForge(
+  gameId: string,
+  meId: string,
+  signerId: string,
+  recipientId: string,
+  message: string,
+): Promise<{ ok: boolean; message: string }> {
+  const raw = message.trim();
+  if (!raw) return { ok: false, message: "Écris le contenu de la lettre." };
+  const msg = raw.slice(0, 80);
+  if (signerId === recipientId)
+    return { ok: false, message: "Le signataire et le destinataire doivent différer." };
+  const { data: meRow } = await supabase
+    .from("players")
+    .select("id, pseudo, role_slug, is_alive, role_meta")
+    .eq("id", meId)
+    .single();
+  const me = meRow as PlayerRow | null;
+  if (!me || me.role_slug !== "ventriloque")
+    return { ok: false, message: "Réservé au Ventriloque." };
+  if (!me.is_alive) return { ok: false, message: "Les morts n'écrivent plus." };
+  if (meta(me).vent_used === true)
+    return { ok: false, message: "Ta plume a déjà servi — une seule contrefaçon par partie." };
+  const { data: sRow } = await supabase
+    .from("players")
+    .select("id, pseudo, is_alive")
+    .eq("id", signerId)
+    .single();
+  const { data: rRow } = await supabase
+    .from("players")
+    .select("id, pseudo, is_alive")
+    .eq("id", recipientId)
+    .single();
+  const signer = sRow as { id: string; pseudo: string; is_alive: boolean } | null;
+  const recipient = rRow as { id: string; pseudo: string; is_alive: boolean } | null;
+  if (!signer?.is_alive || !recipient?.is_alive)
+    return { ok: false, message: "Signataire et destinataire doivent être vivants." };
+  await patchMeta(me.id, { vent_used: true });
+  const { grantItem, buildItem } = await import("./items");
+  await grantItem(
+    recipient.id,
+    buildItem("lettre", {
+      from: signer.pseudo,
+      payload: { message: msg, sent: true, sent_to: recipient.pseudo, sender: signer.pseudo },
+      nameOverride: `Lettre de ${signer.pseudo}`,
+      descriptionOverride: `Une lettre de ${signer.pseudo}. Touche-la pour la lire.`,
+    }),
+  );
+  await notify({
+    gameId,
+    playerId: recipient.id,
+    type: "item_effect",
+    title: "📨 Nouvelle lettre",
+    body: `Tu as reçu une lettre de ${signer.pseudo}.`,
+    mjTitle: "🎙️ Ventriloque",
+    mjBody: `${me.pseudo} (Ventriloque) forge une lettre « de ${signer.pseudo} » pour ${recipient.pseudo} : « ${msg} »`,
+  });
+  return {
+    ok: true,
+    message: `🎙️ La lettre « signée ${signer.pseudo} » est partie chez ${recipient.pseudo}.`,
+  };
+}
+
 // ── Poltergeist (lot 4) : déplacement d'objet depuis l'au-delà ──
 // Appelé par le panneau dédié (PA2) du Poltergeist MORT. 1 déplacement par
 // Enquête. Silencieux pour la source ET le receveur (l'objet garde sa fiche
@@ -3944,6 +4085,35 @@ export async function executeCapability(opts: {
         return { ok: true, message: `🦅 ${t1.pseudo} était marqué par les voix — à l'Annonce.` };
       }
 
+      // ── Pyromane (lot 5) : asperge 1 joueur par Enquête (silencieux, plafonné) ──
+      // L'allumette (1×/partie) passe par pyromaneIgnite() — bouton dédié.
+      case "pyromane": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id) return { ok: false, message: "Tu ne t'asperges pas toi-même." };
+        const doused = (m.pyro_doused as string[] | undefined) ?? [];
+        if (doused.includes(t1.id))
+          return { ok: false, message: `${t1.pseudo} est déjà imbibé d'essence.` };
+        const realCount = opts.allPlayers.filter((p) => !p.is_mj).length;
+        const cap = pyroThreshold(realCount) + 1;
+        const activeDoused = doused.filter((id) =>
+          opts.allPlayers.some((p) => p.id === id && p.is_alive),
+        ).length;
+        if (activeDoused >= cap)
+          return {
+            ok: false,
+            message: `Ton bidon est à sec (${cap} aspergés vivants maximum).`,
+          };
+        await patchMeta(actor.id, { pyro_doused: [...doused, t1.id] });
+        await used({ effect: "pyro_douse", target: t1.id });
+        await notifyMJ({
+          gameId: opts.gameId,
+          type: "pyro_douse",
+          title: "🔥 Pyromane",
+          body: `${actor.pseudo} asperge ${t1.pseudo} (${activeDoused + 1}/${cap}).`,
+        });
+        return { ok: true, message: `🔥 ${t1.pseudo} est aspergé — il n'en sait rien.` };
+      }
+
       // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
       case "jardinier": {
         const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
@@ -4298,17 +4468,20 @@ export async function executeCapability(opts: {
         const { grantItem, buildItem } = await import("./items");
         await grantItem(
           t1.id,
+          // Lot 5 : la lettre vierge arrive toujours sans révéler le Facteur,
+          // mais son ENVOI sera signé du nom de l'expéditeur (plus d'anonymat).
           buildItem("lettre", {
             from: "Anonyme",
-            descriptionOverride: "Une lettre anonyme t'a été remise.",
+            descriptionOverride:
+              "Une lettre t'a été remise. Si tu l'envoies, elle arrivera SIGNÉE de ton nom.",
           }),
         );
         await notify({
           gameId: opts.gameId,
           playerId: t1.id,
           type: "letter",
-          title: "📨 Lettre anonyme",
-          body: "Une lettre anonyme vient d'apparaître dans ton inventaire.",
+          title: "📨 Une lettre",
+          body: "Une lettre vient d'apparaître dans ton inventaire. Ton envoi sera signé de ton nom.",
           mjTitle: "📨 Lettre",
           mjBody: `${actor.pseudo} (Facteur) dépose une lettre dans l'inventaire de ${t1.pseudo}.`,
         });

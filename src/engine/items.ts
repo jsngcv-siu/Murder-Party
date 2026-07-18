@@ -97,11 +97,13 @@ export const ITEM_CATALOG: Record<
     icon: "🔪",
     description: "Tue silencieusement une cible. Utilisable une seule fois.",
   },
+  // Lot 5 : les lettres ne sont plus anonymes — l'envoi arrive SIGNÉ de
+  // l'expéditeur (c'est ce qui rend crédible la contrefaçon du Ventriloque).
   lettre: {
     slug: "lettre",
-    name: "Lettre anonyme",
+    name: "Lettre",
     icon: "📨",
-    description: "Une lettre anonyme t'a été remise.",
+    description: "Une lettre à envoyer : elle arrivera signée de ton nom.",
   },
   relique: {
     slug: "relique",

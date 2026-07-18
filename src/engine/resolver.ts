@@ -607,6 +607,24 @@ async function applyAttack(
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
+  // ── Pyromane (lot 5) : chaque mort par le feu nourrit sa victoire (barème
+  // scalé lu par evaluateWin). Compté ICI, à la résolution — une cible protégée
+  // ou sauvée ne compte pas.
+  if (ok && intent.source === "role:pyromane") {
+    const { data: pyRow } = await supabase
+      .from("players")
+      .select("id, role_meta")
+      .eq("id", intent.actor_player_id)
+      .single();
+    const py = pyRow as { id: string; role_meta: unknown } | null;
+    if (py) {
+      const pm = getMeta(py as { role_meta?: unknown });
+      await supabase
+        .from("players")
+        .update({ role_meta: { ...pm, pyro_kills: (pm.pyro_kills ?? 0) + 1 } as never })
+        .eq("id", py.id);
+    }
+  }
   // ── Poltergeist (lot 4) : la victime est morte d'un objet déplacé depuis
   // l'au-delà → le fantôme tient sa co-victoire (drapeau lu par winConditions).
   if (ok && payload.polt_moved === true) {

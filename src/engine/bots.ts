@@ -457,7 +457,10 @@ function pickCapabilityTargets(
     case "franc_tireur":
     // Lot 4 : le Vautour tente une proie au hasard — le handler refuse les
     // non-votés (échec bénin, il retentera au tick suivant).
-    case "vautour": {
+    case "vautour":
+    // Lot 5 : le Pyromane asperge au hasard (l'allumette n'est jamais craquée
+    // par les bots — capacité 1×/partie à fort enjeu).
+    case "pyromane": {
       return [pickRandom(others)];
     }
     // ── Setup / passifs / continus : pas de ciblage actif
@@ -470,6 +473,8 @@ function pickCapabilityTargets(
     // Lot 4 : Geôlier (les bots ne chattent pas) et Poltergeist (post-mortem).
     case "geolier":
     case "poltergeist":
+    // Lot 5 : le Ventriloque compose du texte — hors de portée des bots.
+    case "ventriloque":
     case "archiviste":
     case "chat_du_manoir":
     case "oracle":

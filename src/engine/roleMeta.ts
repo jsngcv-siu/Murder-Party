@@ -104,6 +104,12 @@ export interface RoleMeta {
   polt_last_tour?: number;
   polt_moved?: string[]; // ids d'objets déplacés depuis l'au-delà
   polt_win?: boolean; // un mortel est mort d'un objet déplacé
+  // ─── Pyromane (lot 5) ───
+  pyro_doused?: string[]; // joueurs aspergés (silencieux)
+  pyro_ignited?: boolean; // allumette craquée (1×/partie)
+  pyro_kills?: number; // morts par le feu (compté à la résolution)
+  // ─── Ventriloque (lot 5) ───
+  vent_used?: boolean;
 }
 
 type MetaCarrier = { role_meta?: unknown } | null | undefined;

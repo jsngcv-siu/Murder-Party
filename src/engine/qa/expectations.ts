@@ -83,6 +83,9 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   geolier: "manipulate",
   poltergeist: "passive",
   vautour: "kill",
+  // ── Lot 5 (2026-07-18) ──
+  ventriloque: "manipulate",
+  pyromane: "kill",
 };
 
 function effectFor(role: RoleRow): EffectCategory {

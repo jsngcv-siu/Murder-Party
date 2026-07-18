@@ -13,6 +13,8 @@ import {
   armFrancTireurPierce,
   armDetrousseurBraquage,
   poltergeistMove,
+  pyromaneIgnite,
+  ventriloqueForge,
   type CapabilityResult,
   type RoleRow,
 } from "@/engine/actions";
@@ -43,6 +45,7 @@ import {
   Droplet,
   Eraser,
   Eye,
+  Flame,
   FlaskConical,
   Gift,
   Heart,
@@ -1355,6 +1358,12 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "poltergeist" && !me.is_alive && (
         <PoltergeistPanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
       )}
+      {myRole?.slug === "pyromane" && (
+        <PyromanePanel gameId={gameId} me={me} players={players} />
+      )}
+      {myRole?.slug === "ventriloque" && (
+        <VentriloquePanel gameId={gameId} me={me} players={players} />
+      )}
       {myRole?.slug === "jardinier" && (
         <PanelCard tone="amber" icon={Sprout} label="Les parterres">
           <div className="text-[11px] text-muted-foreground mb-2">
@@ -2386,6 +2395,8 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   franc_tireur: (t) => `Tu as visé ${t ?? "un joueur"}.`,
   geolier: (t) => `Tu as ouvert le parloir avec ${t ?? "un détenu"}.`,
   vautour: (t) => `Tu as charogné ${t ?? "un joueur"}.`,
+  pyromane: (t) => `Tu as aspergé ${t ?? "un joueur"}.`,
+  ventriloque: () => `Tu as forgé une lettre.`,
   oracle: (t) => (t ? `Tu as consulté ton oracle sur ${t}.` : `Tu as consulté ton oracle.`),
   paranoiaque: (t) => `Tu as scruté ${t ?? "un joueur"}.`,
   parieur_tricheur: () => `Tu as placé ton pari.`,
@@ -3337,6 +3348,184 @@ function PoltergeistPanel({
         </>
       )}
       {msg && <div className="mt-2 text-xs text-fuchsia-200">{msg}</div>}
+    </PanelCard>
+  );
+}
+
+// ───────── Pyromane (lot 5) : liste des aspergés + bouton ALLUMETTE (1×/partie)
+function PyromanePanel({
+  gameId,
+  me,
+  players,
+}: {
+  gameId: string;
+  me: import("@/engine/actions").PlayerRow;
+  players: import("@/engine/actions").PlayerRow[];
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const meMeta = (me.role_meta && typeof me.role_meta === "object" ? me.role_meta : {}) as Record<
+    string,
+    unknown
+  >;
+  const doused = (meMeta.pyro_doused as string[] | undefined) ?? [];
+  const ignited = meMeta.pyro_ignited === true;
+  const kills = (meMeta.pyro_kills as number | undefined) ?? 0;
+  const realCount = players.filter((p) => !p.is_mj).length;
+  const need = realCount <= 10 ? 2 : realCount <= 15 ? 3 : 4;
+  const dousedPlayers = doused
+    .map((id) => players.find((p) => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => !!p);
+  return (
+    <PanelCard
+      tone="rose"
+      icon={Flame}
+      label="Le bidon d'essence"
+      action={
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-500/18 text-rose-200">
+          {kills}/{need} 🔥
+        </span>
+      }
+    >
+      <div className="text-[11px] text-muted-foreground mb-2">
+        Objectif : {need} morts par le feu. Plafond : {need + 1} aspergés vivants.
+      </div>
+      {dousedPlayers.length === 0 ? (
+        <div className="text-xs text-muted-foreground italic mb-2">
+          Personne n'est encore aspergé — cible un joueur pendant l'Enquête.
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {dousedPlayers.map((p) => (
+            <span
+              key={p.id}
+              className={`px-2 py-1 rounded-md text-xs ring-1 ${
+                p.is_alive
+                  ? "bg-rose-500/15 ring-rose-400/40 text-rose-100"
+                  : "bg-card/40 ring-border text-muted-foreground line-through"
+              }`}
+            >
+              ⛽ {p.pseudo}
+            </span>
+          ))}
+        </div>
+      )}
+      {ignited ? (
+        <div className="text-sm text-rose-200">🔥 L'allumette est craquée — plus de retour.</div>
+      ) : (
+        <button
+          disabled={busy || dousedPlayers.filter((p) => p.is_alive).length === 0}
+          onClick={() => {
+            setBusy(true);
+            void pyromaneIgnite(gameId, me.id).then((r) => {
+              setMsg(r.message);
+              setBusy(false);
+            });
+          }}
+          className="h-11 w-full rounded-lg bg-rose-500/25 ring-1 ring-rose-400 text-rose-50 font-semibold disabled:opacity-40"
+        >
+          🔥 CRAQUER L'ALLUMETTE (1×/partie)
+        </button>
+      )}
+      {msg && <div className="mt-2 text-xs text-rose-200">{msg}</div>}
+    </PanelCard>
+  );
+}
+
+// ───────── Ventriloque (lot 5) : forge d'une lettre signée d'un autre joueur
+function VentriloquePanel({
+  gameId,
+  me,
+  players,
+}: {
+  gameId: string;
+  me: import("@/engine/actions").PlayerRow;
+  players: import("@/engine/actions").PlayerRow[];
+}) {
+  const [signerId, setSignerId] = useState<string>("");
+  const [recipientId, setRecipientId] = useState<string>("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const meMeta = (me.role_meta && typeof me.role_meta === "object" ? me.role_meta : {}) as Record<
+    string,
+    unknown
+  >;
+  const used = meMeta.vent_used === true;
+  const living = players.filter((p) => p.is_alive && !p.is_mj && p.id !== me.id);
+  if (used && !msg) {
+    return (
+      <PanelCard tone="rose" icon={Drama} label="La plume du Ventriloque">
+        <div className="text-sm text-muted-foreground">
+          Ta contrefaçon a été envoyée. La plume est rangée.
+        </div>
+      </PanelCard>
+    );
+  }
+  return (
+    <PanelCard tone="rose" icon={Drama} label="La plume du Ventriloque">
+      {msg ? (
+        <div className="text-sm text-rose-200">{msg}</div>
+      ) : (
+        <>
+          <div className="text-[11px] text-muted-foreground mb-2">
+            1×/partie : la lettre arrivera signée du nom choisi — indiscernable d'une vraie.
+          </div>
+          <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            Signée du nom de…
+          </label>
+          <select
+            value={signerId}
+            onChange={(e) => setSignerId(e.target.value)}
+            className="w-full h-10 rounded-lg bg-card/60 ring-1 ring-border px-2 text-sm mb-2"
+          >
+            <option value="">— choisir le signataire —</option>
+            {living
+              .filter((p) => p.id !== recipientId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.pseudo}
+                </option>
+              ))}
+          </select>
+          <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            Livrée à…
+          </label>
+          <select
+            value={recipientId}
+            onChange={(e) => setRecipientId(e.target.value)}
+            className="w-full h-10 rounded-lg bg-card/60 ring-1 ring-border px-2 text-sm mb-2"
+          >
+            <option value="">— choisir le destinataire —</option>
+            {living
+              .filter((p) => p.id !== signerId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.pseudo}
+                </option>
+              ))}
+          </select>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value.slice(0, 80))}
+            placeholder="Le contenu de la lettre (80 caractères max)…"
+            className="w-full h-20 rounded-lg bg-card/60 ring-1 ring-border p-2 text-sm mb-2 resize-none"
+          />
+          <button
+            disabled={busy || !signerId || !recipientId || !text.trim()}
+            onClick={() => {
+              setBusy(true);
+              void ventriloqueForge(gameId, me.id, signerId, recipientId, text).then((r) => {
+                setMsg(r.message);
+                setBusy(false);
+              });
+            }}
+            className="h-11 w-full rounded-lg bg-rose-500/25 ring-1 ring-rose-400 text-rose-50 font-semibold disabled:opacity-40"
+          >
+            🎙️ Envoyer la contrefaçon
+          </button>
+        </>
+      )}
     </PanelCard>
   );
 }

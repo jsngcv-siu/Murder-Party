@@ -259,6 +259,20 @@ export async function evaluateWin(gameId: string): Promise<WinResult | null> {
     }
   }
 
+  // Pyromane (lot 5) : victoire SOLO immédiate dès que le compte de morts par
+  // le feu atteint le barème (2 ≤10 j. / 3 en 11-15 / 4 à 16+) — s'il est
+  // vivant et libre pour signer son œuvre.
+  const pyromane = alive.find((p) => p.role_slug === "pyromane");
+  if (pyromane) {
+    const need = playerCount <= 10 ? 2 : playerCount <= 15 ? 3 : 4;
+    if ((getMeta(pyromane).pyro_kills ?? 0) >= need) {
+      return {
+        winner: "Pyromane",
+        reason: `${pyromane.pseudo} a réduit le manoir en cendres (${need} morts par le feu).`,
+      };
+    }
+  }
+
   // ── Vampires : seuls non-vampires éliminés ───────────────────────────────
   if (vampiresAlive >= 1 && nonVampAlive === 0) {
     return { winner: "Vampires", reason: "Les Vampires règnent sur le manoir." };
@@ -338,6 +352,7 @@ const LONE_WINNER_LABEL: Record<string, string> = {
   veuve_noire: "Veuve noire",
   parieur_tricheur: "Parieur tricheur",
   conservateur: "Conservateur",
+  pyromane: "Pyromane",
 };
 
 export async function checkAndEndGame(gameId: string): Promise<WinResult | null> {
