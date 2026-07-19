@@ -54,7 +54,7 @@ const STATUS_BADGE: Record<string, { icon: LucideIcon; label: string; tone: Tone
       icon: FlaskConical,
       label: "Empoisonné",
       tone: "emerald",
-      desc: "Un poison sourd coule en toi. Il ne te tuera pas — mais tant que tu le portes, tu sers le dessein de l'Empoisonneur.",
+      desc: "Un poison sourd coule en toi. Il ne te tuera pas — mais tant que tu le portes, tu sers le dessein de l'Empoisonneur. Une Fiole de vie ou un soin l'efface.",
     },
     blocked: {
       icon: Ban,

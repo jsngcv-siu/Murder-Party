@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { SplitText } from "gsap/SplitText";
 import type { FrameContext } from "../registry";
-import { evaluateWin, type WinResult } from "@/engine/winConditions";
+import {
+  evaluateWin,
+  benignSurvivorCoWinners,
+  entremetteurSurvivorCoWinners,
+  photographeCoWinners,
+  poltergeistCoWinners,
+  type WinResult,
+} from "@/engine/winConditions";
 import { supabase } from "@/integrations/supabase/client";
 import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
@@ -123,6 +130,21 @@ const THEMES: Record<string, VictoryTheme> = {
     headerBg: "linear-gradient(to bottom, oklch(0.33 0.14 88 / 0.5), transparent)",
     motion: "fall",
   },
+  Pyromane: {
+    title: "Le Pyromane embrase le manoir",
+    // Orange braise (hue ~45) — chaud et crépitant, distinct du rouge Méchants
+    // (~22) et de l'ambre Conservateur (~70).
+    accent: "oklch(0.70 0.19 45)",
+    accentSoft: "oklch(0.70 0.19 45 / 0.18)",
+    titleColor: "oklch(0.76 0.19 50)",
+    pageBg: "radial-gradient(ellipse at top, oklch(0.30 0.15 40 / 0.65), oklch(0.10 0.03 30) 72%)",
+    headerBg: "linear-gradient(to bottom, oklch(0.34 0.16 42 / 0.55), transparent)",
+    motion: "rise",
+    pulse: "breathe",
+    glow: "oklch(0.68 0.20 45 / 0.55)",
+    vignette: "oklch(0.05 0.04 35)",
+    particleCount: 22,
+  },
   Conservateur: {
     title: "Le Conservateur garde le Manoir",
     accent: "oklch(0.80 0.15 70)",
@@ -169,6 +191,8 @@ function emblemRolesFor(winner: string, roles: Map<string, RoleRow>): RoleRow[] 
       return pick("parieur_tricheur");
     case "Conservateur":
       return pick("conservateur");
+    case "Pyromane":
+      return pick("pyromane");
     case "Neutres":
       return ofFaction("Neutre");
     default: {
@@ -247,6 +271,12 @@ function computeGroups(
         return typeof m.linked_with === "string";
       });
       if (lovers.length) groups.push({ label: "Les Amoureux", players: lovers, tone: mainTone });
+      // L'Entremetteur vivant et libre co-gagne avec son couple (evaluateWin :
+      // « survivent ensemble avec l'Entremetteur ») — il mérite sa carte.
+      const ent = real.filter(
+        (p) => p.role_slug === "entremetteur" && p.is_alive && !p.is_imprisoned,
+      );
+      if (ent.length) groups.push({ label: "L'Entremetteur", players: ent, tone: "text-pink-200" });
       break;
     }
     case "Veuve noire": {
@@ -273,6 +303,12 @@ function computeGroups(
       if (v.length) groups.push({ label: "Le Conservateur", players: v, tone: mainTone });
       break;
     }
+    case "Pyromane": {
+      mainTone = "text-orange-300";
+      const v = real.filter((p) => p.role_slug === "pyromane");
+      if (v.length) groups.push({ label: "Le Pyromane", players: v, tone: mainTone });
+      break;
+    }
     default: {
       // Fallback générique : si winner == nom d'un pseudo / faction inconnue
       const named = real.filter((p) => p.role_slug && roles.get(p.role_slug)?.name_fr === winner);
@@ -287,6 +323,39 @@ function computeGroups(
       players: oracleWinners,
       tone: "text-fuchsia-300",
     });
+  }
+
+  // ── Co-vainqueurs neutres — mêmes sélecteurs que le moteur (winConditions.ts,
+  // wrappers de checkAndEndGame) : tout ce qui est appendu au `reason` doit
+  // aussi avoir sa carte. Garde anti-doublon : si le co-vainqueur EST déjà le
+  // camp principal (filet « dernier survivant » → winner = name_fr du rôle),
+  // son groupe existe déjà sous le même label.
+  const coWins: Array<{ label: string; sel: PlayerRow[]; tone: string }> = [
+    {
+      label: "Le Chat du Manoir",
+      sel: benignSurvivorCoWinners(players, "chat_du_manoir"),
+      tone: "text-amber-200",
+    },
+    {
+      label: "L'Aubergiste",
+      sel: benignSurvivorCoWinners(players, "aubergiste"),
+      tone: "text-orange-200",
+    },
+    { label: "Le Photographe mondain", sel: photographeCoWinners(players), tone: "text-sky-300" },
+    { label: "Le Poltergeist", sel: poltergeistCoWinners(players), tone: "text-violet-300" },
+    // Repli survie de l'Entremetteur (couple brisé) — la victoire dure
+    // « Amoureux » est déjà couverte dans le switch (sélecteur → [] si couple intact).
+    {
+      label: "L'Entremetteur",
+      sel: entremetteurSurvivorCoWinners(players),
+      tone: "text-pink-200",
+    },
+  ];
+  for (const cw of coWins) {
+    if (cw.sel.length === 0) continue;
+    const isMainWinner = roles.get(cw.sel[0].role_slug ?? "")?.name_fr === winner;
+    if (isMainWinner || groups.some((g) => g.label === cw.label)) continue;
+    groups.push({ label: cw.label, players: cw.sel, tone: cw.tone });
   }
 
   return { groups, tone: mainTone };

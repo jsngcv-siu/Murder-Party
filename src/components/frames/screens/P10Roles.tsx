@@ -3,6 +3,7 @@
 import { useMemo, useState, type ElementType } from "react";
 import type { FrameContext } from "../registry";
 import { RoleIcon } from "@/components/RoleIcon";
+import { highlightCapacity } from "@/lib/highlightCapacity";
 import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
 import {
   Shield,
@@ -214,7 +215,7 @@ export function P10Roles({ roles }: FrameContext) {
             <div>
               <div className="text-[10px] uppercase text-muted-foreground mb-1">Capacité</div>
               <p className="whitespace-pre-wrap rounded bg-card border border-border p-3 text-sm">
-                {detail.capacite_full_text}
+                {highlightCapacity(detail.capacite_full_text, "dark")}
               </p>
             </div>
             {(() => {

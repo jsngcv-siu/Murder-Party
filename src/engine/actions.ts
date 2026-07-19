@@ -167,6 +167,10 @@ export function parseTotalLimit(role: RoleRow, playerCount: number): number {
   if (role.slug === "cleaner") return playerCount >= 10 ? 2 : 1;
   // Mouchard : 1×/partie active (capacité au lieu de l'auto-révélation au setup).
   if (role.slug === "mouchard") return 1;
+  // Bretteur : une 2ᵉ parade à partir des grandes tables (11+ joueurs), où les
+  // tueurs sont plus nombreux (décision Jason 2026-07-18). AVANT le test
+  // « 1×/partie » générique pour que son libellé n'écrase pas le scaling.
+  if (role.slug === "bretteur") return playerCount >= 11 ? 2 : 1;
   if (/1×\/partie/i.test(lbl)) return 1;
   const maxMatch = lbl.match(/max\s*(\d+)/i);
   if (maxMatch) return parseInt(maxMatch[1], 10);
@@ -1403,12 +1407,14 @@ async function resolveCycleTransition(gameId: string) {
     );
     for (const cb of contrebandiers) {
       const { grantItem, buildItem } = await import("./items");
+      // Tirage ÉQUITABLE : 20 % chaque objet (décision Jason 2026-07-18 —
+      // l'ancienne pondération rare/commun est abandonnée).
       const MALLE: Array<{ slug: Parameters<typeof buildItem>[0]; w: number }> = [
-        { slug: "rhum_contrebande", w: 30 },
-        { slug: "monocle_douanier", w: 25 },
+        { slug: "rhum_contrebande", w: 20 },
+        { slug: "monocle_douanier", w: 20 },
         { slug: "gilet_matelasse", w: 20 },
-        { slug: "passe_partout", w: 15 },
-        { slug: "double_fond", w: 10 },
+        { slug: "passe_partout", w: 20 },
+        { slug: "double_fond", w: 20 },
       ];
       const total = MALLE.reduce((s, e) => s + e.w, 0);
       let r = Math.random() * total;
@@ -2966,9 +2972,15 @@ export function pyroThreshold(playerCount: number): number {
   return 4;
 }
 
-// L'allumette du Pyromane (1×/partie, bouton dédié) : une intention ATTACK par
-// aspergé VIVANT et LIBRE (la cellule de pierre ne brûle pas). Les protections
-// s'appliquent normalement par cible à la résolution (Annonce).
+// Cooldown de l'allumette : 2 tours pleins entre deux flammes. Craquée au
+// tour T → re-disponible au tour T+3 (ex. T2 → T5). L'aspersion, elle,
+// continue à chaque Enquête pendant le cooldown.
+export const PYRO_IGNITE_COOLDOWN = 3;
+
+// L'allumette du Pyromane (illimitée, cooldown 2 tours, bouton dédié) : une
+// intention ATTACK par aspergé VIVANT et LIBRE (la cellule de pierre ne brûle
+// pas). Les protections s'appliquent normalement par cible à la résolution
+// (Annonce).
 export async function pyromaneIgnite(
   gameId: string,
   meId: string,
@@ -2983,7 +2995,6 @@ export async function pyromaneIgnite(
   if (!me.is_alive || me.is_imprisoned)
     return { ok: false, message: "Impossible depuis la tombe ou la cellule." };
   const mm = meta(me);
-  if (mm.pyro_ignited === true) return { ok: false, message: "Ton allumette est déjà craquée." };
   const { data: g } = await supabase
     .from("games")
     .select("current_tour, current_phase")
@@ -2993,6 +3004,13 @@ export async function pyromaneIgnite(
   if (game?.current_phase !== "free")
     return { ok: false, message: "L'allumette se craque pendant l'Enquête." };
   const tour = game?.current_tour ?? 1;
+  // Cooldown : 2 tours pleins sans flamme (T → re-dispo à T+3).
+  const lastIgnite = mm.pyro_ignite_last_tour as number | undefined;
+  if (lastIgnite != null && tour < lastIgnite + PYRO_IGNITE_COOLDOWN)
+    return {
+      ok: false,
+      message: `La boîte d'allumettes est vide — nouvelle flamme au tour ${lastIgnite + PYRO_IGNITE_COOLDOWN}.`,
+    };
   const doused = (mm.pyro_doused as string[] | undefined) ?? [];
   if (doused.length === 0)
     return { ok: false, message: "Personne n'est aspergé — l'allumette attendra." };
@@ -3006,7 +3024,7 @@ export async function pyromaneIgnite(
   ).filter((p) => p.is_alive && !p.is_imprisoned);
   if (targets.length === 0)
     return { ok: false, message: "Aucun aspergé vivant et libre — l'allumette attendra." };
-  await patchMeta(me.id, { pyro_ignited: true });
+  await patchMeta(me.id, { pyro_ignite_last_tour: tour });
   for (const t of targets) {
     await submitIntent({
       gameId,
@@ -3969,7 +3987,10 @@ export async function executeCapability(opts: {
         return { ok: true, message: `🌲 Tu patrouilles devant chez ${t1.pseudo} cette nuit.` };
       }
 
-      // ── Bretteur (lot 2) : 1×/partie, garde levée pour CE tour ──
+      // ── Bretteur (lot 2) : garde levée pour CE tour. Nombre de parades scalé
+      // par table (parseTotalLimit : 1, ou 2 à 11+ joueurs) — le total est
+      // enforced par whyCannotUse (« Capacité épuisée »). On empêche seulement de
+      // relever la garde deux fois DANS le même tour (gaspillage).
       // La parade vit dans applyAttack : attaque échouée + attaquant embroché.
       case "bretteur": {
         if ((m.bretteur_guard_cycle as number | undefined) === opts.tour)
@@ -3985,39 +4006,44 @@ export async function executeCapability(opts: {
         return { ok: true, message: "🤺 Garde levée : quiconque t'attaque cette nuit s'embroche." };
       }
 
-      // ── Conjuré (lot 2) : pacte d'assassinat — cible (t1) + complice (t2) ──
+      // ── Conjuré (lot 2) : pacte d'assassinat — COMPLICE (t1) puis VICTIME (t2).
+      // Ordre UI acté par Jason 2026-07-18 : le 1er joueur choisi est le complice,
+      // le 2e la victime (les chips du sélecteur affichent COMPLICE/VICTIME).
       // Le complice reçoit une demande ANONYME (meta pact_offer + panneau dédié) ;
       // sa réponse passe par respondPact(). Le pacte est dépensé dès la proposition.
       case "conjure": {
-        if (!t1 || !t2) return { ok: false, message: "Choisis la victime PUIS le complice." };
-        if (t1.id === actor.id || t2.id === actor.id)
-          return { ok: false, message: "Tu ne peux être ni la victime ni le complice." };
-        if (t1.id === t2.id)
-          return { ok: false, message: "La victime et le complice doivent être distincts." };
+        const complice = t1;
+        const victime = t2;
+        if (!complice || !victime)
+          return { ok: false, message: "Choisis ton COMPLICE puis la VICTIME." };
+        if (complice.id === actor.id || victime.id === actor.id)
+          return { ok: false, message: "Tu ne peux être ni le complice ni la victime." };
+        if (complice.id === victime.id)
+          return { ok: false, message: "Le complice et la victime doivent être distincts." };
         if (m.pact_spent === true)
           return { ok: false, message: "Ton unique pacte est déjà joué." };
         await patchMeta(actor.id, { pact_spent: true });
-        await patchMeta(t2.id, {
+        await patchMeta(complice.id, {
           pact_offer: {
             from: actor.id,
-            target_id: t1.id,
-            target_pseudo: t1.pseudo,
+            target_id: victime.id,
+            target_pseudo: victime.pseudo,
             tour: opts.tour,
           },
         });
-        await used({ effect: "pact_offer", target: t1.id });
+        await used({ effect: "pact_offer", target: victime.id });
         await notify({
           gameId: opts.gameId,
-          playerId: t2.id,
+          playerId: complice.id,
           type: "pact_offer",
           title: "🤝 Une proposition murmurée",
-          body: `Quelqu'un te propose un pacte : la mort de ${t1.pseudo}. Réponds depuis ton onglet Capacité.`,
+          body: `Quelqu'un te propose un pacte : la mort de ${victime.pseudo}. Réponds depuis ton onglet Capacité.`,
           mjTitle: "🤝 Conjuré",
-          mjBody: `${actor.pseudo} (Conjuré) propose à ${t2.pseudo} d'assassiner ${t1.pseudo}.`,
+          mjBody: `${actor.pseudo} (Conjuré) propose à ${complice.pseudo} d'assassiner ${victime.pseudo}.`,
         });
         return {
           ok: true,
-          message: `🤝 Pacte proposé à ${t2.pseudo} contre ${t1.pseudo} — attends sa réponse.`,
+          message: `🤝 Pacte proposé à ${complice.pseudo} contre ${victime.pseudo} — attends sa réponse.`,
         };
       }
 
@@ -4116,51 +4142,57 @@ export async function executeCapability(opts: {
         return { ok: true, message: `🔥 ${t1.pseudo} est aspergé — il n'en sait rien.` };
       }
 
-      // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
+      // ── Jardinier (refonte 2026-07-18) : 1×/Enquête, cible 1 joueur et
+      // DUPLIQUE son dernier objet reçu. La cible garde son objet ; le Jardinier
+      // reçoit une COPIE (nouvel id, même nature/payload). Silencieux pour la
+      // cible — seul le Jardinier et le MJ sont notifiés.
       case "jardinier": {
-        const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
-        const lootable: Array<{ owner: PlayerRow; idx: number; item: Record<string, unknown> }> =
-          [];
-        for (const d of deads) {
-          const inv =
-            ((meta(d).inventory as Array<Record<string, unknown>> | undefined) ?? []).map(
-              (it, idx) => ({ owner: d, idx, item: it }),
-            );
-          for (const e of inv) if (e.item.consumed !== true) lootable.push(e);
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas te dupliquer à toi-même." };
+        // Relit l'inventaire de la cible en LIVE (il a pu changer ce tour).
+        const { data: tFresh } = await supabase
+          .from("players")
+          .select("role_meta")
+          .eq("id", t1.id)
+          .single();
+        const tInv =
+          ((tFresh as { role_meta: unknown } | null)?.role_meta as Record<string, unknown> | null)
+            ?.inventory as Array<Record<string, unknown>> | undefined;
+        // « Dernier objet reçu » = le plus récent non consommé (grantItem empile
+        // en tête → inventory[0]).
+        const last = (tInv ?? []).find((it) => it.consumed !== true);
+        if (!last) {
+          await used({ effect: "garden_empty", target: t1.id });
+          return { ok: true, message: `🌱 ${t1.pseudo} n'a aucun objet à bouturer.` };
         }
-        if (lootable.length === 0) {
-          await used({ effect: "rake_empty" });
-          return { ok: true, message: "🌱 Rien dans les parterres — les morts n'ont rien laissé." };
-        }
-        const pick = lootable[Math.floor(Math.random() * lootable.length)];
-        const ownerInv =
-          (meta(pick.owner).inventory as Array<Record<string, unknown>> | undefined) ?? [];
-        await patchMeta(pick.owner.id, {
-          inventory: ownerInv.filter((_, i) => i !== pick.idx),
-        });
-        const myInv = (m.inventory as Array<Record<string, unknown>> | undefined) ?? [];
-        const found = {
-          ...pick.item,
-          received_from: pick.owner.pseudo,
+        const copy = {
+          ...last,
+          id: crypto.randomUUID(),
+          received_from: t1.pseudo,
           received_at: new Date().toISOString(),
+          duplicated: true,
         };
-        await patchMeta(actor.id, { inventory: [found, ...myInv] });
-        const itemName = (pick.item.name as string | undefined) ?? "un objet";
-        await used({ effect: "rake_loot", target: pick.owner.id, item: pick.item.slug });
+        const myInv = (m.inventory as Array<Record<string, unknown>> | undefined) ?? [];
+        await patchMeta(actor.id, { inventory: [copy, ...myInv] });
+        const itemName = (last.name as string | undefined) ?? "un objet";
+        await used({ effect: "garden_dupe", target: t1.id, item: last.slug });
         await notify({
           gameId: opts.gameId,
           playerId: actor.id,
-          type: "rake_loot",
-          title: "🌱 Trouvaille",
-          body: `En ratissant, tu déterres ${itemName} (appartenait à ${pick.owner.pseudo}).`,
+          type: "garden_dupe",
+          title: "🌱 Bouture réussie",
+          body: `Tu dupliques ${itemName} (dernier objet de ${t1.pseudo}). L'original lui reste.`,
           mjTitle: "🌱 Jardinier",
-          mjBody: `${actor.pseudo} (Jardinier) récupère ${itemName} sur ${pick.owner.pseudo}.`,
+          mjBody: `${actor.pseudo} (Jardinier) duplique ${itemName} depuis ${t1.pseudo}.`,
         });
-        return { ok: true, message: `🌱 Tu déterres ${itemName}.` };
+        return { ok: true, message: `🌱 Tu obtiens une copie de ${itemName}.` };
       }
 
-      // ── Détrousseur (lot 3, killer-class) : tue + empoche le dernier objet.
-      // Braquage 1×/partie (armé via armDetrousseurBraquage) : rafle TOUT l'inventaire.
+      // ── Détrousseur (lot 3, killer-class) : tue 1 cible par Enquête, SANS
+      // vol. Le pillage n'existe qu'en braquage 1×/partie (armé via
+      // armDetrousseurBraquage) : ce kill-là rafle TOUT l'inventaire
+      // (décision Jason 2026-07-18 — plus de « dernier objet » à chaque kill).
       case "detrousseur": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te détrousser." };
@@ -4179,7 +4211,7 @@ export async function executeCapability(opts: {
             kill_reason: "detrousseur",
             target_pseudo: t1.pseudo,
             mechant_mechanic: true,
-            loot: braquage ? "all" : "last",
+            ...(braquage ? { loot: "all" } : {}),
           },
         });
         await used({ effect: braquage ? "detrousse_braquage" : "detrousse", target: t1.id });
@@ -4187,7 +4219,7 @@ export async function executeCapability(opts: {
           ok: true,
           message: braquage
             ? `💰 Braquage sur ${t1.pseudo} — mort ET malle raflée à l'Annonce.`
-            : `💰 ${t1.pseudo} : mort + dernier objet empoché à l'Annonce.`,
+            : `🗡️ ${t1.pseudo} dans ta ligne de mire — à l'Annonce.`,
         };
       }
 
@@ -5078,12 +5110,19 @@ export async function executeCapability(opts: {
         return { ok: true, message: `${t1.pseudo} = ${label}` };
       }
 
-      // ── Physionomiste (lot 1) : révèle le TYPE de rôle (jamais le rôle exact) ──
+      // ── Physionomiste (lot 1, Méchant) & Portraitiste (jumeau Civil) : révèlent
+      // le TYPE de rôle (jamais le rôle exact). Même moteur, saveur distincte.
       // Mêmes règles de brouillage que le Mouchard : falsification → rien ;
       // déguisements NON percés (l'Usurpateur ressort sous le type de sa couverture).
+      case "portraitiste":
       case "physionomiste": {
+        const isPortrait = role.slug === "portraitiste";
         if (!t1) return { ok: false, message: "Cible requise" };
-        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te dévisager." };
+        if (t1.id === actor.id)
+          return {
+            ok: false,
+            message: isPortrait ? "Pas d'autoportrait." : "Tu ne peux pas te dévisager.",
+          };
         if (isFalsified(meta(t1))) {
           await used({ effect: "physio_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
@@ -5095,10 +5134,12 @@ export async function executeCapability(opts: {
           gameId: opts.gameId,
           playerId: actor.id,
           type: "physio_reveal",
-          title: "🧐 Physionomiste",
-          body: `${t1.pseudo} a le profil d'un rôle ${typeLabel}.`,
-          mjTitle: "🧐 Physionomiste",
-          mjBody: `${actor.pseudo} (Physionomiste) jauge ${t1.pseudo} → type ${typeLabel}.`,
+          title: isPortrait ? "🎨 Portraitiste" : "🧐 Physionomiste",
+          body: isPortrait
+            ? `Ton croquis de ${t1.pseudo} révèle un profil de rôle ${typeLabel}.`
+            : `${t1.pseudo} a le profil d'un rôle ${typeLabel}.`,
+          mjTitle: isPortrait ? "🎨 Portraitiste" : "🧐 Physionomiste",
+          mjBody: `${actor.pseudo} (${role.name_fr}) jauge ${t1.pseudo} → type ${typeLabel}.`,
         });
         return { ok: true, message: `${t1.pseudo} : type ${typeLabel}` };
       }
@@ -5223,9 +5264,11 @@ export async function executeCapability(opts: {
             const { grantItem, buildItem } = await import("./items");
             await grantItem(
               witness.id,
+              // Contour ROUGE (origine Méchant) : cet indice-là sent le sang —
+              // il se distingue des indices jaunes du Système (demande Jason).
               buildItem("indice", {
                 from: "Manoir",
-                originFaction: "Système",
+                originFaction: "Méchant",
                 nameOverride: "Indice — le Tueur démasqué",
                 descriptionOverride: `Dans le chaos du bain de sang, tu as reconnu le Tueur : c'est ${actor.pseudo}.`,
               }),

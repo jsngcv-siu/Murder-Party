@@ -146,9 +146,8 @@ function withOracleWinners(result, players) {
     reason: `${result.reason} (\u{1F52E} Oracle ${winners.map((w) => w.pseudo).join(", ")} a vu juste.)`
   };
 }
-function withEntremetteurWinner(result, players) {
-  if (!result.winner) return result;
-  const survivors = players.filter((p) => {
+function entremetteurSurvivorCoWinners(players) {
+  return players.filter((p) => {
     if (p.role_slug !== "entremetteur") return false;
     if (!p.is_alive || p.is_imprisoned) return false;
     const pair = getMeta(p).linked_pair ?? [];
@@ -157,6 +156,31 @@ function withEntremetteurWinner(result, players) {
     const coupleIntact = lovers.length === 2 && lovers.every((q) => q.is_alive && !q.is_imprisoned);
     return !coupleIntact;
   });
+}
+function benignSurvivorCoWinners(players, slug) {
+  return players.filter((p) => p.role_slug === slug && p.is_alive && !p.is_mj);
+}
+function photographeCoWinners(players) {
+  const real = players.filter((p) => !p.is_mj && getMeta(p).immortal !== true);
+  const need = photographeThreshold(real.length);
+  return real.filter((p) => {
+    if (p.role_slug !== "photographe" || !p.is_alive) return false;
+    const film = getMeta(p).photos ?? [];
+    const deadOnFilm = film.filter((ph) => {
+      const subject = players.find((q) => q.id === ph.id);
+      return subject != null && !subject.is_alive;
+    }).length;
+    return deadOnFilm >= need;
+  });
+}
+function poltergeistCoWinners(players) {
+  return players.filter(
+    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true
+  );
+}
+function withEntremetteurWinner(result, players) {
+  if (!result.winner) return result;
+  const survivors = entremetteurSurvivorCoWinners(players);
   if (survivors.length === 0) return result;
   return {
     winner: result.winner,
@@ -171,7 +195,7 @@ function withBenignSurvivorWinners(result, players) {
   };
   let reason = result.reason;
   for (const [slug, label] of Object.entries(LABELS)) {
-    const survivors = players.filter((p) => p.role_slug === slug && p.is_alive && !p.is_mj);
+    const survivors = benignSurvivorCoWinners(players, slug);
     if (survivors.length > 0) {
       reason = `${reason} (${label} ${survivors.map((w) => w.pseudo).join(", ")} a surv\xE9cu \u2014 victoire aussi.)`;
     }
@@ -185,17 +209,7 @@ function photographeThreshold(playerCount) {
 }
 function withPhotographeWinners(result, players) {
   if (!result.winner) return result;
-  const real = players.filter((p) => !p.is_mj && getMeta(p).immortal !== true);
-  const need = photographeThreshold(real.length);
-  const winners = real.filter((p) => {
-    if (p.role_slug !== "photographe" || !p.is_alive) return false;
-    const film = getMeta(p).photos ?? [];
-    const deadOnFilm = film.filter((ph) => {
-      const subject = players.find((q) => q.id === ph.id);
-      return subject != null && !subject.is_alive;
-    }).length;
-    return deadOnFilm >= need;
-  });
+  const winners = photographeCoWinners(players);
   if (winners.length === 0) return result;
   return {
     winner: result.winner,
@@ -204,9 +218,7 @@ function withPhotographeWinners(result, players) {
 }
 function withPoltergeistWinners(result, players) {
   if (!result.winner) return result;
-  const winners = players.filter(
-    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true
-  );
+  const winners = poltergeistCoWinners(players);
   if (winners.length === 0) return result;
   return {
     winner: result.winner,
@@ -766,14 +778,13 @@ async function applyAttack(intent, killer) {
       });
     }
   }
-  if (ok && intent.source === "role:detrousseur") {
-    const lootMode = payload.loot === "all" ? "all" : "last";
+  if (ok && intent.source === "role:detrousseur" && payload.loot === "all") {
     const { data: vRow } = await supabase.from("players").select("role_meta, pseudo").eq("id", targetId).single();
     const vMetaAll = vRow?.role_meta ?? {};
     const vInv = vMetaAll.inventory ?? [];
     const lootable = vInv.filter((it) => it.consumed !== true);
     if (lootable.length > 0) {
-      const taken = lootMode === "all" ? lootable : [lootable[0]];
+      const taken = lootable;
       const keep = vInv.filter((it) => !taken.includes(it));
       await supabase.from("players").update({ role_meta: { ...vMetaAll, inventory: keep } }).eq("id", targetId);
       const { data: aRow } = await supabase.from("players").select("role_meta").eq("id", intent.actor_player_id).single();
@@ -792,10 +803,10 @@ async function applyAttack(intent, killer) {
         gameId: intent.game_id,
         playerId: intent.actor_player_id,
         type: "detrousse_loot",
-        title: lootMode === "all" ? "\u{1F4B0} Braquage complet" : "\u{1F4B0} Butin empoch\xE9",
-        body: lootMode === "all" ? `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).` : `Tu empoches le dernier objet de ${vPseudo}.`,
+        title: "\u{1F4B0} Braquage complet",
+        body: `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).`,
         mjTitle: "\u{1F4B0} D\xE9trousseur",
-        mjBody: `Le D\xE9trousseur pille ${vPseudo} (${stamped.length} objet(s), mode ${lootMode}).`
+        mjBody: `Le D\xE9trousseur braque ${vPseudo} (${stamped.length} objet(s) rafl\xE9s).`
       });
     }
   }
@@ -1311,6 +1322,11 @@ async function consumeItem(opts) {
   if (item.consumed) return { ok: false, message: "Objet d\xE9j\xE0 utilis\xE9." };
   if (itemNeedsTarget(item.slug, item.payload) === "single" && !target)
     return { ok: false, message: "Cible requise" };
+  const { data: gameRow } = await supabase.from("games").select("current_phase, status").eq("id", gameId).maybeSingle();
+  const gp = gameRow;
+  if (gp && gp.status === "ended") return { ok: false, message: "Partie termin\xE9e." };
+  if (gp && gp.current_phase !== "free")
+    return { ok: false, message: "Les objets ne s'utilisent que pendant l'Enqu\xEAte." };
   const { data: actorRow } = await supabase.from("players").select("role_meta").eq("id", actorId).maybeSingle();
   const actorMeta = actorRow?.role_meta ?? {};
   const lastItemUseTour = actorMeta.last_item_use_cycle ?? -1;
@@ -1331,7 +1347,7 @@ async function consumeItem(opts) {
   switch (item.slug) {
     case "lettre": {
       if (!target) {
-        message = "Cible requise pour la lettre anonyme.";
+        message = "Cible requise pour la lettre.";
         break;
       }
       const raw = String(item.payload?.message ?? "").trim();
@@ -1353,6 +1369,8 @@ async function consumeItem(opts) {
       );
       message = `\u{1F4E8} Lettre envoy\xE9e \xE0 ${target.pseudo}.`;
       item.payload = { ...item.payload ?? {}, message: msg, sent: true, sent_to: target.pseudo };
+      item.name = "Lettre envoy\xE9e";
+      item.description = `Ta lettre envoy\xE9e \xE0 ${target.pseudo}. Touche-la pour la relire.`;
       break;
     }
     // ── La Malle du Contrebandier (lot 3) ──
@@ -1662,9 +1680,10 @@ var init_items = __esm({
       // l'expéditeur (c'est ce qui rend crédible la contrefaçon du Ventriloque).
       lettre: {
         slug: "lettre",
-        name: "Lettre",
+        // Nom court : lisible en entier sur l'étiquette de l'inventaire (pas de « … »).
+        name: "Lettre \xE0 envoyer",
         icon: "\u{1F4E8}",
-        description: "Une lettre \xE0 envoyer : elle arrivera sign\xE9e de ton nom."
+        description: "Une lettre \xE0 envoyer au joueur de ton choix : elle arrivera SIGN\xC9E de ton nom."
       },
       relique: {
         slug: "relique",
@@ -1718,64 +1737,64 @@ var init_items = __esm({
         icon: "\u{1FAC0}",
         weight: 5,
         effect: "special_win",
-        description: "Relique ultime \u2014 si tu la r\xE9v\xE8les, le Conservateur remporte la partie. Tout le monde perd."
+        description: "Relique ultime. Utilise-la pour la r\xE9v\xE9ler : le Conservateur gagne imm\xE9diatement la partie \u2014 tous les autres perdent."
       },
       oeil_damnation: {
         name: "L'\u0152il de la Damnation",
         icon: "\u{1F441}\uFE0F",
         weight: 4,
         effect: "reveal_random",
-        description: "R\xE9v\xE8le le r\xF4le d'un joueur au hasard."
+        description: "Utilise-le : le r\xF4le exact d'un joueur AU HASARD t'est r\xE9v\xE9l\xE9."
       },
       medaillon_vieux_maitre: {
         name: "Le M\xE9daillon du Vieux Ma\xEEtre",
         icon: "\u{1F3C5}",
         weight: 4,
         effect: "protect_self",
-        description: "Te prot\xE8ge pendant 1 tour entier."
+        description: "Utilise-le : tu es prot\xE9g\xE9 de toute attaque pendant 1 tour entier."
       },
       lettre_scellee: {
         name: "La Lettre Scell\xE9e",
         icon: "\u2709\uFE0F",
         weight: 4,
         effect: "block_target",
-        description: "Bloque la capacit\xE9 d'un joueur cibl\xE9 pendant 1 tour."
+        description: "Utilise-la sur un joueur : sa capacit\xE9 est bloqu\xE9e pendant 1 tour."
       },
       miroir_minuit: {
         name: "Le Miroir de Minuit",
         icon: "\u{1FA9E}",
         weight: 10,
-        description: "Un reflet glac\xE9, sans pouvoir. Pure beaut\xE9 maudite."
+        description: "Sans pouvoir \u2014 un reflet glac\xE9, pure pi\xE8ce de collection."
       },
       clef_aile_interdite: {
         name: "La Cl\xE9 de l'Aile Interdite",
         icon: "\u{1F5DD}\uFE0F",
         weight: 12,
-        description: "Elle n'ouvre plus rien \u2014 ou alors plus rien d'utile."
+        description: "Sans pouvoir \u2014 elle n'ouvre plus rien d'utile."
       },
       poupee_grenier: {
         name: "La poup\xE9e du grenier",
         icon: "\u{1FA86}",
         weight: 14,
-        description: "Elle te regarde fixement. Aucune capacit\xE9."
+        description: "Sans pouvoir \u2014 elle te regarde fixement, c'est tout."
       },
       lettre_oubliee: {
         name: "La Lettre Oubli\xE9e",
         icon: "\u{1F4DC}",
         weight: 16,
-        description: "Une lettre jamais lue, jamais envoy\xE9e. Aucun effet."
+        description: "Sans pouvoir \u2014 une lettre jamais lue, jamais envoy\xE9e."
       },
       portrait_dame_blanche: {
         name: "Le Portrait de la Dame Blanche",
         icon: "\u{1F5BC}\uFE0F",
         weight: 17.5,
-        description: "Son regard te suit. C'est tout."
+        description: "Sans pouvoir \u2014 son regard te suit, rien de plus."
       },
       bougie_des_ames: {
         name: "La Bougie des \xC2mes",
         icon: "\u{1F56F}\uFE0F",
         weight: 13.5,
-        description: "Sa flamme vacille \u2014 sans r\xE9elle utilit\xE9."
+        description: "Sans pouvoir \u2014 sa flamme vacille, sans utilit\xE9."
       }
     };
     RELIQUES_WITH_EFFECT = /* @__PURE__ */ new Set([
@@ -1902,17 +1921,17 @@ function buildFragment(alive, rolesBySlug) {
         halfB: "\u2026le m\xEAme type de r\xF4le."
       };
     },
-    // arme → porteur (Cuisinier / Stratège ont un couteau au setup)
+    // arme → porteur : ne cite QUE des rôles réellement armés au setup
+    // (SETUP_ARMED). Phrasé sans exclusivité (« quelqu'un est armé… c'est X »)
+    // pour rester vrai même si plusieurs joueurs détiennent une lame.
     () => {
-      const armed = withRole.filter(
-        (p) => p.role_slug === "cuisinier" || p.role_slug === "stratege"
-      );
+      const armed = withRole.filter((p) => p.role_slug && SETUP_ARMED.has(p.role_slug));
       if (!armed.length) return null;
       const x = pick(armed);
       return {
         subjects: [x.id],
-        halfA: "Celui qui d\xE9tient une\u2026",
-        halfB: `\u2026arme, c'est ${x.pseudo}.`
+        halfA: "Quelqu'un est arm\xE9 d\xE8s le d\xE9part\u2026",
+        halfB: `\u2026il s'agit de ${x.pseudo}.`
       };
     }
   ];
@@ -1969,7 +1988,7 @@ function distributeIndices(alive, rolesBySlug) {
   }
   return grants;
 }
-var INDICE_PROPS, FRAGMENT_CHANCE, ALWAYS_PRESENT, POWER_CIVILS;
+var INDICE_PROPS, FRAGMENT_CHANCE, ALWAYS_PRESENT, POWER_CIVILS, SETUP_ARMED;
 var init_indices = __esm({
   "src/engine/indices.ts"() {
     "use strict";
@@ -1996,8 +2015,11 @@ var init_indices = __esm({
       "juge",
       "guetteur",
       "boussole",
-      "facteur"
+      "facteur",
+      "portraitiste"
+      // ajout 2026-07-18 : lit le TYPE des rôles, forte info civile
     ]);
+    SETUP_ARMED = /* @__PURE__ */ new Set(["cuisinier", "vautour"]);
   }
 });
 
@@ -2005,6 +2027,7 @@ var init_indices = __esm({
 var actions_exports = {};
 __export(actions_exports, {
   PHASE_DURATIONS: () => PHASE_DURATIONS,
+  PYRO_IGNITE_COOLDOWN: () => PYRO_IGNITE_COOLDOWN,
   SCHEDULES_NEXT_TOUR: () => SCHEDULES_NEXT_TOUR,
   addBotPlayer: () => addBotPlayer,
   addBotPlayers: () => addBotPlayers,
@@ -2136,6 +2159,7 @@ function parseTotalLimit(role, playerCount) {
   const lbl = role.usage_label ?? "";
   if (role.slug === "cleaner") return playerCount >= 10 ? 2 : 1;
   if (role.slug === "mouchard") return 1;
+  if (role.slug === "bretteur") return playerCount >= 11 ? 2 : 1;
   if (/1×\/partie/i.test(lbl)) return 1;
   const maxMatch = lbl.match(/max\s*(\d+)/i);
   if (maxMatch) return parseInt(maxMatch[1], 10);
@@ -2924,11 +2948,11 @@ async function resolveCycleTransition(gameId) {
     for (const cb of contrebandiers) {
       const { grantItem: grantItem2, buildItem: buildItem2 } = await Promise.resolve().then(() => (init_items(), items_exports));
       const MALLE = [
-        { slug: "rhum_contrebande", w: 30 },
-        { slug: "monocle_douanier", w: 25 },
+        { slug: "rhum_contrebande", w: 20 },
+        { slug: "monocle_douanier", w: 20 },
         { slug: "gilet_matelasse", w: 20 },
-        { slug: "passe_partout", w: 15 },
-        { slug: "double_fond", w: 10 }
+        { slug: "passe_partout", w: 20 },
+        { slug: "double_fond", w: 20 }
       ];
       const total = MALLE.reduce((s, e) => s + e.w, 0);
       let r = Math.random() * total;
@@ -3964,12 +3988,17 @@ async function pyromaneIgnite(gameId, meId) {
   if (!me.is_alive || me.is_imprisoned)
     return { ok: false, message: "Impossible depuis la tombe ou la cellule." };
   const mm = meta(me);
-  if (mm.pyro_ignited === true) return { ok: false, message: "Ton allumette est d\xE9j\xE0 craqu\xE9e." };
   const { data: g } = await supabase.from("games").select("current_tour, current_phase").eq("id", gameId).single();
   const game = g;
   if (game?.current_phase !== "free")
     return { ok: false, message: "L'allumette se craque pendant l'Enqu\xEAte." };
   const tour = game?.current_tour ?? 1;
+  const lastIgnite = mm.pyro_ignite_last_tour;
+  if (lastIgnite != null && tour < lastIgnite + PYRO_IGNITE_COOLDOWN)
+    return {
+      ok: false,
+      message: `La bo\xEEte d'allumettes est vide \u2014 nouvelle flamme au tour ${lastIgnite + PYRO_IGNITE_COOLDOWN}.`
+    };
   const doused = mm.pyro_doused ?? [];
   if (doused.length === 0)
     return { ok: false, message: "Personne n'est asperg\xE9 \u2014 l'allumette attendra." };
@@ -3977,7 +4006,7 @@ async function pyromaneIgnite(gameId, meId) {
   const targets = (ps ?? []).filter((p) => p.is_alive && !p.is_imprisoned);
   if (targets.length === 0)
     return { ok: false, message: "Aucun asperg\xE9 vivant et libre \u2014 l'allumette attendra." };
-  await patchMeta(me.id, { pyro_ignited: true });
+  await patchMeta(me.id, { pyro_ignite_last_tour: tour });
   for (const t of targets) {
     await submitIntent({
       gameId,
@@ -4663,7 +4692,10 @@ async function executeCapability(opts) {
         });
         return { ok: true, message: `\u{1F332} Tu patrouilles devant chez ${t1.pseudo} cette nuit.` };
       }
-      // ── Bretteur (lot 2) : 1×/partie, garde levée pour CE tour ──
+      // ── Bretteur (lot 2) : garde levée pour CE tour. Nombre de parades scalé
+      // par table (parseTotalLimit : 1, ou 2 à 11+ joueurs) — le total est
+      // enforced par whyCannotUse (« Capacité épuisée »). On empêche seulement de
+      // relever la garde deux fois DANS le même tour (gaspillage).
       // La parade vit dans applyAttack : attaque échouée + attaquant embroché.
       case "bretteur": {
         if (m.bretteur_guard_cycle === opts.tour)
@@ -4678,39 +4710,44 @@ async function executeCapability(opts) {
         });
         return { ok: true, message: "\u{1F93A} Garde lev\xE9e : quiconque t'attaque cette nuit s'embroche." };
       }
-      // ── Conjuré (lot 2) : pacte d'assassinat — cible (t1) + complice (t2) ──
+      // ── Conjuré (lot 2) : pacte d'assassinat — COMPLICE (t1) puis VICTIME (t2).
+      // Ordre UI acté par Jason 2026-07-18 : le 1er joueur choisi est le complice,
+      // le 2e la victime (les chips du sélecteur affichent COMPLICE/VICTIME).
       // Le complice reçoit une demande ANONYME (meta pact_offer + panneau dédié) ;
       // sa réponse passe par respondPact(). Le pacte est dépensé dès la proposition.
       case "conjure": {
-        if (!t1 || !t2) return { ok: false, message: "Choisis la victime PUIS le complice." };
-        if (t1.id === actor.id || t2.id === actor.id)
-          return { ok: false, message: "Tu ne peux \xEAtre ni la victime ni le complice." };
-        if (t1.id === t2.id)
-          return { ok: false, message: "La victime et le complice doivent \xEAtre distincts." };
+        const complice = t1;
+        const victime = t2;
+        if (!complice || !victime)
+          return { ok: false, message: "Choisis ton COMPLICE puis la VICTIME." };
+        if (complice.id === actor.id || victime.id === actor.id)
+          return { ok: false, message: "Tu ne peux \xEAtre ni le complice ni la victime." };
+        if (complice.id === victime.id)
+          return { ok: false, message: "Le complice et la victime doivent \xEAtre distincts." };
         if (m.pact_spent === true)
           return { ok: false, message: "Ton unique pacte est d\xE9j\xE0 jou\xE9." };
         await patchMeta(actor.id, { pact_spent: true });
-        await patchMeta(t2.id, {
+        await patchMeta(complice.id, {
           pact_offer: {
             from: actor.id,
-            target_id: t1.id,
-            target_pseudo: t1.pseudo,
+            target_id: victime.id,
+            target_pseudo: victime.pseudo,
             tour: opts.tour
           }
         });
-        await used({ effect: "pact_offer", target: t1.id });
+        await used({ effect: "pact_offer", target: victime.id });
         await notify({
           gameId: opts.gameId,
-          playerId: t2.id,
+          playerId: complice.id,
           type: "pact_offer",
           title: "\u{1F91D} Une proposition murmur\xE9e",
-          body: `Quelqu'un te propose un pacte : la mort de ${t1.pseudo}. R\xE9ponds depuis ton onglet Capacit\xE9.`,
+          body: `Quelqu'un te propose un pacte : la mort de ${victime.pseudo}. R\xE9ponds depuis ton onglet Capacit\xE9.`,
           mjTitle: "\u{1F91D} Conjur\xE9",
-          mjBody: `${actor.pseudo} (Conjur\xE9) propose \xE0 ${t2.pseudo} d'assassiner ${t1.pseudo}.`
+          mjBody: `${actor.pseudo} (Conjur\xE9) propose \xE0 ${complice.pseudo} d'assassiner ${victime.pseudo}.`
         });
         return {
           ok: true,
-          message: `\u{1F91D} Pacte propos\xE9 \xE0 ${t2.pseudo} contre ${t1.pseudo} \u2014 attends sa r\xE9ponse.`
+          message: `\u{1F91D} Pacte propos\xE9 \xE0 ${complice.pseudo} contre ${victime.pseudo} \u2014 attends sa r\xE9ponse.`
         };
       }
       // ── Geôlier (lot 4) : ouvre le parloir avec un prisonnier ──
@@ -4797,47 +4834,47 @@ async function executeCapability(opts) {
         });
         return { ok: true, message: `\u{1F525} ${t1.pseudo} est asperg\xE9 \u2014 il n'en sait rien.` };
       }
-      // ── Jardinier (lot 3) : ratisse — récupère 1 objet AU HASARD d'un mort ──
+      // ── Jardinier (refonte 2026-07-18) : 1×/Enquête, cible 1 joueur et
+      // DUPLIQUE son dernier objet reçu. La cible garde son objet ; le Jardinier
+      // reçoit une COPIE (nouvel id, même nature/payload). Silencieux pour la
+      // cible — seul le Jardinier et le MJ sont notifiés.
       case "jardinier": {
-        const deads = opts.allPlayers.filter((p) => !p.is_alive && !p.is_mj);
-        const lootable = [];
-        for (const d of deads) {
-          const inv = (meta(d).inventory ?? []).map(
-            (it, idx) => ({ owner: d, idx, item: it })
-          );
-          for (const e of inv) if (e.item.consumed !== true) lootable.push(e);
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (t1.id === actor.id)
+          return { ok: false, message: "Tu ne peux pas te dupliquer \xE0 toi-m\xEAme." };
+        const { data: tFresh } = await supabase.from("players").select("role_meta").eq("id", t1.id).single();
+        const tInv = tFresh?.role_meta?.inventory;
+        const last = (tInv ?? []).find((it) => it.consumed !== true);
+        if (!last) {
+          await used({ effect: "garden_empty", target: t1.id });
+          return { ok: true, message: `\u{1F331} ${t1.pseudo} n'a aucun objet \xE0 bouturer.` };
         }
-        if (lootable.length === 0) {
-          await used({ effect: "rake_empty" });
-          return { ok: true, message: "\u{1F331} Rien dans les parterres \u2014 les morts n'ont rien laiss\xE9." };
-        }
-        const pick2 = lootable[Math.floor(Math.random() * lootable.length)];
-        const ownerInv = meta(pick2.owner).inventory ?? [];
-        await patchMeta(pick2.owner.id, {
-          inventory: ownerInv.filter((_, i) => i !== pick2.idx)
-        });
-        const myInv = m.inventory ?? [];
-        const found = {
-          ...pick2.item,
-          received_from: pick2.owner.pseudo,
-          received_at: (/* @__PURE__ */ new Date()).toISOString()
+        const copy = {
+          ...last,
+          id: crypto.randomUUID(),
+          received_from: t1.pseudo,
+          received_at: (/* @__PURE__ */ new Date()).toISOString(),
+          duplicated: true
         };
-        await patchMeta(actor.id, { inventory: [found, ...myInv] });
-        const itemName = pick2.item.name ?? "un objet";
-        await used({ effect: "rake_loot", target: pick2.owner.id, item: pick2.item.slug });
+        const myInv = m.inventory ?? [];
+        await patchMeta(actor.id, { inventory: [copy, ...myInv] });
+        const itemName = last.name ?? "un objet";
+        await used({ effect: "garden_dupe", target: t1.id, item: last.slug });
         await notify({
           gameId: opts.gameId,
           playerId: actor.id,
-          type: "rake_loot",
-          title: "\u{1F331} Trouvaille",
-          body: `En ratissant, tu d\xE9terres ${itemName} (appartenait \xE0 ${pick2.owner.pseudo}).`,
+          type: "garden_dupe",
+          title: "\u{1F331} Bouture r\xE9ussie",
+          body: `Tu dupliques ${itemName} (dernier objet de ${t1.pseudo}). L'original lui reste.`,
           mjTitle: "\u{1F331} Jardinier",
-          mjBody: `${actor.pseudo} (Jardinier) r\xE9cup\xE8re ${itemName} sur ${pick2.owner.pseudo}.`
+          mjBody: `${actor.pseudo} (Jardinier) duplique ${itemName} depuis ${t1.pseudo}.`
         });
-        return { ok: true, message: `\u{1F331} Tu d\xE9terres ${itemName}.` };
+        return { ok: true, message: `\u{1F331} Tu obtiens une copie de ${itemName}.` };
       }
-      // ── Détrousseur (lot 3, killer-class) : tue + empoche le dernier objet.
-      // Braquage 1×/partie (armé via armDetrousseurBraquage) : rafle TOUT l'inventaire.
+      // ── Détrousseur (lot 3, killer-class) : tue 1 cible par Enquête, SANS
+      // vol. Le pillage n'existe qu'en braquage 1×/partie (armé via
+      // armDetrousseurBraquage) : ce kill-là rafle TOUT l'inventaire
+      // (décision Jason 2026-07-18 — plus de « dernier objet » à chaque kill).
       case "detrousseur": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te d\xE9trousser." };
@@ -4856,13 +4893,13 @@ async function executeCapability(opts) {
             kill_reason: "detrousseur",
             target_pseudo: t1.pseudo,
             mechant_mechanic: true,
-            loot: braquage ? "all" : "last"
+            ...braquage ? { loot: "all" } : {}
           }
         });
         await used({ effect: braquage ? "detrousse_braquage" : "detrousse", target: t1.id });
         return {
           ok: true,
-          message: braquage ? `\u{1F4B0} Braquage sur ${t1.pseudo} \u2014 mort ET malle rafl\xE9e \xE0 l'Annonce.` : `\u{1F4B0} ${t1.pseudo} : mort + dernier objet empoch\xE9 \xE0 l'Annonce.`
+          message: braquage ? `\u{1F4B0} Braquage sur ${t1.pseudo} \u2014 mort ET malle rafl\xE9e \xE0 l'Annonce.` : `\u{1F5E1}\uFE0F ${t1.pseudo} dans ta ligne de mire \u2014 \xE0 l'Annonce.`
         };
       }
       // ── Franc-tireur (lot 3, killer-class) : tue ; balle perforante 1×/partie
@@ -5654,12 +5691,19 @@ async function executeCapability(opts) {
         });
         return { ok: true, message: `${t1.pseudo} = ${label}` };
       }
-      // ── Physionomiste (lot 1) : révèle le TYPE de rôle (jamais le rôle exact) ──
+      // ── Physionomiste (lot 1, Méchant) & Portraitiste (jumeau Civil) : révèlent
+      // le TYPE de rôle (jamais le rôle exact). Même moteur, saveur distincte.
       // Mêmes règles de brouillage que le Mouchard : falsification → rien ;
       // déguisements NON percés (l'Usurpateur ressort sous le type de sa couverture).
+      case "portraitiste":
       case "physionomiste": {
+        const isPortrait = role.slug === "portraitiste";
         if (!t1) return { ok: false, message: "Cible requise" };
-        if (t1.id === actor.id) return { ok: false, message: "Tu ne peux pas te d\xE9visager." };
+        if (t1.id === actor.id)
+          return {
+            ok: false,
+            message: isPortrait ? "Pas d'autoportrait." : "Tu ne peux pas te d\xE9visager."
+          };
         if (isFalsified(meta(t1))) {
           await used({ effect: "physio_falsified", target: t1.id });
           return { ok: true, message: FALSIFIED_MSG };
@@ -5671,10 +5715,10 @@ async function executeCapability(opts) {
           gameId: opts.gameId,
           playerId: actor.id,
           type: "physio_reveal",
-          title: "\u{1F9D0} Physionomiste",
-          body: `${t1.pseudo} a le profil d'un r\xF4le ${typeLabel}.`,
-          mjTitle: "\u{1F9D0} Physionomiste",
-          mjBody: `${actor.pseudo} (Physionomiste) jauge ${t1.pseudo} \u2192 type ${typeLabel}.`
+          title: isPortrait ? "\u{1F3A8} Portraitiste" : "\u{1F9D0} Physionomiste",
+          body: isPortrait ? `Ton croquis de ${t1.pseudo} r\xE9v\xE8le un profil de r\xF4le ${typeLabel}.` : `${t1.pseudo} a le profil d'un r\xF4le ${typeLabel}.`,
+          mjTitle: isPortrait ? "\u{1F3A8} Portraitiste" : "\u{1F9D0} Physionomiste",
+          mjBody: `${actor.pseudo} (${role.name_fr}) jauge ${t1.pseudo} \u2192 type ${typeLabel}.`
         });
         return { ok: true, message: `${t1.pseudo} : type ${typeLabel}` };
       }
@@ -5773,9 +5817,11 @@ async function executeCapability(opts) {
             const { grantItem: grantItem2, buildItem: buildItem2 } = await Promise.resolve().then(() => (init_items(), items_exports));
             await grantItem2(
               witness.id,
+              // Contour ROUGE (origine Méchant) : cet indice-là sent le sang —
+              // il se distingue des indices jaunes du Système (demande Jason).
               buildItem2("indice", {
                 from: "Manoir",
-                originFaction: "Syst\xE8me",
+                originFaction: "M\xE9chant",
                 nameOverride: "Indice \u2014 le Tueur d\xE9masqu\xE9",
                 descriptionOverride: `Dans le chaos du bain de sang, tu as reconnu le Tueur : c'est ${actor.pseudo}.`
               })
@@ -6139,7 +6185,7 @@ async function resetGame(gameId) {
   }).eq("id", gameId);
   emit("reset", "\u267B\uFE0F Partie r\xE9initialis\xE9e");
 }
-var listeners, meta, PHASE_IDX, SCHEDULES_NEXT_TOUR, FALSIFIED_MSG, PHASE_DURATIONS, TICK_LOCK_TTL_MS, _tickInFlight, MAX_TICK_TRANSITIONS, BOT_PSEUDOS_POOL, BOT_AVATAR_COUNT;
+var listeners, meta, PHASE_IDX, SCHEDULES_NEXT_TOUR, FALSIFIED_MSG, PHASE_DURATIONS, TICK_LOCK_TTL_MS, _tickInFlight, MAX_TICK_TRANSITIONS, PYRO_IGNITE_COOLDOWN, BOT_PSEUDOS_POOL, BOT_AVATAR_COUNT;
 var init_actions = __esm({
   "src/engine/actions.ts"() {
     "use strict";
@@ -6175,6 +6221,7 @@ var init_actions = __esm({
     TICK_LOCK_TTL_MS = 3e4;
     _tickInFlight = /* @__PURE__ */ new Map();
     MAX_TICK_TRANSITIONS = 6;
+    PYRO_IGNITE_COOLDOWN = 3;
     BOT_PSEUDOS_POOL = [
       "Bot Alice",
       "Bot Bob",

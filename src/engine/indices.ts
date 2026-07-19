@@ -57,7 +57,15 @@ const POWER_CIVILS = new Set([
   "guetteur",
   "boussole",
   "facteur",
+  "portraitiste", // ajout 2026-07-18 : lit le TYPE des rôles, forte info civile
 ]);
+
+// Rôles qui détiennent une arme DÈS LE SETUP (couteau posé au démarrage). Source
+// de vérité pour le fragment « arme → porteur ». ⚠️ Le Stratège a été RETIRÉ
+// (refonte : il ne reçoit plus rien au setup) ; le Vautour a été AJOUTÉ (couteau
+// de départ au tour 1). Un indice sur une arme inexistante casserait le contrat
+// « toujours vrai » (audit 2026-07-18).
+const SETUP_ARMED = new Set(["cuisinier", "vautour"]);
 
 function shuffle<T>(arr: readonly T[]): T[] {
   const a = [...arr];
@@ -185,17 +193,17 @@ function buildFragment(
         halfB: "…le même type de rôle.",
       };
     },
-    // arme → porteur (Cuisinier / Stratège ont un couteau au setup)
+    // arme → porteur : ne cite QUE des rôles réellement armés au setup
+    // (SETUP_ARMED). Phrasé sans exclusivité (« quelqu'un est armé… c'est X »)
+    // pour rester vrai même si plusieurs joueurs détiennent une lame.
     () => {
-      const armed = withRole.filter(
-        (p) => p.role_slug === "cuisinier" || p.role_slug === "stratege",
-      );
+      const armed = withRole.filter((p) => p.role_slug && SETUP_ARMED.has(p.role_slug));
       if (!armed.length) return null;
       const x = pick(armed);
       return {
         subjects: [x.id],
-        halfA: "Celui qui détient une…",
-        halfB: `…arme, c'est ${x.pseudo}.`,
+        halfA: "Quelqu'un est armé dès le départ…",
+        halfB: `…il s'agit de ${x.pseudo}.`,
       };
     },
   ];

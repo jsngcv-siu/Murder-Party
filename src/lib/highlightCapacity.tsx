@@ -47,11 +47,12 @@ const wordStems = (arr: string[]) => `(?<![\\p{L}])(?:${arr.join("|")})\\p{L}*`;
 const CAPACITY_RE = new RegExp(
   [
     // Fréquence / timing (unités composées) — priorité maximale
-    `(?<freq>\\d+\\s*×\\s*\\/\\s*(?:jour|partie|phase\\s*libre|enquête|rassemblement|débat|tour|cycle)(?:\\s*max)?|(?:une|deux|trois|quatre|\\d+)\\s+fois\\s+par\\s+(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|partie|jour)|à\\s+chaque\\s+(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|jour)|à\\s+la\\s+première\\s+(?:phase\\s*libre|enquête)|au\\s+premier\\s+(?:rassemblement|débat|tour)|au\\s+setup|cooldown\\s*\\d*|\\bpermanent\\b|\\bsetup\\b)`,
+    // « fois par X » ET « fois dans la partie » (formulation des rôles 1×/partie).
+    `(?<freq>\\d+\\s*×\\s*\\/\\s*(?:jour|partie|phase\\s*libre|enquête|rassemblement|débat|tour|cycle)(?:\\s*max)?|(?:une|deux|trois|quatre|\\d+)\\s+fois\\s+(?:par|dans)\\s+(?:la\\s+|le\\s+)?(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|partie|jour)|à\\s+chaque\\s+(?:phase\\s*libre|enquête|rassemblement|débat|tour|cycle|jour)|à\\s+la\\s+première\\s+(?:phase\\s*libre|enquête)|au\\s+premier\\s+(?:rassemblement|débat|tour)|au\\s+setup|cooldown\\s*\\d*|\\bpermanent\\b|\\bsetup\\b)`,
     `(?<kill>${wordStems(["tuer", "tue", "tué", "tués", "tuée", "tuées", "élimin", "meur", "mort", "exécut", "décès", "abat"])})`,
     `(?<guard>${wordStems(["protège", "protég", "protection", "soign", "bouclier", "immunit", "béni", "bénit", "annul", "sauv", "veille"])})`,
     `(?<info>${wordStems(["apprend", "découvr", "connaît", "conna", "révèl", "révél", "examin", "vérifi", "enquêt", "identité", "prophéti", "inspect"])})`,
-    `(?<subvert>${wordStems(["converti", "convertit", "infect", "empoisonn", "manipul", "déguis", "falsifi", "envoût"])})`,
+    `(?<subvert>${wordStems(["converti", "convertit", "infect", "empoisonn", "manipul", "déguis", "falsifi", "envoût", "signé", "sign", "forge", "forgé", "contrefa", "imit"])})`,
     `(?<control>${wordStems(["bloqu", "emprisonn", "prison", "suspect", "suspici", "chantage", "verrouill", "piège"])})`,
     `(?<civil>${wordStems(["citoyen", "civil"])})`,
     `(?<mechant>${wordStems(["méchant", "mechant"])})`,

@@ -24,6 +24,9 @@ export function itemIconKey(item: Pick<Item, "slug" | "payload">): string {
     const variant = item.payload?.variant as ReliqueVariant | undefined;
     if (variant) return variant;
   }
+  // Indice FRAGMENTÉ (moitié de lettre déchirée) : icône dédiée « bout de papier
+  // coupé » pour le distinguer d'un coup d'œil des indices simples (puzzle).
+  if (item.slug === "indice" && item.payload?.fragment === true) return "indice_fragment";
   return item.slug;
 }
 

@@ -2337,20 +2337,29 @@ export function GazetteCard({
 
   // Morsure de vampire / éveil du Chasseur — cadre illustré dédié : fond
   // d'ambiance (image) net à droite, fondu vers la gauche sous le texte.
-  if (event.variant === "bite" || event.variant === "chasseur") {
-    const isBite = event.variant === "bite";
-    const img = isBite ? "/annonces/morsure.jpg" : "/annonces/chasseur.jpg";
-    const base = isBite ? "26,10,24" : "20,15,10";
-    const border = isBite ? "#4a1440" : "#4a3410";
-    const headColor = isBite ? "#f0a6e0" : "#f4c877";
-    const bodyColor = isBite ? "#e6c4de" : "#e9d3ac";
+  if (event.variant === "bite" || event.variant === "chasseur" || event.variant === "cat") {
+    // Cadre illustré par variante (fond peint net à droite, fondu sombre à gauche).
+    const IMG: Record<string, { img: string; base: string; border: string; head: string; body: string }> = {
+      bite: { img: "/annonces/morsure.jpg", base: "26,10,24", border: "#4a1440", head: "#f0a6e0", body: "#e6c4de" },
+      chasseur: { img: "/annonces/chasseur.jpg", base: "20,15,10", border: "#4a3410", head: "#f4c877", body: "#e9d3ac" },
+      // Chat du Manoir : chat NOIR → cadre très sombre, nuit bleutée, accents froids.
+      cat: { img: "/annonces/chat.webp", base: "12,14,26", border: "#2a3350", head: "#c9d4f0", body: "#dfe4f2" },
+    };
+    const v = IMG[event.variant as string];
+    const img = v.img;
+    const base = v.base;
+    const border = v.border;
+    const headColor = v.head;
+    const bodyColor = v.body;
     return (
       <div
         className="gz-item"
         style={{
           position: "relative",
           overflow: "hidden",
-          minHeight: 104,
+          // Événements MINEURS (morsure/chasseur) : cadre moins épais que les
+          // majeurs mort/prison/libéré (~102) — décision Jason 2026-07-18.
+          minHeight: 84,
           borderRadius: 6,
           background: `rgb(${base})`,
           border: `1px solid ${border}`,
@@ -2406,55 +2415,113 @@ export function GazetteCard({
     );
   }
 
-  // special — événement rare du MJ (morsure, émergence du Chasseur…)
+  // special — événement du Manoir (indices, miaulement…) : même DA que les
+  // cadres illustrés (bord, rayon, typo display), en épaisseur MINEURE (84).
+  // À droite : l'icône webp de l'indice (variant "indice" — l'intention se lit
+  // d'un coup d'œil), sinon l'icône lucide de l'événement dans une pastille.
+  const isIndice = event.variant === "indice";
+  // Palette : les indices prennent un ton AMBRE/BEIGE chaud (accord avec la pièce
+  // de puzzle, demande Jason) ; les autres événements gardent le rouge du Manoir.
+  const pal = isIndice
+    ? {
+        base: "rgb(44,34,14)",
+        border: "#6f571f",
+        glow: "radial-gradient(circle at 86% 50%, rgba(232,190,96,.30), rgba(44,34,14,0) 62%)",
+        head: "#e9c877",
+        body: "#f4e7c4",
+      }
+    : {
+        base: "rgb(40,10,15)",
+        border: "#5a1826",
+        glow: "radial-gradient(circle at 86% 50%, rgba(224,86,63,.22), rgba(40,10,15,0) 62%)",
+        head: "#e9a18d",
+        body: "#ffe7c2",
+      };
   return (
     <div
       className="gz-item"
       style={{
         position: "relative",
-        background: "linear-gradient(160deg,#6e1320,#511019)",
-        borderRadius: 3,
-        padding: "9px 11px",
-        boxShadow: "0 8px 16px -10px rgba(0,0,0,.7)",
+        overflow: "hidden",
+        minHeight: 84,
+        borderRadius: 6,
+        background: pal.base,
+        border: `1px solid ${pal.border}`,
+        boxShadow: "0 10px 22px -10px rgba(0,0,0,.8)",
       }}
     >
-      <span style={{ position: "absolute", top: -4, left: 14 }}>
-        <Pin size={9} light />
-      </span>
+      {/* Zone illustration à droite + fondu vers la gauche sous le texte. */}
       <div
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: 7,
-          letterSpacing: ".16em",
-          color: "#e9a18d",
-        }}
-      >
-        ★ ÉVÉNEMENT DU MANOIR
-      </div>
-      <div
-        style={{ fontSize: 12, color: "#ffe7c2", marginTop: 3, paddingRight: 28, lineHeight: 1.25 }}
-      >
-        {event.text}
-      </div>
-      <span
+        aria-hidden
         style={{
           position: "absolute",
-          right: -7,
-          bottom: -8,
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "radial-gradient(circle at 36% 30%,#e0563f,#9e1f2e 72%)",
-          boxShadow: "0 4px 9px -3px rgba(0,0,0,.6),inset 0 0 0 2px rgba(255,255,255,.14)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          transform: "rotate(-8deg)",
+          inset: 0,
+          background: pal.glow,
         }}
-      >
-        🦇
-      </span>
+      />
+      {isIndice ? (
+        <img
+          src="/icons/icon-objet/indice.webp"
+          alt=""
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: 6,
+            top: "50%",
+            width: 72,
+            height: 72,
+            transform: "translateY(-50%) rotate(-8deg)",
+            filter: "drop-shadow(0 6px 10px rgba(0,0,0,.55))",
+          }}
+        />
+      ) : (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: 14,
+            top: "50%",
+            transform: "translateY(-50%) rotate(-6deg)",
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "radial-gradient(circle at 36% 30%,#e0563f,#9e1f2e 72%)",
+            boxShadow: "0 4px 9px -3px rgba(0,0,0,.6),inset 0 0 0 2px rgba(255,255,255,.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#ffe7c2",
+          }}
+        >
+          {event.icon}
+        </span>
+      )}
+      {/* Mêmes gabarits typo que les cadres illustrés : libellé 10.5 / phrase 16. */}
+      <div style={{ position: "relative", padding: "15px 17px", paddingRight: isIndice ? 84 : 68 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 10.5,
+            letterSpacing: ".12em",
+            fontWeight: 700,
+            lineHeight: 1.1,
+            color: "#e9a18d",
+          }}
+        >
+          {event.heading ?? "★ ÉVÉNEMENT DU MANOIR"}
+        </div>
+        <div
+          style={{
+            marginTop: 7,
+            fontFamily: "var(--font-display)",
+            fontSize: 16,
+            lineHeight: 1.15,
+            color: "#ffe7c2",
+          }}
+        >
+          {event.text}
+        </div>
+      </div>
     </div>
   );
 }

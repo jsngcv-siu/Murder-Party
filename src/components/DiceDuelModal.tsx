@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { gsap } from "gsap";
 import { supabase } from "@/integrations/supabase/client";
 import { serverNow } from "@/lib/serverTime";
+import { vibrate, VIBES } from "@/lib/vibrate";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import { AvatarImg } from "@/components/AvatarImg";
 import { avatarOf } from "@/lib/avatars";
@@ -144,6 +145,16 @@ export function DiceDuelModal({
   }, [game.id, me.id]);
 
   const current = queue[0];
+
+  // Retour haptique à l'apparition du duel (même motif que les autres modales).
+  const vibratedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    if (vibratedForRef.current === current.duelId) return;
+    vibratedForRef.current = current.duelId;
+    vibrate(VIBES.modal);
+  }, [current]);
+
   if (!current) return null;
 
   const close = () => setQueue((q) => q.slice(1));

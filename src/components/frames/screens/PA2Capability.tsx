@@ -26,11 +26,13 @@ import { RoleDossierSlider } from "@/components/RoleDossierSlider";
 import { extraInfoFor, type RoleInfoPage } from "@/lib/roleExtraInfo";
 import { RoleIcon } from "@/components/RoleIcon";
 import { AvatarImg } from "@/components/AvatarImg";
-import { ITEM_CATALOG, RELIQUE_CATALOG, type ItemOrigin } from "@/engine/items";
+import { ITEM_CATALOG, RELIQUE_CATALOG, type ItemOrigin, type ItemSlug } from "@/engine/items";
+import { ItemIcon } from "@/components/ItemIcon";
 import { factionToken } from "@/lib/factionText";
 import { avatarOf, type AvatarDef } from "@/lib/avatars";
 import {
   Axe,
+  Backpack,
   Ban,
   Bird,
   ChefHat,
@@ -64,7 +66,6 @@ import {
   ShieldCheck,
   Skull,
   Sparkles,
-  Sprout,
   Stethoscope,
   Swords,
   Target,
@@ -183,6 +184,43 @@ function SaintBlockedLog({ gameId, meId }: { gameId: string; meId: string }) {
 }
 
 type SubTab = "role" | "history" | "win" | "chat";
+
+// ── Polarité d'une cible (audit 2026-07-18) : bouton VERT quand l'action NE
+// NUIT PAS à la personne visée (protège, soigne, libère, offre, lie, arme, ou
+// simple info bénigne) ; ROUGE (défaut) quand elle tue/nuit/contrôle/vole/marque.
+// Le total des rôles ciblant un joueur a été passé en revue en base.
+const HARMFUL_TARGET_ROLES = new Set<string>([
+  // Tueurs / attaques
+  "tueur",
+  "croque_mitaine",
+  "stratege",
+  "detrousseur",
+  "franc_tireur",
+  "vautour",
+  "veuve_noire",
+  "chasseur_de_vampire",
+  // Poison / conversion / feu
+  "empoisonneur",
+  "vampire",
+  "pyromane",
+  // Contrôle / blocage / vol / marquage / falsification
+  "maitre_chanteur",
+  "marionnettiste",
+  "barman",
+  "accusateur",
+  "voleur",
+  "falsificateur",
+  // Fiole conditionnelle (poison possible) → rouge par prudence
+  "apothicaire",
+]);
+
+/** true = cible « positive » (verte). `selIndex` = rang de sélection (multi-cibles). */
+function isPositiveTarget(slug: string | null | undefined, selIndex: number): boolean {
+  if (!slug) return false;
+  // Conjuré : 1ᵉʳ = COMPLICE (positif, on le recrute), 2ᵉ = VICTIME (négatif).
+  if (slug === "conjure") return selIndex === 0;
+  return !HARMFUL_TARGET_ROLES.has(slug);
+}
 
 // ── Helpers partagés Historique / Bannière Dernier résultat
 const phaseLabel = (p: string) =>
@@ -399,6 +437,102 @@ export function FactionBadge({ faction }: { faction: string | null | undefined }
     >
       {faction}
     </span>
+  );
+}
+
+// ── Rôles dont le NOMBRE d'usages dépend du nombre de joueurs. Barème calqué
+// sur parseTotalLimit (moteur). Affiché en VISUEL (barème + total de la partie)
+// plutôt que noyé dans le texte du dossier / de la révélation (demande Jason).
+const USAGE_TIERS: Record<string, { upTo: number | null; count: number }[]> = {
+  executeur: [
+    { upTo: 10, count: 1 },
+    { upTo: 13, count: 2 },
+    { upTo: null, count: 3 },
+  ],
+  juge: [
+    { upTo: 10, count: 1 },
+    { upTo: 13, count: 2 },
+    { upTo: null, count: 3 },
+  ],
+  cleaner: [
+    { upTo: 9, count: 1 },
+    { upTo: null, count: 2 },
+  ],
+  bretteur: [
+    { upTo: 10, count: 1 },
+    { upTo: null, count: 2 },
+  ],
+};
+export function isScaledUsage(slug: string | null | undefined): boolean {
+  return !!slug && slug in USAGE_TIERS;
+}
+/** Retire la phrase de barème (« Utilisable … partie … . ») du texte : on
+ *  l'affiche déjà en visuel, pas de doublon. */
+export function stripScalingSentence(text: string | null | undefined): string {
+  if (!text) return "";
+  return text.replace(/\s*Utilisable[^.]*\bpartie\b[^.]*\.\s*$/i, "").trim();
+}
+function usageTierLabel(tiers: { upTo: number | null }[], i: number): string {
+  const cur = tiers[i];
+  const low = i > 0 && tiers[i - 1].upTo != null ? (tiers[i - 1].upTo as number) + 1 : null;
+  if (cur.upTo == null) return `${low ?? "?"}+`;
+  if (low == null) return `≤${cur.upTo}`;
+  return `${low}-${cur.upTo}`;
+}
+/** Barème visuel des usages (sur papier crème) + total de CETTE partie mis en avant. */
+export function UsageScaleBadge({ slug, playerCount }: { slug: string; playerCount: number }) {
+  const tiers = USAGE_TIERS[slug];
+  if (!tiers) return null;
+  const activeIdx =
+    playerCount > 0 ? tiers.findIndex((t) => t.upTo == null || playerCount <= t.upTo) : -1;
+  const current = activeIdx >= 0 ? tiers[activeIdx].count : null;
+  const gold = "oklch(0.52 0.15 68)";
+  return (
+    <div
+      className="rounded-lg px-3 py-2"
+      style={{
+        background: "color-mix(in oklab, var(--paper-ink) 6%, transparent)",
+        border: "1px solid color-mix(in oklab, var(--paper-ink) 18%, transparent)",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="font-display text-[9px] uppercase tracking-[0.16em]"
+          style={{ color: "var(--paper-ink-soft)" }}
+        >
+          Utilisations · selon la table
+        </span>
+        {current != null && (
+          <span className="font-display text-[10px]" style={{ color: "var(--paper-ink-soft)" }}>
+            cette partie&nbsp;:{" "}
+            <span className="font-display text-[15px] font-bold" style={{ color: gold }}>
+              {current}
+            </span>
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex items-stretch gap-1.5">
+        {tiers.map((t, i) => {
+          const active = i === activeIdx;
+          return (
+            <span
+              key={i}
+              className="flex-1 rounded-md px-1 py-1 text-center leading-tight"
+              style={{
+                background: active
+                  ? `color-mix(in oklab, ${gold} 18%, transparent)`
+                  : "transparent",
+                border: `1px solid ${active ? gold : "color-mix(in oklab, var(--paper-ink) 16%, transparent)"}`,
+                color: active ? gold : "var(--paper-ink-soft)",
+              }}
+            >
+              <span className="block font-mono text-[9px]">{usageTierLabel(tiers, i)}</span>
+              <span className="block font-display text-[13px] font-bold">{t.count}×</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -1100,7 +1234,11 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         const extra = extraInfoFor(myRole?.slug);
         // `cleanCapacity` sort les subtilités du texte de capacité quand celui-ci
         // les entassait en vrac (Assistant, Policier). Sinon, texte de la base.
-        const capacityText = extra?.cleanCapacity ?? myRole?.capacite_full_text ?? null;
+        // Rôles à usages scalés : on retire la phrase de barème (affichée en visuel).
+        const rawCapacity = extra?.cleanCapacity ?? myRole?.capacite_full_text ?? null;
+        const capacityText = isScaledUsage(myRole?.slug)
+          ? stripScalingSentence(rawCapacity)
+          : rawCapacity;
 
         // Page 1 de la feuille : identité + capacité (contenu inchangé).
         const frontPage = (
@@ -1132,19 +1270,29 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               <div className="flex flex-wrap items-center gap-2">
                 {myRole && <FactionBadge faction={myRole.faction} />}
                 {myRole && <TypeStamp type={myRole.type} />}
-                {freqs.map((lbl, i) => (
-                  <CapacityChargeChip
-                    key={i}
-                    label={lbl}
-                    state={chargeState(blockedReason, mode)}
-                  />
-                ))}
                 {origRole && (
                   <span className="text-[10px] font-normal text-[color:var(--paper-ink-soft)]">
                     ex {origRole.name_fr}
                   </span>
                 )}
               </div>
+            </div>
+            {/* Fréquence TOUJOURS sur sa propre ligne, sous les tags faction/type.
+                Rôles scalés : barème visuel + total de la partie. */}
+            <div className="mt-2">
+              {isScaledUsage(myRole?.slug) ? (
+                <UsageScaleBadge slug={myRole!.slug} playerCount={playerCount} />
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {freqs.map((lbl, i) => (
+                    <CapacityChargeChip
+                      key={i}
+                      label={lbl}
+                      state={chargeState(blockedReason, mode)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             {capacityText && (
               <div className="relative mt-3">
@@ -1339,45 +1487,16 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
             />
           </PanelCard>
         )}
-      {me.is_imprisoned &&
-        (meMeta.parloir_open_cycle as number | undefined) === game.current_tour && (
-          <PanelCard tone="amber" icon={KeyRound} label="Parloir — le Geôlier te parle">
-            <div className="text-[11px] text-muted-foreground mb-2">
-              Quelqu'un te parle à travers les barreaux. Tu peux répondre… ou mentir.
-            </div>
-            <ChatPanel
-              gameId={gameId}
-              channel={`parloir-${me.id}-${game.current_tour}`}
-              meId={me.id}
-              mePseudo={me.pseudo}
-              canWrite
-              placeholder="Répondre au Geôlier…"
-              emptyText="Le Geôlier ne t'a encore rien demandé."
-            />
-          </PanelCard>
-        )}
+      {/* (Le parloir côté PRISONNIER vit désormais dans l'écran Prison — un
+          détenu ne voit pas l'onglet Capacité.) */}
       {myRole?.slug === "poltergeist" && !me.is_alive && (
         <PoltergeistPanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
       )}
       {myRole?.slug === "pyromane" && (
-        <PyromanePanel gameId={gameId} me={me} players={players} />
+        <PyromanePanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
       )}
       {myRole?.slug === "ventriloque" && (
         <VentriloquePanel gameId={gameId} me={me} players={players} />
-      )}
-      {myRole?.slug === "jardinier" && (
-        <PanelCard tone="amber" icon={Sprout} label="Les parterres">
-          <div className="text-[11px] text-muted-foreground mb-2">
-            Ratisse pour récupérer un objet au hasard laissé par un mort.
-          </div>
-          <button
-            disabled={busy}
-            onClick={() => void runCapacity({ skipTargetCheck: true })}
-            className="h-11 w-full rounded-lg bg-amber-500/25 ring-1 ring-amber-400 text-amber-50 font-semibold disabled:opacity-40"
-          >
-            🌱 Ratisser les parterres
-          </button>
-        </PanelCard>
       )}
       {myRole?.slug === "franc_tireur" && (
         <ArmOneShotPanel
@@ -1406,7 +1525,8 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
       {myRole?.slug === "bretteur" && (
         <BretteurPanel
           guardActive={(meMeta.bretteur_guard_cycle as number | undefined) === game.current_tour}
-          used={usesOf(meMeta, "bretteur") > 0}
+          usedCount={usesOf(meMeta, "bretteur")}
+          total={parseTotalLimit(myRole, playerCount)}
           busy={busy}
           onAct={() => void runCapacity({ skipTargetCheck: true })}
         />
@@ -1917,6 +2037,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
           </span>
         </div>
       )}
+      {myRole?.slug === "contrebandier" && <ContrebandierPanel />}
       {myRole?.slug === "vengeur" && !meMeta.etre_cher && !meMeta.beloved_id && (
         <VengeurBelovedChoice meId={me.id} players={players} roles={roles} />
       )}
@@ -1960,12 +2081,23 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               {myRole?.instruction_verb ?? "Cible"}{" "}
               {needed > 1 ? `(${targets.length}/${needed})` : ""}
             </div>
+            {/* Conjuré : le sélecteur double a un ORDRE qui compte — on l'affiche. */}
+            {myRole?.slug === "conjure" && (
+              <div className="mt-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                1ᵉʳ choix = ton <b>COMPLICE</b> (il recevra la proposition anonyme) · 2ᵉ choix = la{" "}
+                <b>VICTIME</b>.
+              </div>
+            )}
             <div className="mt-2 grid grid-cols-2 gap-2.5">
               {targetable.map((p, idx) => {
                 const sel = targets.includes(p.id);
-                // 2 par ligne : on oppose le trait rouge (toujours vers l'extérieur)
-                // et on renvoie le libellé « CIBLE » vers l'intérieur.
+                // 2 par ligne : on oppose le trait de sélection (toujours vers
+                // l'extérieur) et on renvoie le libellé vers l'intérieur.
                 const isLeft = idx % 2 === 0;
+                // Polarité de CETTE sélection : vert si l'action ne nuit pas à la
+                // cible, rouge sinon (défaut). Multi-cibles : selon l'ordre.
+                const pos = sel && isPositiveTarget(myRole?.slug, targets.indexOf(p.id));
+                const accent = pos ? "oklch(0.74 0.16 155)" : "var(--primary)";
                 return (
                   <button
                     key={p.id}
@@ -1973,19 +2105,27 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                     style={{
                       WebkitTapHighlightColor: "transparent",
                       background: sel
-                        ? `linear-gradient(${isLeft ? "90deg" : "270deg"}, oklch(0.32 0.14 22 / 0.55), oklch(0.20 0.05 30 / 0.35))`
+                        ? pos
+                          ? `linear-gradient(${isLeft ? "90deg" : "270deg"}, oklch(0.40 0.13 155 / 0.5), oklch(0.20 0.05 155 / 0.32))`
+                          : `linear-gradient(${isLeft ? "90deg" : "270deg"}, oklch(0.32 0.14 22 / 0.55), oklch(0.20 0.05 30 / 0.35))`
                         : undefined,
                     }}
                     className={`relative overflow-hidden min-h-[58px] rounded-xl px-3 py-2 flex items-center gap-2.5 touch-manipulation active:scale-[0.97] transition ${
                       isLeft ? "flex-row text-left" : "flex-row-reverse text-right"
-                    } ${sel ? "ring-1 ring-primary/55" : "bg-panel ring-1 ring-panel-border hover:brightness-110"}`}
+                    } ${
+                      sel
+                        ? pos
+                          ? "ring-1 ring-emerald-400/55"
+                          : "ring-1 ring-primary/55"
+                        : "bg-panel ring-1 ring-panel-border hover:brightness-110"
+                    }`}
                   >
-                    {/* Trait rouge extérieur (gauche pour col. gauche, droite pour col. droite) */}
+                    {/* Trait de sélection extérieur, coloré selon la polarité. */}
                     {sel && (
                       <span
                         aria-hidden
-                        className={`absolute inset-y-0 w-[3px] bg-primary ${isLeft ? "left-0" : "right-0"}`}
-                        style={{ boxShadow: "0 0 12px -1px var(--primary)" }}
+                        className={`absolute inset-y-0 w-[3px] ${isLeft ? "left-0" : "right-0"}`}
+                        style={{ background: accent, boxShadow: `0 0 12px -1px ${accent}` }}
                       />
                     )}
                     <AvatarImg avatar={playerAvatar(p)} size={34} className="shrink-0" />
@@ -1996,10 +2136,15 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
                     </span>
                     {sel ? (
                       <span
-                        className="shrink-0 text-[10px] font-bold tracking-[0.12em] text-primary"
-                        style={{ fontFamily: "var(--font-display)" }}
+                        className="shrink-0 text-[10px] font-bold tracking-[0.12em]"
+                        style={{ fontFamily: "var(--font-display)", color: accent }}
                       >
-                        CIBLE ✓
+                        {/* Conjuré : l'ordre de sélection porte un rôle distinct. */}
+                        {myRole?.slug === "conjure"
+                          ? targets.indexOf(p.id) === 0
+                            ? "COMPLICE ✓"
+                            : "VICTIME ✓"
+                          : "CIBLE ✓"}
                       </span>
                     ) : (
                       <span className="shrink-0 text-lg text-muted-foreground leading-none">
@@ -2386,13 +2531,17 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   medium: () => `Tu as contacté les morts.`,
   mouchard: (t) => `Tu as espionné ${t ?? "un joueur"}.`,
   physionomiste: (t) => `Tu as dévisagé ${t ?? "un joueur"}.`,
+  portraitiste: (t) => `Tu as croqué le portrait de ${t ?? "un joueur"}.`,
   photographe: (t) => `Tu as photographié ${t ?? "un joueur"}.`,
   aubergiste: (t) => `Tu as hébergé ${t ?? "un joueur"}.`,
   garde_chasse: (t) => `Tu as patrouillé devant chez ${t ?? "un joueur"}.`,
   bretteur: () => `Tu as levé ta garde.`,
-  conjure: (t) => `Tu as proposé un pacte contre ${t ?? "un joueur"}.`,
-  jardinier: () => `Tu as ratissé les parterres.`,
-  detrousseur: (t) => `Tu as détroussé ${t ?? "un joueur"}.`,
+  conjure: (t, t2) =>
+    t && t2
+      ? `Tu as proposé à ${t} (complice) un pacte contre ${t2} (victime).`
+      : `Tu as proposé un pacte d'assassinat.`,
+  jardinier: (t) => `Tu as bouturé le dernier objet de ${t ?? "un joueur"}.`,
+  detrousseur: (t) => `Tu as visé ${t ?? "un joueur"}.`,
   franc_tireur: (t) => `Tu as visé ${t ?? "un joueur"}.`,
   geolier: (t) => `Tu as ouvert le parloir avec ${t ?? "un détenu"}.`,
   vautour: (t) => `Tu as charogné ${t ?? "un joueur"}.`,
@@ -2484,6 +2633,7 @@ const INFO_RESULT_EFFECTS = new Set<string>([
   "steal_empty", // Voleur : rien à voler
   "barman_round", // Barman : qui est ivre / passe un bon moment
   "kill_one_of_two_intent", // Croque-mitaine : qui est visé / épargné
+  "physio_reveal", // Physionomiste / Portraitiste : TYPE de rôle lu
 ]);
 
 export type BannerDisplay = {
@@ -2605,6 +2755,12 @@ function LastResultBanner({
   useEffect(() => {
     let cancelled = false;
     let loadId = 0;
+    // Les lignes de SETUP (indices distribués, protégé de l'Ange gardien…)
+    // portent `payload.setup: true` : ce ne sont PAS des actions du joueur —
+    // sans ce filtre, le bandeau affichait « Action enregistrée » dès le
+    // démarrage de la partie (bug signalé 2026-07-18).
+    const isSetupRow = (r: LastRow | null) =>
+      !!r && (r.payload as Record<string, unknown> | null)?.setup === true;
     async function load() {
       const myId = ++loadId;
       const { data } = await supabase
@@ -2614,10 +2770,10 @@ function LastResultBanner({
         .eq("actor_player_id", meId)
         .eq("tour", currentTour)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(5);
       if (cancelled || myId !== loadId) return;
-      setLast((data ?? null) as LastRow | null);
+      const rows = (data ?? []) as LastRow[];
+      setLast(rows.find((r) => !isSetupRow(r)) ?? null);
     }
     void load();
     const ch = supabase
@@ -2632,7 +2788,7 @@ function LastResultBanner({
         },
         (p) => {
           const row = p.new as LastRow;
-          if (!row || row.tour !== currentTour) return;
+          if (!row || row.tour !== currentTour || isSetupRow(row)) return;
           setLast((prev) => (prev && prev.id === row.id ? prev : row));
         },
       )
@@ -3353,15 +3509,18 @@ function PoltergeistPanel({
   );
 }
 
-// ───────── Pyromane (lot 5) : liste des aspergés + bouton ALLUMETTE (1×/partie)
+// ───────── Pyromane (lot 5) : liste des aspergés + bouton ALLUMETTE
+// (illimitée, cooldown 2 tours pleins — craquée à T → re-dispo à T+3)
 function PyromanePanel({
   gameId,
   me,
   players,
+  tour,
 }: {
   gameId: string;
   me: import("@/engine/actions").PlayerRow;
   players: import("@/engine/actions").PlayerRow[];
+  tour: number;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -3370,10 +3529,12 @@ function PyromanePanel({
     unknown
   >;
   const doused = (meMeta.pyro_doused as string[] | undefined) ?? [];
-  const ignited = meMeta.pyro_ignited === true;
+  const lastIgnite = meMeta.pyro_ignite_last_tour as number | undefined;
+  const igniteReadyTour = lastIgnite == null ? tour : lastIgnite + 3;
+  const cooldownActive = igniteReadyTour > tour;
   const kills = (meMeta.pyro_kills as number | undefined) ?? 0;
   const realCount = players.filter((p) => !p.is_mj).length;
-  const need = realCount <= 10 ? 2 : realCount <= 15 ? 3 : 4;
+  const need = realCount <= 15 ? 3 : 4;
   const dousedPlayers = doused
     .map((id) => players.find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => !!p);
@@ -3411,8 +3572,10 @@ function PyromanePanel({
           ))}
         </div>
       )}
-      {ignited ? (
-        <div className="text-sm text-rose-200">🔥 L'allumette est craquée — plus de retour.</div>
+      {cooldownActive ? (
+        <div className="text-sm text-rose-200">
+          🔥 La boîte d'allumettes se remplit — nouvelle flamme au tour {igniteReadyTour}.
+        </div>
       ) : (
         <button
           disabled={busy || dousedPlayers.filter((p) => p.is_alive).length === 0}
@@ -3425,7 +3588,7 @@ function PyromanePanel({
           }}
           className="h-11 w-full rounded-lg bg-rose-500/25 ring-1 ring-rose-400 text-rose-50 font-semibold disabled:opacity-40"
         >
-          🔥 CRAQUER L'ALLUMETTE (1×/partie)
+          🔥 CRAQUER L'ALLUMETTE (cooldown 2 tours)
         </button>
       )}
       {msg && <div className="mt-2 text-xs text-rose-200">{msg}</div>}
@@ -3582,33 +3745,103 @@ function ArmOneShotPanel({
   );
 }
 
-// ───────── Bretteur (lot 2) : bouton « lever la garde » (1×/partie, sans cible)
+// ───────── Contrebandier : rôle passif → présente SA malle (les objets qu'il
+// peut recevoir) et rappelle qu'il les retrouve dans son inventaire pour agir.
+const CONTREBANDE_MALLE: ItemSlug[] = [
+  "passe_partout",
+  "gilet_matelasse",
+  "rhum_contrebande",
+  "monocle_douanier",
+  "double_fond",
+];
+function ContrebandierPanel() {
+  return (
+    <PanelCard tone="amber" icon={Backpack} label="Ta malle">
+      <div className="text-[11px] text-muted-foreground mb-2.5 leading-snug">
+        Tous les 2 tours, un objet au hasard de ta malle arrive dans ton{" "}
+        <span className="font-semibold text-foreground">inventaire</span> — ouvre l'onglet{" "}
+        <span className="font-semibold text-foreground">Inventaire</span> pour l'utiliser. Chances
+        égales entre les cinq :
+      </div>
+      <div className="space-y-1.5">
+        {CONTREBANDE_MALLE.map((slug) => {
+          const def = ITEM_CATALOG[slug];
+          return (
+            <div
+              key={slug}
+              className="flex items-start gap-2.5 rounded-lg border border-amber-400/25 bg-amber-500/8 px-2.5 py-1.5"
+            >
+              <ItemIcon
+                item={{ slug, icon: def.icon, name: def.name, payload: {} }}
+                size={30}
+                rounded="md"
+                className="shrink-0"
+              />
+              <div className="min-w-0">
+                <div className="text-[12px] font-bold text-amber-100">{def.name}</div>
+                <div className="text-[11px] text-muted-foreground leading-snug">
+                  {def.description}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </PanelCard>
+  );
+}
+
+// ───────── Bretteur (lot 2) : bouton « lever la garde ». Nombre de parades
+// scalé par table (1, ou 2 à 11+ joueurs) → compteur dans le cadre de garde.
 function BretteurPanel({
   guardActive,
-  used,
+  usedCount,
+  total,
   busy,
   onAct,
 }: {
   guardActive: boolean;
-  used: boolean;
+  usedCount: number;
+  total: number;
   busy: boolean;
   onAct: () => void;
 }) {
+  const remaining = Math.max(0, total - usedCount);
+  const exhausted = remaining <= 0;
   return (
-    <PanelCard tone="amber" icon={Swords} label="Ta garde">
+    <PanelCard
+      tone="amber"
+      icon={Swords}
+      label="Ta garde"
+      action={
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/18 text-amber-200">
+          {remaining}/{total} 🤺
+        </span>
+      }
+    >
+      {/* Jauge des parades restantes (scalées par le nombre de joueurs). */}
+      <div className="flex items-center gap-1.5 mb-2">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            className={`h-1.5 flex-1 rounded-full ${i < remaining ? "bg-amber-400" : "bg-amber-400/20"}`}
+          />
+        ))}
+      </div>
       {guardActive ? (
         <div className="text-sm text-amber-200">
           🤺 Garde levée pour ce tour — quiconque t'attaque cette nuit s'embroche.
         </div>
-      ) : used ? (
+      ) : exhausted ? (
         <div className="text-sm text-muted-foreground">
-          Ta parade est consumée. Il ne te reste que ton flair.
+          Tes parades sont consumées. Il ne te reste que ton flair.
         </div>
       ) : (
         <>
           <div className="text-[11px] text-muted-foreground mb-2">
-            Une seule fois dans la partie : si on t'attaque le tour où ta garde est levée,
-            l'attaque échoue et l'attaquant meurt.
+            {remaining > 1 ? `Il te reste ${remaining} parades. ` : "Il te reste 1 parade. "}
+            Lève ta garde : si on t'attaque ce tour, l'attaque échoue et l'attaquant meurt. Sinon,
+            la parade est perdue.
           </div>
           <button
             disabled={busy}

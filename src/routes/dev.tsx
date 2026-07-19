@@ -38,7 +38,13 @@ import { O5Reveal } from "@/components/frames/screens/O5Reveal";
 import { GM1Dashboard } from "@/components/frames/screens/GM1Dashboard";
 import { P11HelpMenu } from "@/components/frames/screens/P11HelpMenu";
 import { E1EndGame } from "@/components/frames/screens/E1EndGame";
-import { EventCard, type EventKind, type QueuedEvent } from "@/components/PlayerEventModal";
+import {
+  EventCard,
+  ParloirCard,
+  PactCard,
+  type EventKind,
+  type QueuedEvent,
+} from "@/components/PlayerEventModal";
 import { DuelScene } from "@/components/DiceDuelModal";
 import { serverNow } from "@/lib/serverTime";
 import { requireLocalDevelopment } from "@/lib/localOnlyRoute";
@@ -206,6 +212,24 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
               ...((p.role_meta ?? {}) as Record<string, unknown>),
               imprisoned_since_cycle: tour - 1,
               released_at_cycle: tour,
+            },
+          } as PlayerRow;
+        // Miaulement du Chat (vie de réserve consommée) → cadre mineur générique.
+        if (p.pseudo === "Bob")
+          return {
+            ...p,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              chat_life_lost_cycle: tour,
+            },
+          } as PlayerRow;
+        // Un indice en circulation → cadre « DES INDICES CIRCULENT » (tour 1).
+        if (p.pseudo === "Cléo")
+          return {
+            ...p,
+            role_meta: {
+              ...((p.role_meta ?? {}) as Record<string, unknown>),
+              inventory: [{ slug: "indice" }],
             },
           } as PlayerRow;
         return p;
@@ -393,6 +417,32 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     render: () =>
       modal(<EventCard embedded ev={evt("imprisoned")} role={null} onClose={() => {}} />),
   });
+  add({
+    id: "M-parloir",
+    group: "Modales",
+    label: "Parloir (Geôlier)",
+    render: () => modal(<ParloirCard embedded onClose={() => {}} onGo={() => {}} />),
+  });
+  add({
+    id: "M-pacte",
+    group: "Modales",
+    label: "Pacte (Conjuré)",
+    render: () =>
+      modal(
+        <PactCard
+          embedded
+          offer={{ target_id: "dev-target", target_pseudo: "Marco", tour: 2 }}
+          target={null}
+          onAnswer={async (accept) => ({
+            ok: true,
+            message: accept
+              ? "Le pacte est scellé. Marco ne verra pas l'aube."
+              : "Tu as refusé. Quelqu'un, ici, voulait un meurtre…",
+          })}
+          onClose={() => {}}
+        />,
+      ),
+  });
   // ── Capacité de chaque rôle : on incarne un joueur vivant à qui on assigne
   // le rôle, et on rend l'onglet Capacité réel. Groupé par faction.
   const factionRank = (f: string) =>
@@ -466,6 +516,7 @@ function buildScenes(roles: Map<string, RoleRow>): Scene[] {
     ["Veuve noire", "Victoire — Veuve noire"],
     ["Parieur tricheur", "Victoire — Parieur tricheur"],
     ["Conservateur", "Victoire — Conservateur"],
+    ["Pyromane", "Victoire — Pyromane"],
   ];
   for (const [winner, label] of winners) {
     add({

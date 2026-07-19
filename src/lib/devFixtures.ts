@@ -7,6 +7,7 @@
 // /state-lab monte le PlayerShell complet — les deux ont besoin du même roster.
 import type { GameRow, PlayerRow, RoleRow } from "@/engine/actions";
 import type { Item, ItemSlug, ItemOrigin } from "@/engine/items";
+import { ITEM_CATALOG, RELIQUE_CATALOG, type ReliqueVariant } from "@/engine/items";
 
 export const uid = () => crypto.randomUUID();
 
@@ -27,18 +28,29 @@ export function previewItem(
     consumed?: boolean;
     variant?: string;
     from?: string;
+    desc?: string; // override (ex. lettre reçue — comme descriptionOverride en live)
     payload?: Record<string, unknown>;
   } = {},
 ): Item {
   const payload: Record<string, unknown> = { ...(opts.payload ?? {}) };
   if (origin) payload.origin_faction = origin;
   if (opts.variant) payload.variant = opts.variant;
+  // Description RÉELLE des catalogues (reliques par variante, sinon objet de
+  // base) : la modale de la sandbox doit dire à quoi sert l'objet, comme en
+  // vraie partie. Les indices restent leur propre texte (le nom EST l'info).
+  const description =
+    opts.desc ??
+    (slug === "indice"
+      ? name
+      : opts.variant
+        ? (RELIQUE_CATALOG[opts.variant as ReliqueVariant]?.description ?? name)
+        : (ITEM_CATALOG[slug]?.description ?? name));
   return {
     id: uid(),
     slug,
     name,
     icon: "🧩",
-    description: name,
+    description,
     received_at: new Date().toISOString(),
     received_from: opts.from,
     payload,
@@ -58,7 +70,7 @@ export const PREVIEW_INVENTORY: Item[] = [
   previewItem("relique", "Le Médaillon du Vieux Maître", "Neutre", {
     variant: "medaillon_vieux_maitre",
   }),
-  previewItem("lettre", "Lettre anonyme à envoyer", null),
+  previewItem("lettre", "Lettre à envoyer", null),
   // ── Consultable ──
   previewItem("indice", "Indice — Lettre déchirée, moitié gauche", "Système", {
     payload: { fragment: true, half: "A" },
@@ -69,7 +81,12 @@ export const PREVIEW_INVENTORY: Item[] = [
     variant: "portrait_dame_blanche",
   }),
   previewItem("relique", "La poupée du grenier", "Neutre", { variant: "poupee_grenier" }),
-  previewItem("lettre", "Lettre déjà envoyée", null, { payload: { sent: true } }),
+  // Lettre SIGNÉE reçue (flux Facteur/Ventriloque) : consultation seule.
+  previewItem("lettre", "Lettre de Margot", null, {
+    from: "Margot",
+    desc: "Une lettre de Margot. Touche-la pour la lire.",
+    payload: { sent: true, sender: "Margot", message: "Je sais ce que tu as fait." },
+  }),
   // ── Classés ──
   previewItem("couteau", "Couteau", "Méchant", { consumed: true }),
   previewItem("fiole_vie", "Fiole de vie", "Civil", { consumed: true }),

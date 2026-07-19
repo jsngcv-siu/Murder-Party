@@ -448,8 +448,11 @@ function pickCapabilityTargets(
     }
     // Lot 1 : actifs à cible unique (le handler gère cadence/refus, ex. Aubergiste 1/2).
     case "physionomiste":
+    case "portraitiste": // jumeau Civil du Physionomiste (même moteur)
     case "photographe":
     case "aubergiste":
+    // Jardinier (refonte) : cible 1 joueur au hasard et duplique son dernier objet.
+    case "jardinier":
     // Lot 2 : le Garde-chasse patrouille une porte au hasard.
     case "garde_chasse":
     // Lot 3 : tueurs pillards — kill de base (les modes 1×/partie ne sont pas joués).
@@ -459,7 +462,7 @@ function pickCapabilityTargets(
     // non-votés (échec bénin, il retentera au tick suivant).
     case "vautour":
     // Lot 5 : le Pyromane asperge au hasard (l'allumette n'est jamais craquée
-    // par les bots — capacité 1×/partie à fort enjeu).
+    // par les bots — capacité à fort enjeu, cooldown 2 tours, bouton dédié).
     case "pyromane": {
       return [pickRandom(others)];
     }
@@ -469,7 +472,6 @@ function pickCapabilityTargets(
     case "bretteur":
     case "conjure":
     case "contrebandier":
-    case "jardinier":
     // Lot 4 : Geôlier (les bots ne chattent pas) et Poltergeist (post-mortem).
     case "geolier":
     case "poltergeist":

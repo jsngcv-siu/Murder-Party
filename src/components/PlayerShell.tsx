@@ -34,14 +34,9 @@ import { PA2Capability as P6Capability } from "@/components/frames/screens/PA2Ca
 import { PA3Suspicions as P4Suspicions } from "@/components/frames/screens/PA3Suspicions";
 import { PA4Notebook as P3Journal } from "@/components/frames/screens/PA4Notebook";
 import { P15Testament } from "@/components/frames/screens/P15Testament";
-import {
-  PA6Announces,
-  useAnnouncementsUnread,
-  collectAnnouncements,
-} from "@/components/frames/screens/PA6Announces";
-import { readInventory, itemFaction, type ItemOrigin } from "@/engine/items";
-import { gameToast } from "@/lib/gameToast";
-import type { Tone } from "@/lib/tones";
+import { PA6Announces, useAnnouncementsUnread } from "@/components/frames/screens/PA6Announces";
+import { readInventory } from "@/engine/items";
+import { vibrate, VIBES } from "@/lib/vibrate";
 
 import { P11HelpMenu } from "@/components/frames/screens/P11HelpMenu";
 import { V1Vote as P7Vote } from "@/components/frames/screens/V1Vote";
@@ -68,14 +63,6 @@ function hasPostMortemAction(role: RoleRow | null): boolean {
   if (!role) return false;
   if (role.phase_activation === "MORT") return true;
   return ["vengeur"].includes(role.slug);
-}
-
-/** Millisecondes restantes avant la fin de la frame d'intro de la phase courante
- *  (≤ 0 si pas d'intro ou déjà terminée). Sert à DIFFÉRER les notifs volantes le
- *  temps que l'écran de transition passe. */
-function introRemainingMs(game: Pick<GameRow, "phase_started_at" | "current_phase">): number {
-  const started = game.phase_started_at ? new Date(game.phase_started_at).getTime() : 0;
-  return started ? started + introMsFor(game.current_phase) - serverNow() : 0;
 }
 
 export interface PlayerShellProps {
@@ -110,10 +97,6 @@ export function PlayerShell({
   const [helpOpen, setHelpOpen] = useState(false);
   const [showReveal, setShowReveal] = useState(false);
   const [voteOverlayClosed, setVoteOverlayClosed] = useState(false);
-  // Re-déclenche les effets de notif quand l'écran de transition de phase
-  // (T1/T2/T3, durée INTRO_MS) se termine — pour différer les annonces volantes
-  // tant que l'écran de phase est au premier plan.
-  const [introEndTick, setIntroEndTick] = useState(0);
 
   // Handlers du menu Paramètres : disponibles uniquement hors démo.
   // NB : le piège du bouton retour (plus bas) empile des entrées d'historique
@@ -438,164 +421,48 @@ export function PlayerShell({
     };
   }, [game.id, me.id, game.current_tour]);
 
-  // Badge "Annonces" + UNE notif volante (carte GameToast) quand une nouvelle
-  // annonce PUBLIQUE arrive et que l'onglet n'est pas déjà ouvert.
-  // Les événements qui ME concernent (ma mort / prison) sont exclus : ils ont
-  // déjà leur modale plein écran (PlayerEventModal) → on évite le doublon.
-  // On ne toaste QUE pendant les phases `free` (Enquête) et `gathering`
-  // (Débat) : pendant la phase `annonce`, l'AnnonceScreen montre déjà
-  // l'événement → un toast ferait doublon. On sort AVANT de marquer "toasté",
-  // pour que l'annonce ressorte bien une fois en Enquête.
+  // Badge « Annonces » (pastille sur l'onglet). Les toasts volants d'annonce ont
+  // été SUPPRIMÉS (audit 2026-07-19) : tout ce qu'ils montraient vit déjà dans
+  // l'onglet Annonces, sur lequel chaque début de phase ramène le joueur — le
+  // badge suffit comme rappel persistant.
   const announcesUnread = useAnnouncementsUnread(game.id, me.id, players);
-  const toastedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (tab === "cemetery") return;
-    if (game.current_phase !== "free" && game.current_phase !== "gathering") return;
-    const events = collectAnnouncements(players);
-    const idOf = (e: (typeof events)[number]) =>
-      e.kind === "special"
-        ? `s-${e.tour}-${e.text}`
-        : e.kind === "death"
-          ? `d-${e.tour}-${e.player.id}`
-          : `p-${e.tour}-${e.player.id}`;
-    // Lancement (révélation du rôle / attente du départ) : on ne fait PAS surgir
-    // les annonces initiales (ex. « des indices ont été distribués »). Elles
-    // vivent dans l'onglet Annonces. On les marque "toastées" pour qu'elles ne
-    // ressurgissent pas une fois la partie posée.
-    if (showReveal || waitingStart) {
-      for (const e of events) toastedRef.current.add(idOf(e));
-      return;
-    }
-    // Pendant l'écran de transition de phase (au premier plan), on diffère TOUTE
-    // annonce volante : l'écran de phase doit primer. On replanifie l'effet pour
-    // la fin de la fenêtre d'intro.
-    const introRemaining = introRemainingMs(game);
-    if (introRemaining > 0) {
-      const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
-      return () => clearTimeout(t);
-    }
-    if (events.length === 0) return;
-    try {
-      const key = `pa6-seen-${game.id}-${me.id}`;
-      const seen = new Set<string>(JSON.parse(localStorage.getItem(key) ?? "[]"));
-      const fresh = events.filter((e) => {
-        const id = idOf(e);
-        return !seen.has(id) && !toastedRef.current.has(id);
-      });
-      if (fresh.length === 0) return;
-      // Marque immédiatement TOUTES les annonces fraîches comme "toastées"
-      // (même les miennes, exclues du toast) pour ne pas les ré-évaluer.
-      for (const e of fresh) toastedRef.current.add(idOf(e));
-      // On ne notifie pas pour MA propre mort / prison (déjà en modale).
-      const toastable = fresh.filter((e) => e.kind === "special" || e.player.id !== me.id);
-      if (toastable.length === 0) return;
-      const e = toastable[toastable.length - 1];
-      const extra = toastable.length - 1;
-      let tone: Tone, icon: ReactNode, title: string;
-      if (e.kind === "special") {
-        tone = "fuchsia";
-        icon = e.icon;
-        title = e.text;
-      } else if (e.kind === "death") {
-        tone = "rose";
-        icon = <Skull aria-hidden />;
-        title = `${e.player.pseudo} n'est plus en vie.`;
-      } else {
-        tone = "orange";
-        icon = <Lock aria-hidden />;
-        title = `${e.player.pseudo} part en prison.`;
-      }
-      gameToast({
-        tone,
-        icon,
-        title,
-        label: `Nouvelle annonce${extra > 0 ? ` · +${extra}` : ""}`,
-        actionLabel: "Voir",
-        onAction: () => setTab("cemetery"),
-      });
-    } catch {
-      /* localStorage indisponible (mode privé…) : la notif n'est pas critique. */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    players,
-    game.id,
-    me.id,
-    tab,
-    game.current_phase,
-    game.phase_started_at,
-    introEndTick,
-    showReveal,
-    waitingStart,
-  ]);
 
-  // Notif volante quand un nouvel objet arrive dans l'inventaire — pilotée ici
-  // (et non dans PA4Notebook) pour se déclencher depuis N'IMPORTE quel onglet.
-  // Silencieuse si on est déjà sur l'Inventaire (l'objet y est déjà visible).
+  // Vibration quand un NOUVEL objet arrive dans l'inventaire (le toast volant a
+  // été remplacé par la pastille rouge de l'onglet Inventaire + ce retour
+  // haptique). Le kit de départ (révélation / attente) est marqué vu en silence.
   const seenItemsRef = useRef<Set<string> | null>(null);
-  // File d'attente pour REGROUPER les objets reçus en rafale (l'Apothicaire
-  // reçoit 3 fioles en 3 updates) en UNE seule notif, via un court débounce.
-  const pendingItemsRef = useRef<ReturnType<typeof readInventory>>([]);
-  const itemToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const inv = readInventory(me.role_meta as Record<string, unknown> | null);
     const ids = new Set(inv.map((i) => i.id));
-    if (seenItemsRef.current === null) {
-      seenItemsRef.current = ids;
-      return;
-    }
-    const fresh = inv.filter((i) => !seenItemsRef.current!.has(i.id));
-    if (fresh.length === 0) {
-      seenItemsRef.current = ids;
-      return;
-    }
-    // Lancement (révélation du rôle / attente du départ) : le kit de départ
-    // (indices, fioles, couteau…) est déjà visible dans l'Inventaire et présenté
-    // par l'écran de révélation → on le marque vu SANS notif (sinon avalanche).
-    if (showReveal || waitingStart) {
-      seenItemsRef.current = ids;
-      return;
-    }
-    // Écran de transition de phase au premier plan : on diffère (sans consommer
-    // `fresh`) pour rejouer après l'intro.
-    const introRemaining = introRemainingMs(game);
-    if (introRemaining > 0) {
-      const t = setTimeout(() => setIntroEndTick((x) => x + 1), introRemaining + 60);
-      return () => clearTimeout(t);
-    }
+    const prev = seenItemsRef.current;
     seenItemsRef.current = ids;
-    if (tabRef.current === "journal") return; // déjà sur l'Inventaire
-    pendingItemsRef.current.push(...fresh);
-    if (itemToastTimerRef.current) clearTimeout(itemToastTimerRef.current);
-    itemToastTimerRef.current = setTimeout(() => {
-      const items = pendingItemsRef.current;
-      pendingItemsRef.current = [];
-      itemToastTimerRef.current = null;
-      if (items.length === 0 || tabRef.current === "journal") return;
-      const it = items[items.length - 1];
-      const extra = items.length - 1;
-      const itemToneByOrigin: Partial<Record<ItemOrigin, Tone>> = {
-        Civil: "sky",
-        Méchant: "rose",
-        Neutre: "purple",
-        Système: "amber",
-      };
-      const origin = itemFaction(it);
-      const tone: Tone = (origin && itemToneByOrigin[origin]) ?? "stone"; // origine inconnue → taupe
-      gameToast({
-        tone,
-        icon: it.icon,
-        title: extra > 0 ? `${it.name} + ${extra} autre${extra > 1 ? "s" : ""}` : it.name,
-        description: extra > 0 ? "Plusieurs objets reçus — ouvre ton Inventaire." : it.description,
-        label: `Nouvel objet${extra > 0 ? ` · +${extra}` : ""}`,
-        actionLabel: "Voir",
-        onAction: () => setTab("journal"),
-      });
-    }, 450);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me.role_meta, showReveal, waitingStart, game.phase_started_at, introEndTick]);
+    if (prev === null) return; // montage : rien de « nouveau »
+    if (showReveal || waitingStart) return;
+    for (const id of ids) {
+      if (!prev.has(id)) {
+        vibrate(VIBES.item);
+        return;
+      }
+    }
+  }, [me.role_meta, showReveal, waitingStart]);
 
   const myRole = me.role_slug ? (roles.get(me.role_slug) ?? null) : null;
+
+  // Vibration au début de chaque Enquête si le joueur a une capacité ACTIVE à
+  // jouer (même condition que le point « usable » de l'onglet Capacité). On ne
+  // vibre que sur une vraie TRANSITION de phase — pas au montage/reload, sinon
+  // chaque retour dans l'app en pleine Enquête revibrerait.
+  const prevPhaseRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = game.current_phase;
+    if (prev === null || prev === game.current_phase) return;
+    if (game.current_phase !== "free") return;
+    if (waitingStart || !me.is_alive || me.is_imprisoned) return;
+    if (!myRole || (myRole.target_mode ?? "single") === "none") return;
+    vibrate(VIBES.capacity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.current_phase]);
   const ctx = useMemo(
     () => ({ game, me, myRole, players, roles, gameId: game.id }) as unknown as FrameContext,
     [game, me, myRole, players, roles],
@@ -659,6 +526,7 @@ export function PlayerShell({
         alreadyAck={alreadyAck}
         readyCount={Math.max(0, totalPlayers - pendingReveals)}
         total={totalPlayers}
+        helpCtx={ctx}
       />
     );
   }
@@ -678,7 +546,13 @@ export function PlayerShell({
   // frames de transition.
   const EventModal = (
     <>
-      <PlayerEventModal game={game} me={me} players={players} roles={roles} />
+      <PlayerEventModal
+        game={game}
+        me={me}
+        players={players}
+        roles={roles}
+        onGoPrison={() => setTab("capacity")}
+      />
       <DiceDuelModal game={game} me={me} players={players} />
     </>
   );
@@ -942,16 +816,22 @@ export function PlayerShell({
           shimmer={isJour && me.is_alive && !me.is_imprisoned}
           dim={!me.is_alive && !hasPostMortemAction(myRole)}
           statusDot={
+            // Prisonnier : notif ambre quand le Geôlier lui ouvre le parloir.
             me.is_alive &&
-            !me.is_imprisoned &&
-            myRole &&
-            (myRole.target_mode ?? "single") !== "none"
-              ? capacityUsedThisTour
-                ? "done"
-                : isJour
-                  ? "usable"
-                  : "waiting"
-              : null
+            me.is_imprisoned &&
+            (me.role_meta as Record<string, unknown> | null)?.parloir_open_cycle ===
+              game.current_tour
+              ? "notif"
+              : me.is_alive &&
+                  !me.is_imprisoned &&
+                  myRole &&
+                  (myRole.target_mode ?? "single") !== "none"
+                ? capacityUsedThisTour
+                  ? "done"
+                  : isJour
+                    ? "usable"
+                    : "waiting"
+                : null
           }
         />
       </nav>
@@ -1220,7 +1100,7 @@ function TabBtn({
   shimmer?: boolean;
   dim?: boolean;
   disabled?: boolean;
-  statusDot?: "done" | "usable" | "waiting" | null;
+  statusDot?: "done" | "usable" | "waiting" | "notif" | null;
 }) {
   return (
     <button
@@ -1258,21 +1138,25 @@ function TabBtn({
       {statusDot && !badge ? (
         <span
           className={`absolute top-1 right-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ring-2 ring-card ${
-            statusDot === "usable" ? "animate-pulse" : ""
+            statusDot === "usable" || statusDot === "notif" ? "animate-pulse" : ""
           }`}
           style={
             statusDot === "usable"
               ? { background: "var(--success)", color: "var(--success-foreground)" }
-              : statusDot === "waiting"
-                ? { background: "oklch(0.72 0.17 55)", color: "oklch(0.20 0.03 40)" }
-                : { background: "var(--muted)", color: "var(--muted-foreground)" }
+              : statusDot === "notif"
+                ? { background: "oklch(0.70 0.19 45)", color: "oklch(0.16 0.03 40)" }
+                : statusDot === "waiting"
+                  ? { background: "oklch(0.72 0.17 55)", color: "oklch(0.20 0.03 40)" }
+                  : { background: "var(--muted)", color: "var(--muted-foreground)" }
           }
           title={
             statusDot === "usable"
               ? "Capacité utilisable maintenant"
-              : statusDot === "waiting"
-                ? "Capacité dispo — pas ce tour"
-                : "Capacité utilisée ce tour"
+              : statusDot === "notif"
+                ? "Le Geôlier t'ouvre le parloir"
+                : statusDot === "waiting"
+                  ? "Capacité dispo — pas ce tour"
+                  : "Capacité utilisée ce tour"
           }
         >
           {statusDot === "done" ? (

@@ -153,7 +153,14 @@ function StateLab() {
     // de quoi). L'inventaire est le même partout pour que l'onglet Inventaire
     // reste comparable d'un état à l'autre.
     const metaFor = (key: StateKey, tour: number): Record<string, unknown> => {
-      if (key === "prison") return { inventory: PREVIEW_INVENTORY, imprisoned_since_cycle: tour };
+      // Prison : on ouvre AUSSI le parloir du Geôlier (parloir_open_cycle = tour)
+      // pour visualiser le cadre chat actif + la notif de l'onglet Prison.
+      if (key === "prison")
+        return {
+          inventory: PREVIEW_INVENTORY,
+          imprisoned_since_cycle: tour,
+          parloir_open_cycle: tour,
+        };
       if (key === "dead")
         return {
           inventory: PREVIEW_INVENTORY,

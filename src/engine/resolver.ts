@@ -655,11 +655,11 @@ async function applyAttack(
       });
     }
   }
-  // ── Détrousseur (lot 3) : le kill emporte le butin — dernier objet reçu, ou
-  // TOUT l'inventaire en mode braquage (payload.loot = "all"). Transfert direct
-  // de méta à méta ; les objets gardent leur nature, marqués « reçus de » la victime.
-  if (ok && intent.source === "role:detrousseur") {
-    const lootMode = payload.loot === "all" ? "all" : "last";
+  // ── Détrousseur (lot 3) : le kill ordinaire ne vole RIEN. Seul le braquage
+  // 1×/partie (payload.loot = "all") rafle TOUT l'inventaire de la victime
+  // (décision Jason 2026-07-18). Transfert direct de méta à méta ; les objets
+  // gardent leur nature, marqués « reçus de » la victime.
+  if (ok && intent.source === "role:detrousseur" && payload.loot === "all") {
     const { data: vRow } = await supabase
       .from("players")
       .select("role_meta, pseudo")
@@ -672,7 +672,7 @@ async function applyAttack(
     const vInv = (vMetaAll.inventory as Array<Record<string, unknown>> | undefined) ?? [];
     const lootable = vInv.filter((it) => it.consumed !== true);
     if (lootable.length > 0) {
-      const taken = lootMode === "all" ? lootable : [lootable[0]];
+      const taken = lootable;
       const keep = vInv.filter((it) => !taken.includes(it));
       await supabase
         .from("players")
@@ -704,13 +704,10 @@ async function applyAttack(
         gameId: intent.game_id,
         playerId: intent.actor_player_id,
         type: "detrousse_loot",
-        title: lootMode === "all" ? "💰 Braquage complet" : "💰 Butin empoché",
-        body:
-          lootMode === "all"
-            ? `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).`
-            : `Tu empoches le dernier objet de ${vPseudo}.`,
+        title: "💰 Braquage complet",
+        body: `Tu rafles toute la malle de ${vPseudo} (${stamped.length} objet(s)).`,
         mjTitle: "💰 Détrousseur",
-        mjBody: `Le Détrousseur pille ${vPseudo} (${stamped.length} objet(s), mode ${lootMode}).`,
+        mjBody: `Le Détrousseur braque ${vPseudo} (${stamped.length} objet(s) raflés).`,
       });
     }
   }

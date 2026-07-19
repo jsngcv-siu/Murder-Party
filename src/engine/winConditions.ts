@@ -65,14 +65,16 @@ function withOracleWinners(result: WinResult, players: PlayerRow[]): WinResult {
   };
 }
 
-// Entremetteur — REPLI SURVIE : si son couple est BRISÉ (au moins un amoureux
-// mort ou emprisonné), il ne peut plus gagner via les Amoureux. Il devient un
-// parasite qui co-gagne s'il est encore en vie et libre à la fin de la partie,
-// quel que soit le camp vainqueur. (Le couple intact reste la victoire "dure"
-// des Amoureux, gérée dans evaluateWin.)
-function withEntremetteurWinner(result: WinResult, players: PlayerRow[]): WinResult {
-  if (!result.winner) return result;
-  const survivors = players.filter((p) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Sélecteurs de CO-VAINQUEURS — SOURCE UNIQUE. Utilisés à la fois par les
+// wrappers de checkAndEndGame (texte du `reason`) et par l'écran de fin
+// E1EndGame (cartes « Vainqueurs »). Toute nouvelle co-victoire passe par ici,
+// sinon l'écran et le moteur dérivent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Entremetteur — repli survie : couple BRISÉ (ou jamais lié) + vivant et libre.
+export function entremetteurSurvivorCoWinners(players: PlayerRow[]): PlayerRow[] {
+  return players.filter((p) => {
     if (p.role_slug !== "entremetteur") return false;
     if (!p.is_alive || p.is_imprisoned) return false;
     const pair = getMeta(p).linked_pair ?? [];
@@ -81,6 +83,45 @@ function withEntremetteurWinner(result: WinResult, players: PlayerRow[]): WinRes
     const coupleIntact = lovers.length === 2 && lovers.every((q) => q.is_alive && !q.is_imprisoned);
     return !coupleIntact; // couple brisé → la survie de l'Entremetteur paie
   });
+}
+
+// Survivant bénin (Chat du Manoir, Aubergiste) : en vie à la fin, point final.
+export function benignSurvivorCoWinners(players: PlayerRow[], slug: string): PlayerRow[] {
+  return players.filter((p) => p.role_slug === slug && p.is_alive && !p.is_mj);
+}
+
+// Photographe mondain : vivant ET assez de sujets photographiés de leur vivant
+// sont morts (barème 2/3/4 par taille — photographeThreshold).
+export function photographeCoWinners(players: PlayerRow[]): PlayerRow[] {
+  const real = players.filter((p) => !p.is_mj && getMeta(p).immortal !== true);
+  const need = photographeThreshold(real.length);
+  return real.filter((p) => {
+    if (p.role_slug !== "photographe" || !p.is_alive) return false;
+    const film = getMeta(p).photos ?? [];
+    const deadOnFilm = film.filter((ph) => {
+      const subject = players.find((q) => q.id === ph.id);
+      return subject != null && !subject.is_alive;
+    }).length;
+    return deadOnFilm >= need;
+  });
+}
+
+// Poltergeist : quelqu'un est mort d'un objet déplacé depuis l'au-delà
+// (drapeau polt_win posé par le resolver). Mort ou vif.
+export function poltergeistCoWinners(players: PlayerRow[]): PlayerRow[] {
+  return players.filter(
+    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true,
+  );
+}
+
+// Entremetteur — REPLI SURVIE : si son couple est BRISÉ (au moins un amoureux
+// mort ou emprisonné), il ne peut plus gagner via les Amoureux. Il devient un
+// parasite qui co-gagne s'il est encore en vie et libre à la fin de la partie,
+// quel que soit le camp vainqueur. (Le couple intact reste la victoire "dure"
+// des Amoureux, gérée dans evaluateWin.)
+function withEntremetteurWinner(result: WinResult, players: PlayerRow[]): WinResult {
+  if (!result.winner) return result;
+  const survivors = entremetteurSurvivorCoWinners(players);
   if (survivors.length === 0) return result;
   return {
     winner: result.winner,
@@ -99,7 +140,7 @@ function withBenignSurvivorWinners(result: WinResult, players: PlayerRow[]): Win
   };
   let reason = result.reason;
   for (const [slug, label] of Object.entries(LABELS)) {
-    const survivors = players.filter((p) => p.role_slug === slug && p.is_alive && !p.is_mj);
+    const survivors = benignSurvivorCoWinners(players, slug);
     if (survivors.length > 0) {
       reason = `${reason} (${label} ${survivors.map((w) => w.pseudo).join(", ")} a survécu — victoire aussi.)`;
     }
@@ -118,17 +159,7 @@ function photographeThreshold(playerCount: number): number {
 }
 function withPhotographeWinners(result: WinResult, players: PlayerRow[]): WinResult {
   if (!result.winner) return result;
-  const real = players.filter((p) => !p.is_mj && getMeta(p).immortal !== true);
-  const need = photographeThreshold(real.length);
-  const winners = real.filter((p) => {
-    if (p.role_slug !== "photographe" || !p.is_alive) return false;
-    const film = getMeta(p).photos ?? [];
-    const deadOnFilm = film.filter((ph) => {
-      const subject = players.find((q) => q.id === ph.id);
-      return subject != null && !subject.is_alive;
-    }).length;
-    return deadOnFilm >= need;
-  });
+  const winners = photographeCoWinners(players);
   if (winners.length === 0) return result;
   return {
     winner: result.winner,
@@ -141,9 +172,7 @@ function withPhotographeWinners(result: WinResult, players: PlayerRow[]): WinRes
 // Mort ou vif, la hantise accomplie paie.
 function withPoltergeistWinners(result: WinResult, players: PlayerRow[]): WinResult {
   if (!result.winner) return result;
-  const winners = players.filter(
-    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true,
-  );
+  const winners = poltergeistCoWinners(players);
   if (winners.length === 0) return result;
   return {
     winner: result.winner,

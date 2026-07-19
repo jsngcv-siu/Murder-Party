@@ -1,6 +1,7 @@
 // PA6 — Onglet "Annonces" : timeline visuelle des événements majeurs du manoir.
 // Marque automatiquement comme "lues" les annonces quand l'onglet est ouvert,
-// et expose un hook pour afficher un badge / des toasts ailleurs dans l'app.
+// et expose un hook pour afficher un badge sur l'onglet (les toasts volants
+// d'annonce ont été supprimés — audit 2026-07-19).
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Cat,
@@ -44,8 +45,9 @@ export type Event =
       tour: number;
       icon: ReactNode;
       text: string;
-      // Cadre illustré dédié (Morsure de vampire / éveil du Chasseur).
-      variant?: "bite" | "chasseur";
+      // Cadre illustré dédié (Morsure / éveil du Chasseur / Chat du Manoir) ou
+      // icône webp de l'indice puzzle ("indice") sur le cadre générique.
+      variant?: "bite" | "chasseur" | "cat" | "indice";
       heading?: string;
     };
 
@@ -53,8 +55,8 @@ export type Event =
 // Identifiant stable d'une annonce, tel que stocké dans les « déjà vues »
 // (cf. storageKey). Exporté pour /state-lab, qui pré-marque les annonces d'une
 // partie synthétique comme lues — sinon chaque changement de phase y fabrique
-// une partie neuve dont TOUTES les annonces sont « fraîches », et trois toasts
-// viennent recouvrir l'écran.
+// une partie neuve dont TOUTES les annonces sont « fraîches » et le badge
+// Annonces gonfle artificiellement.
 export function eventId(e: Event): string {
   if (e.kind === "special") return `s-${e.tour}-${e.text}`;
   if (e.kind === "death") return `d-${e.tour}-${e.player.id}`;
@@ -129,9 +131,10 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     events.push({
       kind: "special",
       tour,
+      variant: "cat",
       icon: <Cat className="size-5" aria-hidden />,
       heading: "★ UN MIAULEMENT DANS LA NUIT",
-      text: "Une lame a frappé… et n'a trouvé que du vide. Quelqu'un a entendu un miaulement.",
+      text: "Un chat a sept vies — il vient d'en perdre une.",
     });
   }
   // Indices distribués au setup → annonce générique au tour 1 (jamais QUI).
@@ -145,7 +148,9 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
     events.push({
       kind: "special",
       tour: 1,
+      variant: "indice",
       icon: <Scroll className="size-5" aria-hidden />,
+      heading: "★ DES INDICES CIRCULENT",
       text: "Certains invités ont reçu des indices. Enquêtez.",
     });
   }

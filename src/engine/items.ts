@@ -101,9 +101,10 @@ export const ITEM_CATALOG: Record<
   // l'expéditeur (c'est ce qui rend crédible la contrefaçon du Ventriloque).
   lettre: {
     slug: "lettre",
-    name: "Lettre",
+    // Nom court : lisible en entier sur l'étiquette de l'inventaire (pas de « … »).
+    name: "Lettre à envoyer",
     icon: "📨",
-    description: "Une lettre à envoyer : elle arrivera signée de ton nom.",
+    description: "Une lettre à envoyer au joueur de ton choix : elle arrivera SIGNÉE de ton nom.",
   },
   relique: {
     slug: "relique",
@@ -284,64 +285,64 @@ export const RELIQUE_CATALOG: Record<ReliqueVariant, ReliqueDef> = {
     weight: 5.0,
     effect: "special_win",
     description:
-      "Relique ultime — si tu la révèles, le Conservateur remporte la partie. Tout le monde perd.",
+      "Relique ultime. Utilise-la pour la révéler : le Conservateur gagne immédiatement la partie — tous les autres perdent.",
   },
   oeil_damnation: {
     name: "L'Œil de la Damnation",
     icon: "👁️",
     weight: 4.0,
     effect: "reveal_random",
-    description: "Révèle le rôle d'un joueur au hasard.",
+    description: "Utilise-le : le rôle exact d'un joueur AU HASARD t'est révélé.",
   },
   medaillon_vieux_maitre: {
     name: "Le Médaillon du Vieux Maître",
     icon: "🏅",
     weight: 4.0,
     effect: "protect_self",
-    description: "Te protège pendant 1 tour entier.",
+    description: "Utilise-le : tu es protégé de toute attaque pendant 1 tour entier.",
   },
   lettre_scellee: {
     name: "La Lettre Scellée",
     icon: "✉️",
     weight: 4.0,
     effect: "block_target",
-    description: "Bloque la capacité d'un joueur ciblé pendant 1 tour.",
+    description: "Utilise-la sur un joueur : sa capacité est bloquée pendant 1 tour.",
   },
   miroir_minuit: {
     name: "Le Miroir de Minuit",
     icon: "🪞",
     weight: 10.0,
-    description: "Un reflet glacé, sans pouvoir. Pure beauté maudite.",
+    description: "Sans pouvoir — un reflet glacé, pure pièce de collection.",
   },
   clef_aile_interdite: {
     name: "La Clé de l'Aile Interdite",
     icon: "🗝️",
     weight: 12.0,
-    description: "Elle n'ouvre plus rien — ou alors plus rien d'utile.",
+    description: "Sans pouvoir — elle n'ouvre plus rien d'utile.",
   },
   poupee_grenier: {
     name: "La poupée du grenier",
     icon: "🪆",
     weight: 14.0,
-    description: "Elle te regarde fixement. Aucune capacité.",
+    description: "Sans pouvoir — elle te regarde fixement, c'est tout.",
   },
   lettre_oubliee: {
     name: "La Lettre Oubliée",
     icon: "📜",
     weight: 16.0,
-    description: "Une lettre jamais lue, jamais envoyée. Aucun effet.",
+    description: "Sans pouvoir — une lettre jamais lue, jamais envoyée.",
   },
   portrait_dame_blanche: {
     name: "Le Portrait de la Dame Blanche",
     icon: "🖼️",
     weight: 17.5,
-    description: "Son regard te suit. C'est tout.",
+    description: "Sans pouvoir — son regard te suit, rien de plus.",
   },
   bougie_des_ames: {
     name: "La Bougie des Âmes",
     icon: "🕯️",
     weight: 13.5,
-    description: "Sa flamme vacille — sans réelle utilité.",
+    description: "Sans pouvoir — sa flamme vacille, sans utilité.",
   },
 };
 
@@ -408,6 +409,19 @@ export async function consumeItem(opts: {
   if (itemNeedsTarget(item.slug, item.payload) === "single" && !target)
     return { ok: false, message: "Cible requise" };
 
+  // Verrou de phase (décision Jason 2026-07-18) : comme les capacités actives,
+  // les objets ne s'utilisent QUE pendant l'Enquête (phase `free`). La lecture
+  // (indices, lettres) reste possible à tout moment — elle ne passe pas ici.
+  const { data: gameRow } = await supabase
+    .from("games")
+    .select("current_phase, status")
+    .eq("id", gameId)
+    .maybeSingle();
+  const gp = gameRow as { current_phase: string; status: string } | null;
+  if (gp && gp.status === "ended") return { ok: false, message: "Partie terminée." };
+  if (gp && gp.current_phase !== "free")
+    return { ok: false, message: "Les objets ne s'utilisent que pendant l'Enquête." };
+
   // Limite : 1 objet utilisé par tour, pour tous.
   const { data: actorRow } = await supabase
     .from("players")
@@ -445,7 +459,7 @@ export async function consumeItem(opts: {
   switch (item.slug) {
     case "lettre": {
       if (!target) {
-        message = "Cible requise pour la lettre anonyme.";
+        message = "Cible requise pour la lettre.";
         break;
       }
       const raw = String(item.payload?.message ?? "").trim();
@@ -471,6 +485,9 @@ export async function consumeItem(opts: {
       );
       message = `📨 Lettre envoyée à ${target.pseudo}.`;
       item.payload = { ...(item.payload ?? {}), message: msg, sent: true, sent_to: target.pseudo };
+      // La copie de l'expéditeur change d'étiquette : plus « à envoyer ».
+      item.name = "Lettre envoyée";
+      item.description = `Ta lettre envoyée à ${target.pseudo}. Touche-la pour la relire.`;
       break;
     }
     // ── La Malle du Contrebandier (lot 3) ──

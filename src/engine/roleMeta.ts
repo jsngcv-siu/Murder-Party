@@ -106,7 +106,7 @@ export interface RoleMeta {
   polt_win?: boolean; // un mortel est mort d'un objet déplacé
   // ─── Pyromane (lot 5) ───
   pyro_doused?: string[]; // joueurs aspergés (silencieux)
-  pyro_ignited?: boolean; // allumette craquée (1×/partie)
+  pyro_ignite_last_tour?: number; // tour de la dernière allumette (cooldown 2 tours pleins → re-dispo à +3)
   pyro_kills?: number; // morts par le feu (compté à la résolution)
   // ─── Ventriloque (lot 5) ───
   vent_used?: boolean;

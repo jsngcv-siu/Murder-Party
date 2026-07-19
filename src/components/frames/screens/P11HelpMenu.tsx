@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, type ElementType } from "react";
 import type { FrameContext } from "../registry";
 import type { RoleRow } from "@/engine/actions";
-import { ITEM_CATALOG, type ItemSlug } from "@/engine/items";
+import { ITEM_CATALOG, RELIQUE_CATALOG, type ItemSlug } from "@/engine/items";
 import { iconUrlForKey } from "@/lib/itemIcon";
 import { RoleIcon } from "@/components/RoleIcon";
 import { computeRoleFrequency, FREQ_COLORS } from "@/lib/roleAppearance";
@@ -53,7 +53,6 @@ import {
   Wine,
   Drama,
   Dices,
-  Crosshair,
   Martini,
   type LucideIcon,
 } from "lucide-react";
@@ -89,20 +88,27 @@ export function P11HelpMenu({
   const cols = tabs.length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col max-w-md mx-auto">
-      <header className="flex items-center justify-between p-4 pt-[max(1rem,var(--safe-top))] border-b border-border">
-        <span className="text-sm font-semibold">{title}</span>
+    // DA alignée sur les onglets joueur (2026-07-18) : fond liège full-bleed
+    // foncé + cartes opaques `--panel` (les voiles translucides y sont illisibles).
+    <div className="cork-surface fixed inset-0 z-50 flex flex-col max-w-md mx-auto">
+      <header className="flex items-center justify-between p-4 pt-[max(1rem,var(--safe-top))] border-b border-panel-border">
+        <span
+          className="text-base font-bold text-glow-gold tracking-wide"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          {title}
+        </span>
         <button
           onClick={onClose}
           aria-label="Fermer les paramètres"
-          className="inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card/70 transition active:scale-95"
+          className="inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg ring-1 ring-panel-border bg-panel text-sm font-medium text-muted-foreground hover:text-foreground hover:brightness-110 transition active:scale-95"
         >
           <X className="size-4" /> Fermer
         </button>
       </header>
 
       <nav
-        className="grid gap-1 p-2 border-b border-border bg-card/40"
+        className="grid gap-1 p-2 border-b border-panel-border"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {tabs.map((t) => (
@@ -137,11 +143,11 @@ export function P11HelpMenu({
       </div>
 
       {(onLeave || onQuit) && (
-        <footer className="border-t border-border bg-card/60 p-3 space-y-2 pb-[max(0.75rem,var(--safe-bottom))]">
+        <footer className="border-t border-panel-border bg-panel p-3 space-y-2 pb-[max(0.75rem,var(--safe-bottom))]">
           {onLeave && (
             <button
               onClick={onLeave}
-              className="w-full h-11 rounded-lg border border-border bg-card hover:bg-card/80 text-sm font-medium flex items-center justify-center gap-2 transition active:scale-[0.98]"
+              className="w-full h-11 rounded-lg border border-panel-border bg-panel hover:brightness-110 text-sm font-medium flex items-center justify-center gap-2 transition active:scale-[0.98]"
             >
               <Home className="size-4" /> Retour à l'accueil
               <span className="text-[10px] text-muted-foreground">(la partie continue)</span>
@@ -180,7 +186,7 @@ function TabBtn({
     <button
       onClick={onClick}
       className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-md transition-all ${
-        active ? "bg-card/80 ring-1 ring-border shadow-sm" : "hover:bg-card/50"
+        active ? "bg-panel ring-1 ring-panel-border shadow-sm" : "hover:bg-panel/50"
       }`}
     >
       <Sigil active={active} size={26} accent={accent}>
@@ -253,10 +259,11 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
           aria-hidden
         />
         <p className="relative text-[15px] text-center leading-relaxed text-foreground">
-          Un jeu à <span className="font-semibold text-primary">rôle caché</span>. Un{" "}
-          <span className="font-semibold text-mechants">meurtre</span> a eu lieu&nbsp;: un{" "}
+          Bienvenue dans <span className="font-semibold text-primary">Murder Party</span>. Un{" "}
+          <span className="font-semibold text-mechants">meurtre</span> a eu lieu dans ce manoir — il
+          est l'heure de découvrir qui est le{" "}
           <span className="font-semibold text-mechants">meurtrier</span> et ses{" "}
-          <span className="font-semibold text-mechants">acolytes</span> se cachent parmi vous.
+          <span className="font-semibold text-mechants">acolytes</span>…
         </p>
         <p className="relative text-xs text-center italic text-muted-foreground mt-2">
           À vous de mener l'enquête… avant qu'il ne soit trop tard.
@@ -265,19 +272,39 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
 
       <ol className="space-y-2.5">
         {[
-          { t: "Tu reçois un rôle secret, avec une capacité bien à toi.", c: "var(--neutres)" },
           {
-            t: "Chaque tour : tu agis en cachette, l'app révèle les dégâts, puis la table débat et vote.",
+            t: (
+              <>
+                Tu reçois un <b className="text-foreground">rôle secret</b> : sa capacité, son camp,
+                sa condition de victoire.
+              </>
+            ),
+            c: "var(--neutres)",
+          },
+          {
+            t: (
+              <>
+                Chaque tour : <b className="text-foreground">Enquête</b> (tu agis en cachette),{" "}
+                <b className="text-foreground">Annonce</b> (l'app révèle les dégâts),{" "}
+                <b className="text-foreground">Débat</b>, puis <b className="text-foreground">Vote</b>.
+              </>
+            ),
             c: "var(--primary)",
           },
           {
-            t: "Ton camp l'emporte en remplissant sa condition de victoire.",
+            t: (
+              <>
+                Ton camp l'emporte en remplissant sa{" "}
+                <b className="text-foreground">condition de victoire</b> — les Neutres jouent leur
+                propre partition.
+              </>
+            ),
             c: "var(--citoyens)",
           },
         ].map((s, i) => (
           <li
             key={i}
-            className="flex items-start gap-3 rounded-xl border border-border bg-card/40 p-3"
+            className="flex items-start gap-3 rounded-xl border border-panel-border bg-panel p-3"
           >
             <span
               className="shrink-0 grid place-items-center size-6 rounded-full text-[11px] font-bold border"
@@ -316,7 +343,7 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
       >
         Survivre et <b>éliminer</b> assez de Civils pour dominer.
       </GoalCard>
-      <NeutresGoalCard />
+      <NeutresGoalCard ctx={ctx} />
     </div>,
 
     // 3 — Les 4 phases
@@ -412,12 +439,12 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
       </div>
 
       {/* Navigation — flèches (PC) + points ; swipe natif sur mobile */}
-      <div className="shrink-0 flex items-center justify-between gap-4 px-4 py-2.5 border-t border-border bg-card/30">
+      <div className="shrink-0 flex items-center justify-between gap-4 px-4 py-2.5 border-t border-panel-border">
         <button
           onClick={() => goTo(idx - 1)}
           disabled={idx === 0}
           aria-label="Précédent"
-          className="grid place-items-center size-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-30 transition active:scale-95"
+          className="grid place-items-center size-9 rounded-full border border-panel-border bg-panel text-muted-foreground hover:text-foreground disabled:opacity-30 transition active:scale-95"
         >
           <ChevronLeft className="size-5" />
         </button>
@@ -435,7 +462,7 @@ function HowTo({ ctx }: { ctx: FrameContext }) {
           onClick={() => goTo(idx + 1)}
           disabled={idx === count - 1}
           aria-label="Suivant"
-          className="grid place-items-center size-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-30 transition active:scale-95"
+          className="grid place-items-center size-9 rounded-full border border-panel-border bg-panel text-muted-foreground hover:text-foreground disabled:opacity-30 transition active:scale-95"
         >
           <ChevronRight className="size-5" />
         </button>
@@ -461,7 +488,7 @@ function GoalCard({
 }) {
   return (
     <div className={`flex items-start gap-3 rounded-xl border ${ring} ${bg} p-3.5`}>
-      <div className="shrink-0 w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center shadow-sm">
+      <div className="shrink-0 w-9 h-9 rounded-lg bg-panel border border-panel-border flex items-center justify-center shadow-sm">
         <Icon className={`size-5 ${tone}`} aria-hidden />
       </div>
       <div>
@@ -472,39 +499,55 @@ function GoalCard({
   );
 }
 
-// Les trois sous-camps neutres, regroupés par comportement (couleurs dédiées).
+// Les trois sous-camps neutres = les trois TYPES neutres du moteur (BÉNIN / MAL /
+// CHAOS). Source de vérité : le champ `type` en base. Les exemples de rôles sont
+// dérivés dynamiquement du roster (cf. NeutresGoalCard) → jamais périmés.
 const NEUTRE_SOUSCAMPS: {
+  type: string;
   Icon: LucideIcon;
   color: string;
   label: string;
   goal: string;
-  ex: string;
 }[] = [
   {
-    Icon: Star,
-    color: "oklch(0.80 0.12 300)",
-    label: "Solitaires",
-    goal: "Remplissent un objectif personnel et pacifique — sans tuer.",
-    ex: "Oracle, Entremetteur…",
+    type: "BÉNIN",
+    Icon: Smile,
+    color: "oklch(0.74 0.14 150)",
+    label: "Bienveillants",
+    goal: "Un objectif personnel et pacifique. Ils ne nuisent à personne et peuvent gagner avec n'importe quel camp.",
   },
   {
-    Icon: VenetianMask,
-    color: "var(--vampires)",
-    label: "Subversifs",
-    goal: "Convertissent ou infectent la table pour la retourner à leur cause.",
-    ex: "Vampire, Empoisonneur, Veuve noire…",
+    type: "MAL",
+    Icon: Skull,
+    color: "oklch(0.62 0.20 25)",
+    label: "Malveillants",
+    goal: "Ils jouent contre la ville : poison, séduction fatale, incendie… Leur victoire empêche celle des Civils.",
   },
   {
-    Icon: Swords,
-    color: "oklch(0.70 0.19 35)",
-    label: "Tueurs neutres",
-    goal: "Éliminent pour leur propre compte, selon leur quota secret.",
-    ex: "Taupe, Veuve noire, Parieur tricheur…",
+    type: "CHAOS",
+    Icon: Flame,
+    color: "oklch(0.72 0.16 320)",
+    label: "Chaos",
+    goal: "Ils sèment le désordre pour leur propre cause : conversion, imitation, paris truqués, hantise.",
   },
 ];
 
-function NeutresGoalCard() {
+function NeutresGoalCard({ ctx }: { ctx: FrameContext }) {
   const [open, setOpen] = useState(false);
+  // Exemples de rôles par type, tirés du VRAI roster (hors désactivés) : ajouter
+  // ou retirer un neutre met la liste à jour sans toucher ce composant.
+  const exByType = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const r of ctx.roles.values()) {
+      if (r.is_disabled || r.faction !== "Neutre") continue;
+      const t = (r.type ?? "").toUpperCase();
+      const arr = map.get(t) ?? [];
+      arr.push(r.name_fr);
+      map.set(t, arr);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.localeCompare(b));
+    return map;
+  }, [ctx.roles]);
   return (
     <div className="rounded-xl border ring-neutres/30 bg-neutres/8 overflow-hidden">
       <button
@@ -512,7 +555,7 @@ function NeutresGoalCard() {
         className="w-full flex items-start gap-3 p-3.5 text-left active:scale-[0.99] transition"
         aria-expanded={open}
       >
-        <div className="shrink-0 w-9 h-9 rounded-lg bg-card border border-border flex items-center justify-center shadow-sm">
+        <div className="shrink-0 w-9 h-9 rounded-lg bg-panel border border-panel-border flex items-center justify-center shadow-sm">
           <VenetianMask className="size-5 text-neutres" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
@@ -549,12 +592,21 @@ function NeutresGoalCard() {
                 </span>
               </div>
               <div className="text-xs text-muted-foreground leading-snug mt-1">{s.goal}</div>
-              <div
-                className="text-[10px] italic mt-1"
-                style={{ color: `color-mix(in oklab, ${s.color} 70%, var(--muted-foreground))` }}
-              >
-                {s.ex}
-              </div>
+              {(() => {
+                const ex = exByType.get(s.type) ?? [];
+                if (ex.length === 0) return null;
+                return (
+                  <div
+                    className="text-[10px] italic mt-1"
+                    style={{
+                      color: `color-mix(in oklab, ${s.color} 70%, var(--muted-foreground))`,
+                    }}
+                  >
+                    {ex.slice(0, 4).join(", ")}
+                    {ex.length > 4 ? "…" : ""}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -582,7 +634,7 @@ function PhaseStep({
   return (
     <div className="relative">
       <div
-        className="absolute -left-6 top-0 w-6 h-6 rounded-full bg-card border flex items-center justify-center text-[10px] font-bold shadow-sm z-10"
+        className="absolute -left-6 top-0 w-6 h-6 rounded-full bg-panel border flex items-center justify-center text-[10px] font-bold shadow-sm z-10"
         style={{ color: tint, borderColor: `color-mix(in oklab, ${tint} 55%, transparent)` }}
       >
         {number}
@@ -654,7 +706,7 @@ const STATUTS: { Icon: LucideIcon; color: string; label: string; effet: string }
     Icon: FlaskConical,
     color: "oklch(0.74 0.16 155)",
     label: "Empoisonné",
-    effet: "Sans soin, tu meurs à la prochaine Annonce.",
+    effet: "La marque de l'Empoisonneur : elle ne tue pas, mais sert sa victoire. Un soin l'efface.",
   },
   {
     Icon: Ban,
@@ -704,7 +756,7 @@ function PhoneSlide() {
             return (
               <div
                 key={o.label}
-                className="rounded-xl border border-border bg-card/40 overflow-hidden"
+                className="rounded-xl border border-panel-border bg-panel overflow-hidden"
               >
                 <button
                   onClick={() => setOpen(isOpen ? null : o.label)}
@@ -851,7 +903,7 @@ function CapacitySlide({ ctx }: { ctx: FrameContext }) {
           return (
             <div
               key={u.key}
-              className="rounded-xl border bg-card/40 overflow-hidden transition-colors"
+              className="rounded-xl border bg-panel overflow-hidden transition-colors"
               style={{
                 borderColor: isOpen
                   ? `color-mix(in oklab, ${u.color} 45%, transparent)`
@@ -1132,6 +1184,12 @@ const TYPE_LEGEND: { Icon: LucideIcon; color: string; label: string; desc: strin
     label: "Tromperie",
     desc: "Déguise, brouille les pistes, manipule.",
   },
+  {
+    Icon: Hand,
+    color: "oklch(0.72 0.14 55)",
+    label: "Contrôle",
+    desc: "Bloque, vole ou détourne les capacités.",
+  },
   { Icon: Skull, color: "oklch(0.55 0.20 22)", label: "Mal", desc: "Pouvoirs malveillants." },
   { Icon: Flame, color: "oklch(0.75 0.18 50)", label: "Chaos", desc: "Sème le désordre." },
   {
@@ -1156,6 +1214,8 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
   );
   const [q, setQ] = useState("");
   const [faction, setFaction] = useState<"all" | "Civil" | "Méchant" | "Neutre">("all");
+  // Filtre par TYPE de rôle (combinable avec la faction) — demande Jason 2026-07-18.
+  const [roleType, setRoleType] = useState<string>("all");
   const [legendOpen, setLegendOpen] = useState(false);
 
   const factions = [
@@ -1165,7 +1225,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
       Icon: Sparkles,
       tone: "text-gold",
       ring: "ring-gold/40",
-      bg: "bg-gold/10",
+      bg: "bg-gold/16",
     },
     {
       key: "Civil" as const,
@@ -1173,7 +1233,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
       Icon: Shield,
       tone: "text-citoyens",
       ring: "ring-citoyens/40",
-      bg: "bg-citoyens/10",
+      bg: "bg-citoyens/16",
     },
     {
       key: "Méchant" as const,
@@ -1181,7 +1241,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
       Icon: Swords,
       tone: "text-destructive",
       ring: "ring-destructive/40",
-      bg: "bg-destructive/10",
+      bg: "bg-destructive/16",
     },
     {
       key: "Neutre" as const,
@@ -1189,7 +1249,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
       Icon: VenetianMask,
       tone: "text-neutres",
       ring: "ring-neutres/40",
-      bg: "bg-neutres/10",
+      bg: "bg-neutres/16",
     },
   ];
 
@@ -1204,33 +1264,54 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
     return c;
   }, [all]);
 
+  // TOUS les types du roster, toujours affichés (demande Jason 2026-07-18) ;
+  // le compte suit la faction courante — un type absent de la faction reste
+  // visible mais grisé (compte 0, non cliquable).
+  const typeChips = useMemo(() => {
+    const pool = faction === "all" ? all : all.filter((r) => r.faction === faction);
+    const byType = new Map<string, number>();
+    for (const r of all) {
+      const t = (r.type ?? "").toUpperCase();
+      if (t && !byType.has(t)) byType.set(t, 0);
+    }
+    for (const r of pool) {
+      const t = (r.type ?? "").toUpperCase();
+      if (!t) continue;
+      byType.set(t, (byType.get(t) ?? 0) + 1);
+    }
+    return Array.from(byType.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [all, faction]);
+
   const filtered = useMemo(() => {
     const k = q.trim().toLowerCase();
     return all.filter((r) => {
       const f = r.faction;
       if (faction !== "all" && f !== faction) return false;
+      if (roleType !== "all" && (r.type ?? "").toUpperCase() !== roleType) return false;
       if (!k) return true;
       return r.name_fr.toLowerCase().includes(k) || (r.description ?? "").toLowerCase().includes(k);
     });
-  }, [all, q, faction]);
+  }, [all, q, faction, roleType]);
 
   const toneFor = (r: RoleRow) => {
     const f = r.faction;
+    // Fonds plus opaques (moins transparents) pour mieux détacher les cartes du
+    // liège — demande Jason 2026-07-18.
     if (f === "Civil")
       return {
-        ring: "ring-citoyens/30",
-        bg: "bg-citoyens/8",
+        ring: "ring-citoyens/45",
+        bg: "bg-citoyens/16",
         tone: "text-citoyens",
         label: "Civil",
       };
     if (f === "Méchant")
       return {
-        ring: "ring-destructive/30",
-        bg: "bg-destructive/8",
+        ring: "ring-destructive/45",
+        bg: "bg-destructive/16",
         tone: "text-destructive",
         label: "Méchant",
       };
-    return { ring: "ring-neutres/30", bg: "bg-neutres/8", tone: "text-neutres", label: "Neutre" };
+    return { ring: "ring-neutres/45", bg: "bg-neutres/16", tone: "text-neutres", label: "Neutre" };
   };
 
   return (
@@ -1246,7 +1327,7 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
           onChange={(e) => setQ(e.target.value)}
           aria-label="Rechercher un rôle"
           placeholder="Rechercher un rôle…"
-          className="w-full h-10 pl-9 pr-3 rounded-lg bg-card border border-border text-sm focus:outline-none focus:ring-1 focus:ring-gold/40"
+          className="w-full h-10 pl-9 pr-3 rounded-lg bg-panel border border-panel-border text-sm focus:outline-none focus:ring-1 focus:ring-gold/40"
         />
       </div>
 
@@ -1257,11 +1338,14 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
           return (
             <button
               key={f.key}
-              onClick={() => setFaction(f.key)}
+              onClick={() => {
+                setFaction(f.key);
+                setRoleType("all"); // le pool de types change avec la faction
+              }}
               className={`flex flex-col items-center gap-0.5 py-2 rounded-lg ring-1 transition ${
                 active
                   ? `${f.bg} ${f.ring} ${f.tone}`
-                  : "bg-card/40 ring-border text-muted-foreground hover:bg-card"
+                  : "bg-panel ring-panel-border text-muted-foreground hover:brightness-110"
               }`}
             >
               <f.Icon className="size-4" aria-hidden />
@@ -1274,8 +1358,55 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
         })}
       </div>
 
+      {/* Filtres par TYPE de rôle (retour à la ligne, combinable avec la faction) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          onClick={() => setRoleType("all")}
+          className={`shrink-0 px-2.5 py-1.5 rounded-full ring-1 text-[10px] font-semibold uppercase tracking-wider transition ${
+            roleType === "all"
+              ? "bg-gold/10 ring-gold/40 text-gold"
+              : "bg-panel ring-panel-border text-muted-foreground hover:brightness-110"
+          }`}
+        >
+          Tous types
+        </button>
+        {typeChips.map(([t, n]) => {
+          const legend = TYPE_LEGEND.find((l) => l.label.toUpperCase() === t);
+          const color = legend?.color ?? "var(--muted-foreground)";
+          const active = roleType === t;
+          const empty = n === 0; // absent de la faction courante → visible mais inerte
+          return (
+            <button
+              key={t}
+              disabled={empty}
+              onClick={() => setRoleType(active ? "all" : t)}
+              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full ring-1 text-[10px] font-semibold uppercase tracking-wider transition ${
+                empty
+                  ? "bg-panel/60 ring-panel-border text-muted-foreground/40"
+                  : active
+                    ? ""
+                    : "bg-panel ring-panel-border text-muted-foreground hover:brightness-110"
+              }`}
+              style={
+                active && !empty
+                  ? {
+                      color,
+                      background: `color-mix(in oklab, ${color} 12%, transparent)`,
+                      boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} 42%, transparent)`,
+                    }
+                  : undefined
+              }
+            >
+              {legend && <legend.Icon className="size-3" aria-hidden />}
+              {t}
+              <span className="opacity-70">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Légende des types de rôles (dépliable) */}
-      <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
+      <div className="rounded-xl border border-panel-border bg-panel overflow-hidden">
         <button
           onClick={() => setLegendOpen((v) => !v)}
           className="w-full flex items-center gap-2 px-3 py-2.5 text-left active:scale-[0.99] transition"
@@ -1332,6 +1463,12 @@ function RolesList({ ctx, onOpen }: { ctx: FrameContext; onOpen: (r: RoleRow) =>
                 >
                   {t.label}
                 </span>
+                {/* Type de rôle en toutes lettres sous la faction (demande Jason). */}
+                {r.type && (
+                  <span className="-mt-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {r.type}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1396,7 +1533,7 @@ function RolePopup({
       <div className="flex items-center justify-between px-4 pt-[max(1rem,var(--safe-top))] pb-2">
         <button
           onClick={onClose}
-          className="inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg border border-border bg-card/70 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card transition active:scale-95"
+          className="inline-flex items-center gap-1.5 h-9 pl-2.5 pr-3 rounded-lg border border-panel-border bg-panel text-sm font-medium text-muted-foreground hover:text-foreground hover:brightness-110 transition active:scale-95"
         >
           <ChevronLeft className="size-4" /> Retour
         </button>
@@ -1475,7 +1612,7 @@ function RolePopup({
               Capacité
             </span>
           </div>
-          <p className="whitespace-pre-line rounded-xl border border-border bg-card/60 p-3.5 text-[14px] leading-relaxed">
+          <p className="whitespace-pre-line rounded-xl border border-panel-border bg-panel p-3.5 text-[14px] leading-relaxed">
             {highlightCapacity(
               extraInfoFor(role.slug)?.cleanCapacity ?? role.capacite_full_text,
               "dark",
@@ -1495,7 +1632,7 @@ function RolePopup({
                   Subtilités
                 </span>
               </div>
-              <div className="space-y-3 rounded-xl border border-border bg-card/60 p-3.5">
+              <div className="space-y-3 rounded-xl border border-panel-border bg-panel p-3.5">
                 {notes.map((n, i) => (
                   <div key={i} className="relative pl-3">
                     <span
@@ -1575,14 +1712,16 @@ function CatalogCard({
     <div
       className="flex items-start gap-3 rounded-xl border p-3"
       style={{
-        borderColor: `color-mix(in oklab, ${accent} 28%, var(--border))`,
-        background: `color-mix(in oklab, ${accent} 7%, transparent)`,
+        borderColor: `color-mix(in oklab, ${accent} 28%, var(--panel-border))`,
+        // Base OPAQUE --panel teintée : les voiles translucides sont illisibles
+        // sur le liège (contrat DA onglets).
+        background: `color-mix(in oklab, ${accent} 8%, var(--panel))`,
       }}
     >
       <span
         className="shrink-0 grid place-items-center size-10 rounded-lg text-xl overflow-hidden"
         style={{
-          background: `color-mix(in oklab, ${accent} 14%, transparent)`,
+          background: `color-mix(in oklab, ${accent} 16%, var(--panel))`,
           boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 30%, transparent)`,
         }}
       >
@@ -1601,14 +1740,47 @@ function CatalogCard({
         <div className="text-sm font-bold" style={{ color: accent }}>
           {name}
         </div>
-        <div className="text-xs text-muted-foreground leading-snug mt-0.5">{desc}</div>
+        {/* Texte mis en valeur : mêmes surlignages sémantiques que les cartes de
+            rôle (tuer=rouge, protéger=vert, info=bleu, contrôle=ambre). Base un
+            cran plus lisible que muted pour laisser les mots-clés ressortir. */}
+        <div className="text-[12.5px] text-foreground/75 leading-snug mt-1">
+          {highlightCapacity(desc, "dark")}
+        </div>
       </div>
     </div>
   );
 }
 
+// Intertitre de section du coffre (typo display + filet).
+function ObjectsSection({ title, note }: { title: string; note?: string }) {
+  return (
+    <div className="pt-3 pb-0.5">
+      <div
+        className="text-[11px] uppercase tracking-[0.22em] font-bold text-glow-gold"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        {title}
+      </div>
+      {note && <p className="text-[11px] text-muted-foreground leading-snug mt-1">{note}</p>}
+    </div>
+  );
+}
+
+const MALLE_SLUGS = new Set([
+  "passe_partout",
+  "gilet_matelasse",
+  "rhum_contrebande",
+  "monocle_douanier",
+  "double_fond",
+]);
+
 function ObjectsList() {
   const indiceAccent = "oklch(0.80 0.15 75)";
+  const reliqueAccent = "var(--neutres)";
+  const commons = Object.values(ITEM_CATALOG).filter(
+    (it) => it.slug !== "indice" && it.slug !== "relique" && !MALLE_SLUGS.has(it.slug),
+  );
+  const malle = Object.values(ITEM_CATALOG).filter((it) => MALLE_SLUGS.has(it.slug));
   return (
     <div className="space-y-2.5">
       <SlideHead Icon={Backpack} title="Les objets" subtitle="Le coffre du manoir" />
@@ -1619,18 +1791,44 @@ function ObjectsList() {
         name="Indice"
         desc="Une information vraie sur la composition de cette partie, remise à certains invités dès le début. Certains indices sont coupés en deux moitiés : il faut réunir les deux porteurs pour révéler le secret."
       />
-      {Object.values(ITEM_CATALOG)
-        .filter((it) => it.slug !== "indice")
-        .map((it) => (
-          <CatalogCard
-            key={it.slug}
-            accent={OBJ_ACCENT[it.slug] ?? "var(--primary)"}
-            glyph={it.icon}
-            iconKey={it.slug}
-            name={it.name}
-            desc={it.description}
-          />
-        ))}
+      {commons.map((it) => (
+        <CatalogCard
+          key={it.slug}
+          accent={OBJ_ACCENT[it.slug] ?? "var(--primary)"}
+          glyph={it.icon}
+          iconKey={it.slug}
+          name={it.name}
+          desc={it.description}
+        />
+      ))}
+      <ObjectsSection
+        title="La Malle du Contrebandier"
+        note="Cinq objets exclusifs, livrés au Contrebandier tous les 2 tours (à chances égales). Le Voleur peut les dérober."
+      />
+      {malle.map((it) => (
+        <CatalogCard
+          key={it.slug}
+          accent={OBJ_ACCENT[it.slug] ?? "var(--primary)"}
+          glyph={it.icon}
+          iconKey={it.slug}
+          name={it.name}
+          desc={it.description}
+        />
+      ))}
+      <ObjectsSection
+        title="Les Reliques du Conservateur"
+        note="Distribuées uniquement par le Conservateur. Quatre ont un vrai pouvoir — les autres sont des leurres sans effet. Impossible de savoir ce qu'on reçoit avant de l'examiner."
+      />
+      {Object.entries(RELIQUE_CATALOG).map(([variant, def]) => (
+        <CatalogCard
+          key={variant}
+          accent={reliqueAccent}
+          glyph={def.icon}
+          iconKey={variant}
+          name={def.name}
+          desc={def.description}
+        />
+      ))}
     </div>
   );
 }
@@ -1647,7 +1845,7 @@ const STATUS_CATALOG: { Icon: LucideIcon; color: string; label: string; desc: st
     Icon: FlaskConical,
     color: "oklch(0.74 0.16 155)",
     label: "Empoisonné",
-    desc: "Sans soin, tu meurs à la prochaine Annonce.",
+    desc: "La marque de l'Empoisonneur coule en toi. Elle ne te tue pas — mais si tous les survivants la portent, l'Empoisonneur gagne. Une Fiole de vie ou un soin l'efface.",
   },
   {
     Icon: Ban,
@@ -1691,12 +1889,8 @@ const STATUS_CATALOG: { Icon: LucideIcon; color: string; label: string; desc: st
     label: "Perdant aux dés",
     desc: "Pari du tricheur perdu : mort à la prochaine annonce, sauf protection.",
   },
-  {
-    Icon: Crosshair,
-    color: "oklch(0.62 0.20 18)",
-    label: "Ciblé",
-    desc: "Marqué par le Tueur Stratège : mort à la prochaine annonce, sauf protection.",
-  },
+  // « Ciblé » (marque du Stratège) supprimé : obsolète depuis la refonte 3 modes
+  // (les kills du Stratège sont des intentions différées, sans statut visible).
   {
     Icon: Heart,
     color: "oklch(0.75 0.16 0)",

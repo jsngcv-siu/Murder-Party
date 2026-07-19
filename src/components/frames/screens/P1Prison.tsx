@@ -1,9 +1,9 @@
 import type { FrameContext } from "../registry";
-import { TestamentEditor } from "@/components/TestamentEditor";
 import { RoleIcon } from "@/components/RoleIcon";
+import { ChatPanel } from "@/components/ChatPanel";
 import { avatarOf } from "@/lib/avatars";
 import { AvatarImg } from "@/components/AvatarImg";
-import { Bird, Eye, Lock, Vote, Zap, type LucideIcon } from "lucide-react";
+import { Bird, Eye, KeyRound, Lock, MessageSquare, Vote, Zap, type LucideIcon } from "lucide-react";
 
 // Marqueur de l'état, posé par le PlayerShell (cf. lib/statePalette) : l'orange
 // du tampon « PRISON ». Repli pour les contextes hors shell (galerie /dev).
@@ -17,9 +17,13 @@ const STAMP = "var(--state-accent, oklch(0.77 0.15 62))";
 const SURFACE = "color-mix(in oklab, var(--card) 78%, transparent)";
 const EDGE = "color-mix(in oklab, var(--border) 85%, transparent)";
 
-export function P1Prison({ me, myRole, players }: FrameContext) {
+export function P1Prison({ me, myRole, players, gameId, game }: FrameContext) {
   const isMe = me.is_imprisoned;
   const otherPrisoners = players.filter((p) => p.is_imprisoned && p.id !== me.id);
+  // Parloir : ouvert par le Geôlier pour CE tour → chat privé dans la cellule.
+  const parloirOpen =
+    ((me.role_meta as Record<string, unknown> | null)?.parloir_open_cycle as number | undefined) ===
+    game.current_tour;
 
   // ─── Vue : non emprisonné ───
   if (!isMe) {
@@ -256,8 +260,60 @@ export function P1Prison({ me, myRole, players }: FrameContext) {
           </div>
         </div>
 
-        {/* Testament */}
-        <TestamentEditor me={me} />
+        {/* Parloir — remplace le testament (déjà dans son onglet dédié). Fermé :
+            cadre grisé ; ouvert par le Geôlier : chat privé actif dans la cellule. */}
+        {parloirOpen ? (
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              background: SURFACE,
+              borderColor: "oklch(0.60 0.16 45 / 0.5)",
+              boxShadow: "0 0 32px -6px oklch(0.60 0.16 45 / 0.35)",
+            }}
+          >
+            <div
+              className="flex items-center gap-2 px-3.5 py-2.5 border-b"
+              style={{ borderColor: "oklch(0.60 0.16 45 / 0.3)" }}
+            >
+              <KeyRound className="size-4 shrink-0" style={{ color: "oklch(0.78 0.16 55)" }} />
+              <div className="min-w-0">
+                <div
+                  className="text-[11px] font-bold uppercase tracking-[0.14em]"
+                  style={{ color: "oklch(0.85 0.12 60)" }}
+                >
+                  Parloir ouvert
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Le Geôlier te parle à travers les barreaux — réponds… ou mens.
+                </div>
+              </div>
+            </div>
+            <div className="p-2">
+              <ChatPanel
+                gameId={gameId}
+                channel={`parloir-${me.id}-${game.current_tour}`}
+                meId={me.id}
+                mePseudo={me.pseudo}
+                canWrite
+                placeholder="Répondre au Geôlier…"
+                emptyText="Le Geôlier ne t'a encore rien demandé."
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            className="rounded-2xl border border-dashed p-4 flex items-center gap-3 opacity-70"
+            style={{ background: SURFACE, borderColor: EDGE }}
+          >
+            <MessageSquare className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-muted-foreground">Parloir fermé</div>
+              <div className="text-[11px] text-muted-foreground/80 leading-snug">
+                Un geôlier peut venir t'ouvrir un chat privé pendant l'Enquête. Tu seras prévenu ici.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Co-détenus */}
         {otherPrisoners.length > 0 && (

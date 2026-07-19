@@ -987,6 +987,23 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
+  portraitiste: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Le type parle",
+            body: "TROMPERIE et CONTRÔLE n'existent que chez les Méchants : un tel portrait vaut une accusation. PROTECTEUR et SUPPORT ⇒ Civil sûr. Seuls TUEUR et INVESTIGATION restent ambigus.",
+          },
+          {
+            tag: "Les masques tiennent",
+            body: "Les déguisements te trompent (l'Usurpateur pose sous sa couverture) et une cible falsifiée ne donne rien — recoupe avec les enquêteurs avant d'accuser.",
+          },
+        ],
+      },
+    ],
+  },
   chat_du_manoir: {
     pages: [
       {
@@ -1062,11 +1079,11 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         notes: [
           {
             tag: "Tout est dans le timing",
-            body: "Une seule parade dans la partie. Joue l'appât, rends-toi suspect au bon moment — et lève ta garde LA nuit où l'on vient pour toi.",
+            body: "Une parade dans la partie — deux sur les grandes tables (11 joueurs et plus). Joue l'appât, rends-toi suspect au bon moment, et lève ta garde LA nuit où l'on vient pour toi.",
           },
           {
             tag: "Jamais d'erreur",
-            body: "Tu ne tues que qui t'attaque : aucun risque de friendly fire. Mais une garde levée pour rien est perdue à jamais.",
+            body: "Tu ne tues que qui t'attaque : aucun risque de friendly fire. Mais une garde levée pour rien est perdue — surveille ton compteur de parades.",
           },
         ],
       },
@@ -1112,12 +1129,12 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Les morts te fournissent",
-            body: "Chaque défunt laisse ses objets : fioles, couteaux, lettres… Ratisse tôt, avant que le Voleur ne pille les mêmes tombes.",
+            tag: "Tu dupliques, tu ne voles pas",
+            body: "La cible garde son objet — tu en obtiens une COPIE identique. Elle ne sait même pas que tu l'as bouturée.",
           },
           {
-            tag: "Au hasard",
-            body: "Tu ne choisis ni le mort ni l'objet — c'est la surprise du ratissage.",
+            tag: "Vise les mains pleines",
+            body: "Tu copies le DERNIER objet reçu par ta cible. Repère qui vient d'être servi (Contrebandier, Apothicaire, Facteur…) pour bouturer ce qu'il y a de mieux.",
           },
         ],
       },
@@ -1129,12 +1146,12 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
         title: "Subtilités",
         notes: [
           {
-            tag: "Ton inventaire te trahit",
-            body: "Chaque kill remplit tes poches d'objets volés — un Monocle ou une fouille peut lire ton tableau de chasse.",
+            tag: "Tes kills sont propres",
+            body: "Tuer ne remplit pas tes poches : tant que tu n'as pas braqué, ton inventaire ne trahit rien.",
           },
           {
             tag: "Braque au bon moment",
-            body: "Garde le braquage pour une cible chargée (Contrebandier, Apothicaire…) : tout rafler d'un coup, ça change une partie.",
+            body: "Ton unique braquage rafle TOUT l'inventaire de la victime — garde-le pour une cible chargée (Contrebandier, Apothicaire…). Mais après, ce butin te trahit au premier Monocle.",
           },
         ],
       },
@@ -1201,8 +1218,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Tu ne tues que les joueurs votés au dernier Vote. Pousse les accusations au Débat : chaque voix posée peint une cible.",
           },
           {
-            tag: "Le doute te couvre",
-            body: "Quand ta victime avait des voix, la table croit avoir éliminé un coupable — savoure.",
+            tag: "Le trouble s'installe",
+            body: "À force, les morts seront toujours des joueurs votés. La table va se demander pourquoi — hasard des lynchages, ou un rôle en jeu ? Ce doute est ta meilleure couverture.",
           },
         ],
       },

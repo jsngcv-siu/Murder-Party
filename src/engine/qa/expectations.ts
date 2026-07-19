@@ -86,6 +86,8 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   // ── Lot 5 (2026-07-18) ──
   ventriloque: "manipulate",
   pyromane: "kill",
+  // ── Ajout post-lots (2026-07-18) : jumeau Civil du Physionomiste ──
+  portraitiste: "investigate",
 };
 
 function effectFor(role: RoleRow): EffectCategory {

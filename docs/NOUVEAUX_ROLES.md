@@ -213,6 +213,17 @@ pour tous les rôles post-mortem.
 
 ---
 
+## 9 bis. Le Portraitiste — Civil/INVESTIGATION *(validé chat, 2026-07-18 — 18ᵉ rôle)*
+
+Jumeau **civil** du Physionomiste, demandé par Jason : même moteur (handler
+partagé `case "portraitiste"/"physionomiste"`, mêmes règles falsification /
+déguisements non percés), il croque un portrait 1×/Enquête et apprend le
+**TYPE** de rôle. Grille côté ville : TROMPERIE/CONTRÔLE ⇒ Méchant sûr ·
+PROTECTEUR/SUPPORT ⇒ Civil sûr · TUEUR/INVESTIGATION ambigus. Verdict
+Policier « innocent ». Migration 20260718310000, icône `icon-role/portraitiste.webp`.
+
+---
+
 ## 10. Troisième fournée — validés au tri du 2026-07-18
 
 1. **Le Jardinier — Civil/SUPPORT** : à chaque Enquête, **ratisse les parterres** :
@@ -243,11 +254,12 @@ pour tous les rôles post-mortem.
    « balle perforante » : ce kill-là **ignore TOUTES les protections — bénédiction du
    Saint comprise** (acté par Jason : tout perce). La protection n'est plus jamais une
    certitude absolue.
-2. **Le Détrousseur** : 1×/Enquête, tue 1 cible **et empoche son dernier objet**.
-   **1×/partie**, bouton « braquage » (même patron que le Franc-tireur) : sur ce
-   kill-là, il rafle **TOUT l'inventaire** de la victime en prime de la tuer.
-   Tension directe avec Jardinier / Voleur / Monocle du douanier (son inventaire
-   volé le trahit s'il est fouillé).
+2. **Le Détrousseur** : 1×/Enquête, tue 1 cible — **kill sec, sans vol**
+   *(révision Jason 2026-07-18 : le « dernier objet empoché » à chaque kill est
+   supprimé)*. **1×/partie**, bouton « braquage » (même patron que le
+   Franc-tireur) : sur ce kill-là, il rafle **TOUT l'inventaire** de la victime
+   en prime de la tuer. Tension avec Jardinier / Voleur / Monocle du douanier :
+   son inventaire ne le trahit qu'APRÈS son braquage.
 3. **Le Vautour** : 1×/Enquête, tue 1 cible — mais **uniquement parmi les joueurs
    ayant reçu au moins une voix au dernier Vote**. **Tour 1 (aucun vote encore) : il
    reçoit un couteau** dans son inventaire à la place — kill libre via l'objet.

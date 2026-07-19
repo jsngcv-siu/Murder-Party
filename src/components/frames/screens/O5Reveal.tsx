@@ -8,8 +8,18 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
 import { frequencyChips } from "@/lib/roleUsageChips";
-import { CapacityChargeChip, TypeStamp, FactionBadge } from "./PA2Capability";
-import { Sparkles } from "lucide-react";
+import {
+  CapacityChargeChip,
+  TypeStamp,
+  FactionBadge,
+  isScaledUsage,
+  UsageScaleBadge,
+  stripScalingSentence,
+} from "./PA2Capability";
+import { extraInfoFor } from "@/lib/roleExtraInfo";
+import { Sparkles, Settings } from "lucide-react";
+import { P11HelpMenu } from "./P11HelpMenu";
+import type { FrameContext } from "../registry";
 
 gsap.registerPlugin(SplitText);
 
@@ -23,6 +33,7 @@ export function O5Reveal({
   alreadyAck = false,
   readyCount,
   total,
+  helpCtx,
 }: {
   player: RevealPlayer;
   role: RoleRow;
@@ -34,8 +45,12 @@ export function O5Reveal({
   /** Nombre de joueurs prêts / total (bots inclus) — affiché sur le bouton. */
   readyCount?: number;
   total?: number;
+  /** Contexte de jeu : active le bouton Paramètres (aide « Comment jouer »,
+   *  rôles, objets, statuts) pendant la révélation — demande Jason 2026-07-18. */
+  helpCtx?: FrameContext;
 }) {
   const [count, setCount] = useState(3);
+  const [helpOpen, setHelpOpen] = useState(false);
   // Après avoir cliqué « Entrer » (ou si on a déjà validé), on reste sur la fiche
   // en mode attente jusqu'à ce que tout le monde soit prêt (lancement auto).
   const [waiting, setWaiting] = useState(alreadyAck);
@@ -181,6 +196,13 @@ export function O5Reveal({
   const dossierNo =
     (Math.abs([...role.slug].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % 89) + 10;
   const freqs = frequencyChips(role);
+  // Aligné sur l'onglet Capacité : même texte nettoyé (cleanCapacity) + retrait
+  // de la phrase de barème pour les rôles scalés (affichée en visuel).
+  const extra = extraInfoFor(role.slug);
+  const rawCapacity = extra?.cleanCapacity ?? role.capacite_full_text ?? "";
+  const capacityText = isScaledUsage(role.slug) ? stripScalingSentence(rawCapacity) : rawCapacity;
+  const subtleties = extra?.pages?.[0]?.notes ?? [];
+  const pc = total ?? 0;
 
   return (
     <div
@@ -191,6 +213,21 @@ export function O5Reveal({
           "radial-gradient(ellipse 120% 80% at 50% -2%, oklch(0.24 0.06 45) 0%, oklch(0.13 0.03 35) 58%)",
       }}
     >
+      {/* Paramètres pendant la révélation : les nouveaux venus lisent
+          « Comment jouer », le codex des rôles, objets et statuts. */}
+      {helpCtx && (
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          aria-label="Ouvrir l'aide et les paramètres"
+          className="absolute right-4 top-[max(1rem,var(--safe-top))] z-10 grid place-items-center size-10 rounded-full ring-1 ring-panel-border bg-panel text-muted-foreground hover:text-foreground hover:brightness-110 transition active:scale-95"
+        >
+          <Settings className="size-5" aria-hidden />
+        </button>
+      )}
+      {helpCtx && helpOpen && (
+        <P11HelpMenu ctx={helpCtx} title="Aide" onClose={() => setHelpOpen(false)} />
+      )}
       <div className="min-h-full flex flex-col items-center px-5 pt-[max(2.25rem,var(--safe-top))] pb-[max(2.25rem,var(--safe-bottom))] max-w-md mx-auto">
         {/* En-tête confidentiel */}
         <div className="reveal-kicker text-center">
@@ -283,16 +320,26 @@ export function O5Reveal({
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <FactionBadge faction={role.faction} />
                   <TypeStamp type={role.type} />
-                  {freqs.map((f, i) => (
-                    <CapacityChargeChip key={i} label={f} state="green" />
-                  ))}
                 </div>
+              </div>
+              {/* Fréquence TOUJOURS sur sa propre ligne, sous faction/type.
+                  Rôles scalés : barème visuel + total de la partie. */}
+              <div className="mt-2.5">
+                {isScaledUsage(role.slug) ? (
+                  <UsageScaleBadge slug={role.slug} playerCount={pc} />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {freqs.map((f, i) => (
+                      <CapacityChargeChip key={i} label={f} state="green" />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="my-4 h-px" style={{ background: "oklch(0.55 0.05 60 / 0.3)" }} />
 
-            {/* Capacité */}
+            {/* Capacité — même texte nettoyé que l'onglet Capacité */}
             <div className="reveal-capacity">
               <span
                 className="text-[11px] font-bold uppercase tracking-[0.16em]"
@@ -304,9 +351,46 @@ export function O5Reveal({
                 className="mt-2 text-[15px] leading-snug whitespace-pre-line"
                 style={{ color: "var(--paper-ink)" }}
               >
-                {highlightCapacity(role.capacite_full_text)}
+                {highlightCapacity(capacityText)}
               </p>
             </div>
+
+            {/* Subtilités du rôle (mêmes notes que le dossier de l'onglet Capacité) */}
+            {subtleties.length > 0 && (
+              <div className="mt-4">
+                <span
+                  className="text-[11px] font-bold uppercase tracking-[0.16em]"
+                  style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
+                >
+                  {extra?.pages?.[0]?.title ?? "Subtilités"}
+                </span>
+                <div className="mt-2 space-y-2">
+                  {subtleties.map((n, i) => (
+                    <div
+                      key={i}
+                      className="rounded-md px-2.5 py-2"
+                      style={{
+                        background: "color-mix(in oklab, var(--paper-ink) 5%, transparent)",
+                        border: "1px solid color-mix(in oklab, var(--paper-ink) 14%, transparent)",
+                      }}
+                    >
+                      <div
+                        className="text-[10px] font-bold uppercase tracking-[0.1em]"
+                        style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
+                      >
+                        {n.tag}
+                      </div>
+                      <div
+                        className="mt-0.5 text-[12.5px] leading-snug"
+                        style={{ color: "var(--paper-ink)" }}
+                      >
+                        {highlightCapacity(n.body)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

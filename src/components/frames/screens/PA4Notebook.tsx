@@ -47,6 +47,13 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           ? "Ivre — servi par le barman"
           : null;
 
+  // Verrou de phase : les objets ne s'utilisent QUE pendant l'Enquête
+  // (décision Jason 2026-07-18). La consultation (lecture) reste libre. On
+  // combine avec les blocages de statut pour le bouton « Utiliser ».
+  const notEnquete = game.current_phase !== "free";
+  const useGate: string | null =
+    blockedReason ?? (notEnquete ? "Utilisable seulement pendant l'Enquête" : null);
+
   // Note : la notif volante "nouvel objet" est désormais pilotée par PlayerShell
   // (pour se déclencher depuis n'importe quel onglet). Ici on n'affiche que le
   // résultat d'utilisation d'un objet (toast plus bas).
@@ -222,18 +229,22 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
               </button>
               {!openItem.consumed && itemIsUsable(openItem.slug, openItem.payload) && (
                 <button
-                  disabled={!!blockedReason}
+                  disabled={!!useGate}
                   onClick={() => {
-                    if (blockedReason) return;
+                    if (useGate) return;
                     setUseItemMode(openItem);
                     setPickedTargetId(null);
                   }}
                   className="flex-1 py-2.5 rounded-lg bg-gold text-primary-foreground text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={blockedReason ?? undefined}
+                  title={useGate ?? undefined}
                 >
                   {blockedReason ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Ban className="size-4" aria-hidden /> Bloqué
+                    </span>
+                  ) : notEnquete ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ban className="size-4" aria-hidden /> Hors Enquête
                     </span>
                   ) : (
                     "Utiliser"

@@ -57,6 +57,7 @@ function parseTotalLimit(role, n) {
   const lbl = role.usage_label ?? "";
   if (role.slug === "cleaner") return n >= 10 ? 2 : 1;
   if (role.slug === "mouchard") return 1;
+  if (role.slug === "bretteur") return n >= 11 ? 2 : 1;
   if (/1×\/partie/i.test(lbl)) return 1;
   const m = lbl.match(/max\s*(\d+)/i);
   if (m) return parseInt(m[1], 10);
