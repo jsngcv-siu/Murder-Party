@@ -2484,7 +2484,6 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   "usurpateur",
   "avocat",
   "guetteur",
-  "cuisinier",
   "juge",
   "corrupteur",
   "medecin_legiste",
@@ -2492,11 +2491,9 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   "cartomancien",
   "journaliste",
   "veuve_noire",
-  "paranoiaque",
   "oracle",
   "entremetteur",
   "imitateur",
-  "vengeur",
   "ange_gardien",
   "saint",
   // Décision joueur : pas de bandeau (panneau dédié ou pas d'info utile)
@@ -2506,6 +2503,9 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   "empoisonneur",
   "vampire",
   "conservateur",
+  // (cuisinier / vengeur / paranoiaque RETIRÉS 2026-07-19 : leur kill différé
+  // doit afficher son dénouement — « Échec : ta cible a survécu » — au lieu
+  // de disparaître ; le Vampire garde ses notifications dédiées bite_failed.)
 ]);
 
 // ───────── Bannière persistante : Dernier résultat de capacité
@@ -2887,6 +2887,13 @@ function LastResultBanner({
   const resultIsInformative =
     (typeof rowEffect === "string" && INFO_RESULT_EFFECTS.has(rowEffect)) ||
     rowItem === "fiole_clairvoyance" ||
+    // Apothicaire : la Fiole de clairvoyance jouée via la CAPACITÉ (effet
+    // use_fiole) porte la faction lue — sans ce cas, l'info se perdait après
+    // le toast de 3 s.
+    (rowEffect === "use_fiole" && rowPayload.fiole === "reveal") ||
+    // Un ÉCHEC est toujours une info neuve (kill différé bloqué, protection
+    // ratée…) : sans ça, la pastille verte « Fait » mentait au joueur.
+    storedOutcome === "fail" ||
     isFalsifiedResult;
   const showResultBlock = resultIsInformative && hasOutcome;
   const actionPending = storedOutcome === "pending" || /à l'annonce/i.test(resultMsg);

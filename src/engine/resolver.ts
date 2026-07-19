@@ -166,6 +166,13 @@ function deferredPlayerResult(
       return { summary: "Échec : ta cible était protégée.", outcome: "fail" };
     return { summary: "Ta malédiction n'a pas pu aboutir ce tour.", outcome: "fail" };
   }
+  if (cat === "CONVERT") {
+    // Morsure du Vampire. Même règle que ATTACK : on ne révèle pas le mécanisme
+    // de survie (protection/bénédiction) — juste l'issue.
+    if (status === "applied")
+      return { summary: "Morsure réussie — ta cible rejoint le clan.", outcome: "success" };
+    return { summary: "Ta morsure n'a pas pris cette nuit.", outcome: "fail" };
+  }
   return null;
 }
 
@@ -735,6 +742,15 @@ async function applyConvert(
     .single();
   const tRow = tgtRow as { is_alive: boolean; role_meta: Record<string, unknown> } | null;
   if (!tRow?.is_alive) {
+    // La mort est publique (Gazette) : dire au Vampire que sa cible est morte
+    // avant la morsure ne fuite rien.
+    await notify({
+      gameId: intent.game_id,
+      playerId: intent.actor_player_id,
+      type: "bite_failed",
+      title: "🦇 Morsure sans prise",
+      body: "Ta cible est morte avant que tes crocs ne la trouvent.",
+    });
     return { status: "cancelled", reason: "target_dead" };
   }
   // Symétrie avec le poison (applyPoison) : une cible PROTÉGÉE (bouclier de l'Ange
@@ -751,6 +767,15 @@ async function applyConvert(
       type: "shielded",
       title: "🛡️ Morsure bloquée",
       body: `${(intent.payload as Record<string, unknown> | null)?.target_pseudo ?? "Cible"} était protégé(e) — la conversion n'a pas pris.`,
+    });
+    // Le Vampire apprend l'ÉCHEC, jamais le mécanisme (protection/bénédiction) —
+    // même discrétion que les attaques bloquées.
+    await notify({
+      gameId: intent.game_id,
+      playerId: intent.actor_player_id,
+      type: "bite_failed",
+      title: "🦇 Morsure sans prise",
+      body: "Ta morsure n'a pas pris cette nuit — ta cible t'échappe.",
     });
     return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }

@@ -451,6 +451,11 @@ function deferredPlayerResult(cat, status) {
       return { summary: "\xC9chec : ta cible \xE9tait prot\xE9g\xE9e.", outcome: "fail" };
     return { summary: "Ta mal\xE9diction n'a pas pu aboutir ce tour.", outcome: "fail" };
   }
+  if (cat === "CONVERT") {
+    if (status === "applied")
+      return { summary: "Morsure r\xE9ussie \u2014 ta cible rejoint le clan.", outcome: "success" };
+    return { summary: "Ta morsure n'a pas pris cette nuit.", outcome: "fail" };
+  }
   return null;
 }
 async function writeResolution(intentId, resolution, result) {
@@ -795,6 +800,13 @@ async function applyConvert(intent, converter) {
   const { data: tgtRow } = await supabase.from("players").select("is_alive, role_meta").eq("id", targetId).single();
   const tRow = tgtRow;
   if (!tRow?.is_alive) {
+    await notify({
+      gameId: intent.game_id,
+      playerId: intent.actor_player_id,
+      type: "bite_failed",
+      title: "\u{1F987} Morsure sans prise",
+      body: "Ta cible est morte avant que tes crocs ne la trouvent."
+    });
     return { status: "cancelled", reason: "target_dead" };
   }
   const tMeta = getMeta(tRow);
@@ -807,6 +819,13 @@ async function applyConvert(intent, converter) {
       type: "shielded",
       title: "\u{1F6E1}\uFE0F Morsure bloqu\xE9e",
       body: `${intent.payload?.target_pseudo ?? "Cible"} \xE9tait prot\xE9g\xE9(e) \u2014 la conversion n'a pas pris.`
+    });
+    await notify({
+      gameId: intent.game_id,
+      playerId: intent.actor_player_id,
+      type: "bite_failed",
+      title: "\u{1F987} Morsure sans prise",
+      body: "Ta morsure n'a pas pris cette nuit \u2014 ta cible t'\xE9chappe."
     });
     return { status: "protected", reason: isBlessed ? "blessed" : "shield" };
   }
