@@ -172,13 +172,14 @@ export function PA4Notebook({ gameId, me, myRole, game, players, roles }: FrameC
           >
             <div className="flex flex-col items-center text-center">
               <span
-                className="mb-2 size-20 grid place-items-center overflow-hidden rounded-full text-5xl"
+                className="mb-2 relative size-20 overflow-hidden rounded-2xl"
                 style={{
                   boxShadow: `0 0 0 2px color-mix(in oklab, ${factionToken(itemFaction(openItem))} 55%, transparent)`,
                   background: `color-mix(in oklab, ${factionToken(itemFaction(openItem))} 10%, transparent)`,
                 }}
               >
-                <ItemIcon item={openItem} size={80} rounded="full" emojiFontSize={48} />
+                {/* Plein cadre carré arrondi, comme les cases de l'inventaire (pas un cercle). */}
+                <ItemIcon item={openItem} size={80} rounded="none" emojiFontSize={48} fill />
               </span>
               <h3 className="text-lg font-semibold">{openItem.name}</h3>
               <span

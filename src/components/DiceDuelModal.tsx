@@ -18,6 +18,7 @@ import { serverNow } from "@/lib/serverTime";
 import { vibrate, VIBES } from "@/lib/vibrate";
 import type { GameRow, PlayerRow } from "@/lib/game";
 import { AvatarImg } from "@/components/AvatarImg";
+import { RoleIcon } from "@/components/RoleIcon";
 import { avatarOf } from "@/lib/avatars";
 import {
   BoardPin,
@@ -48,6 +49,16 @@ type NotificationRow = {
   type: string;
   payload: Record<string, unknown> | null;
   created_at: string;
+};
+
+// Le duel est TOUJOURS l'œuvre du Parieur tricheur : côté cible, on masque
+// l'identité du parieur (pseudo + avatar) et on n'affiche que l'icône de ce rôle
+// (la cible sait qu'un parieur l'a visée, pas QUI). L'icône vit en local.
+const PARIEUR_ROLE = {
+  slug: "parieur_tricheur",
+  name_fr: "Parieur tricheur",
+  icon: "🎲",
+  image_url: "icon-role/parieur_tricheur.webp",
 };
 
 export function DiceDuelModal({
@@ -480,12 +491,14 @@ export function DuelScene({
 
         {/* Arène */}
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-start gap-2">
-          {/* Côté parieur : 3 dés */}
+          {/* Côté parieur : 3 dés. Chez la cible (!iAmActor), on masque l'identité
+              du parieur → icône du rôle seulement, pas de pseudo. */}
           <Side
             pseudo={duel.actorPseudo}
             avatar={playerAvatar(actorP)}
             accent={ACTOR_ACCENT}
             isMe={iAmActor}
+            anonymous={!iAmActor}
             sub="garde le meilleur (3 dés)"
           >
             <div className="flex items-end justify-center gap-1.5">
@@ -685,6 +698,7 @@ function Side({
   accent,
   isMe,
   sub,
+  anonymous = false,
   children,
 }: {
   pseudo: string;
@@ -692,14 +706,24 @@ function Side({
   accent: string;
   isMe: boolean;
   sub: string;
+  /** Masque l'identité (côté cible) : icône du rôle Parieur au lieu de l'avatar,
+   *  pseudo caché — la cible ne sait pas QUI l'a visée. */
+  anonymous?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center gap-2">
       {children}
       <div className="flex flex-col items-center gap-0.5">
-        <span className="inline-flex rounded-full" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
-          <AvatarImg avatar={avatar} size={30} />
+        <span
+          className="inline-flex overflow-hidden rounded-full"
+          style={{ boxShadow: `0 0 0 2px ${accent}` }}
+        >
+          {anonymous ? (
+            <RoleIcon role={PARIEUR_ROLE} size={30} />
+          ) : (
+            <AvatarImg avatar={avatar} size={30} />
+          )}
         </span>
         <div
           style={{
@@ -712,9 +736,11 @@ function Side({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            // Côté anonyme : réserve la hauteur de la ligne sans révéler de nom.
+            minHeight: 18,
           }}
         >
-          {isMe ? "Toi" : pseudo}
+          {isMe ? "Toi" : anonymous ? "" : pseudo}
         </div>
         <div style={{ fontSize: 9, color: INK_SOFT }}>{sub}</div>
       </div>

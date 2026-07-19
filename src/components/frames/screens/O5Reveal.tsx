@@ -7,6 +7,7 @@ import { SplitText } from "gsap/SplitText";
 import { supabase } from "@/integrations/supabase/client";
 import type { RoleRow } from "@/engine/actions";
 import { RoleIcon } from "@/components/RoleIcon";
+import { RoleDossierSlider } from "@/components/RoleDossierSlider";
 import { frequencyChips } from "@/lib/roleUsageChips";
 import {
   CapacityChargeChip,
@@ -201,7 +202,6 @@ export function O5Reveal({
   const extra = extraInfoFor(role.slug);
   const rawCapacity = extra?.cleanCapacity ?? role.capacite_full_text ?? "";
   const capacityText = isScaledUsage(role.slug) ? stripScalingSentence(rawCapacity) : rawCapacity;
-  const subtleties = extra?.pages?.[0]?.notes ?? [];
   const pc = total ?? 0;
 
   return (
@@ -339,58 +339,73 @@ export function O5Reveal({
 
             <div className="my-4 h-px" style={{ background: "oklch(0.55 0.05 60 / 0.3)" }} />
 
-            {/* Capacité — même texte nettoyé que l'onglet Capacité */}
+            {/* Capacité + subtilités en SLIDER horizontal — même grammaire que le
+                RoleDossierSlider de l'onglet Capacité (page 0 = capacité, pages
+                suivantes = subtilités, on glisse d'une feuille à l'autre). */}
             <div className="reveal-capacity">
-              <span
-                className="text-[11px] font-bold uppercase tracking-[0.16em]"
-                style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
-              >
-                Capacité
-              </span>
-              <p
-                className="mt-2 text-[15px] leading-snug whitespace-pre-line"
-                style={{ color: "var(--paper-ink)" }}
-              >
-                {highlightCapacity(capacityText)}
-              </p>
-            </div>
-
-            {/* Subtilités du rôle (mêmes notes que le dossier de l'onglet Capacité) */}
-            {subtleties.length > 0 && (
-              <div className="mt-4">
-                <span
-                  className="text-[11px] font-bold uppercase tracking-[0.16em]"
-                  style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
-                >
-                  {extra?.pages?.[0]?.title ?? "Subtilités"}
-                </span>
-                <div className="mt-2 space-y-2">
-                  {subtleties.map((n, i) => (
-                    <div
-                      key={i}
-                      className="rounded-md px-2.5 py-2"
-                      style={{
-                        background: "color-mix(in oklab, var(--paper-ink) 5%, transparent)",
-                        border: "1px solid color-mix(in oklab, var(--paper-ink) 14%, transparent)",
-                      }}
+              <RoleDossierSlider
+                pages={[
+                  <div key="cap" className="px-6">
+                    <span
+                      className="text-[11px] font-bold uppercase tracking-[0.16em]"
+                      style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
                     >
-                      <div
-                        className="text-[10px] font-bold uppercase tracking-[0.1em]"
-                        style={{ fontFamily: "var(--font-display)", color: "var(--paper-ink-soft)" }}
-                      >
-                        {n.tag}
+                      Capacité
+                    </span>
+                    <p
+                      className="mt-2 text-[15px] leading-snug whitespace-pre-line"
+                      style={{ color: "var(--paper-ink)" }}
+                    >
+                      {highlightCapacity(capacityText)}
+                    </p>
+                  </div>,
+                  ...(extra?.pages ?? [])
+                    .filter((pg) => pg.notes.length > 0)
+                    .map((pg, i) => (
+                      <div key={`sub-${i}`} className="px-6">
+                        <span
+                          className="text-[11px] font-bold uppercase tracking-[0.16em]"
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            color: "var(--paper-ink-soft)",
+                          }}
+                        >
+                          {pg.title ?? "Subtilités"}
+                        </span>
+                        <div className="mt-2 space-y-2">
+                          {pg.notes.map((n, j) => (
+                            <div
+                              key={j}
+                              className="rounded-md px-2.5 py-2"
+                              style={{
+                                background: "color-mix(in oklab, var(--paper-ink) 5%, transparent)",
+                                border:
+                                  "1px solid color-mix(in oklab, var(--paper-ink) 14%, transparent)",
+                              }}
+                            >
+                              <div
+                                className="text-[10px] font-bold uppercase tracking-[0.1em]"
+                                style={{
+                                  fontFamily: "var(--font-display)",
+                                  color: "var(--paper-ink-soft)",
+                                }}
+                              >
+                                {n.tag}
+                              </div>
+                              <div
+                                className="mt-0.5 text-[12.5px] leading-snug"
+                                style={{ color: "var(--paper-ink)" }}
+                              >
+                                {highlightCapacity(n.body)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div
-                        className="mt-0.5 text-[12.5px] leading-snug"
-                        style={{ color: "var(--paper-ink)" }}
-                      >
-                        {highlightCapacity(n.body)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    )),
+                ]}
+              />
+            </div>
           </div>
         </div>
 
