@@ -2465,7 +2465,7 @@ export function GazetteCard({
       />
       {isIndice ? (
         <img
-          src="/icons/icon-objet/indice.webp"
+          src="/annonces/puzzle.png"
           alt=""
           aria-hidden
           style={{

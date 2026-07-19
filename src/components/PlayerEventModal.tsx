@@ -32,7 +32,14 @@ import {
   INK_BODY,
 } from "@/components/boardChrome";
 
-export type EventKind = "killed" | "executed" | "imprisoned" | "released" | "bitten" | "chasseur";
+export type EventKind =
+  | "killed"
+  | "executed"
+  | "imprisoned"
+  | "released"
+  | "bitten"
+  | "chasseur"
+  | "survived";
 /** Kinds affichés par la file (EventKind « board » + sollicitations ciblées). */
 type ModalKind = EventKind | "parloir" | "pact";
 
@@ -43,6 +50,9 @@ export interface QueuedEvent {
   byRoleSlug?: string | null;
   /** Raison brute pour debug / sous-titre. */
   reason?: string | null;
+  /** Corps personnalisé (remplace le corps par défaut de BOARD_LOOK) — ex. la
+   *  phrase flavorée de la notif de survie (Croque-mitaine / Chat / Bretteur). */
+  body?: string | null;
   createdAt: number;
 }
 
@@ -175,6 +185,23 @@ export function PlayerEventModal({
     if (row.type === "pact_offer") {
       return { id: row.id, kind: "pact", createdAt: new Date(row.created_at).getTime() };
     }
+    // Survie à un danger : un joueur a été visé mais s'en est sorti — Croque-mitaine
+    // qui épargne (boogey_breath), Chat du Manoir qui perd une vie (chat_life_lost),
+    // Bretteur qui pare (bretteur_parry). Même carte « Tu as survécu à un danger »,
+    // avec le corps flavoré de la notif. On NE montre PAS de rôle responsable
+    // (pas de fuite d'identité — la cible sait juste qu'elle a frôlé la mort).
+    if (
+      row.type === "boogey_breath" ||
+      row.type === "chat_life_lost" ||
+      row.type === "bretteur_parry"
+    ) {
+      return {
+        id: row.id,
+        kind: "survived",
+        body: row.body,
+        createdAt: new Date(row.created_at).getTime(),
+      };
+    }
     return null;
   };
 
@@ -206,6 +233,9 @@ export function PlayerEventModal({
           "role_swap",
           "parloir_open",
           "pact_offer",
+          "boogey_breath",
+          "chat_life_lost",
+          "bretteur_parry",
         ])
         .order("created_at", { ascending: true });
       if (cancelled) return;
@@ -440,6 +470,21 @@ const BOARD_LOOK: Record<EventKind, BoardLook> = {
     btnVariant: "fill",
     showRole: true,
   },
+  survived: {
+    header: "— TU L'AS ÉCHAPPÉ BELLE —",
+    title: "Tu as survécu à un danger",
+    stamp: "SAIN ET SAUF",
+    // Corps par défaut : remplacé par le corps flavoré de la notif (ev.body).
+    body: "La mort t'a frôlé cette nuit… mais tu es toujours là.",
+    emoji: "😮‍💨",
+    emojiBg: "radial-gradient(circle at 36% 30%,#7fd0a0,#2f7d4a 72%)",
+    ink: "#2f7d4a",
+    paper: PAPER,
+    border: PAPER_BORDER,
+    rotate: -1,
+    btnLabel: "Ouf !",
+    btnVariant: "fill",
+  },
 };
 
 export function EventCard({
@@ -573,7 +618,7 @@ export function EventCard({
             margin: "12px 4px 0",
           }}
         >
-          {look.body}
+          {ev.body ?? look.body}
         </p>
 
         {/* Bouton */}

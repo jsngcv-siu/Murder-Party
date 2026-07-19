@@ -487,51 +487,34 @@ export function UsageScaleBadge({ slug, playerCount }: { slug: string; playerCou
     playerCount > 0 ? tiers.findIndex((t) => t.upTo == null || playerCount <= t.upTo) : -1;
   const current = activeIdx >= 0 ? tiers[activeIdx].count : null;
   const gold = "oklch(0.52 0.15 68)";
+  void current;
+  // Style minimaliste aligné sur les chips de fréquence (CapacityChargeChip) :
+  // petites pills bordées, le palier actif (selon la table) surligné en doré.
   return (
-    <div
-      className="rounded-lg px-3 py-2"
-      style={{
-        background: "color-mix(in oklab, var(--paper-ink) 6%, transparent)",
-        border: "1px solid color-mix(in oklab, var(--paper-ink) 18%, transparent)",
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className="font-display text-[9px] uppercase tracking-[0.16em]"
-          style={{ color: "var(--paper-ink-soft)" }}
-        >
-          Utilisations · selon la table
-        </span>
-        {current != null && (
-          <span className="font-display text-[10px]" style={{ color: "var(--paper-ink-soft)" }}>
-            cette partie&nbsp;:{" "}
-            <span className="font-display text-[15px] font-bold" style={{ color: gold }}>
-              {current}
-            </span>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className="font-display text-[8px] uppercase tracking-[0.16em]"
+        style={{ color: "var(--paper-ink-soft)" }}
+      >
+        Utilisations
+      </span>
+      {tiers.map((t, i) => {
+        const active = i === activeIdx;
+        return (
+          <span
+            key={i}
+            className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 leading-none"
+            style={{
+              background: active ? `color-mix(in oklab, ${gold} 16%, transparent)` : "transparent",
+              borderColor: active ? gold : "color-mix(in oklab, var(--paper-ink) 18%, transparent)",
+              color: active ? gold : "var(--paper-ink-soft)",
+            }}
+          >
+            <span className="font-mono text-[9px]">{usageTierLabel(tiers, i)}</span>
+            <span className="font-display text-[11px] font-bold">{t.count}×</span>
           </span>
-        )}
-      </div>
-      <div className="mt-1.5 flex items-stretch gap-1.5">
-        {tiers.map((t, i) => {
-          const active = i === activeIdx;
-          return (
-            <span
-              key={i}
-              className="flex-1 rounded-md px-1 py-1 text-center leading-tight"
-              style={{
-                background: active
-                  ? `color-mix(in oklab, ${gold} 18%, transparent)`
-                  : "transparent",
-                border: `1px solid ${active ? gold : "color-mix(in oklab, var(--paper-ink) 16%, transparent)"}`,
-                color: active ? gold : "var(--paper-ink-soft)",
-              }}
-            >
-              <span className="block font-mono text-[9px]">{usageTierLabel(tiers, i)}</span>
-              <span className="block font-display text-[13px] font-bold">{t.count}×</span>
-            </span>
-          );
-        })}
-      </div>
+        );
+      })}
     </div>
   );
 }
