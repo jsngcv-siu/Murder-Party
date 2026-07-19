@@ -81,7 +81,6 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   franc_tireur: "kill",
   // ── Lot 4 (2026-07-18) ──
   geolier: "manipulate",
-  poltergeist: "passive",
   vautour: "kill",
   // ── Lot 5 (2026-07-18) ──
   ventriloque: "manipulate",

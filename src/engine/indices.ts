@@ -44,7 +44,9 @@ export function indiceCount(playerCount: number): number {
 const FRAGMENT_CHANCE = 0.4;
 
 // MUSTs verrouillés → toujours présents, donc inutiles comme indices de présence.
-const ALWAYS_PRESENT = new Set(["tueur", "majordome", "assistant_du_detective", "executeur"]);
+// (L'Exécuteur n'est PLUS garanti depuis le recalibrage du pool — slot TUEUR
+// générique dès 7 j. — son indice de présence redevient donc informatif.)
+const ALWAYS_PRESENT = new Set(["tueur", "majordome", "assistant_du_detective"]);
 
 // Rôles civils « de pouvoir » dont la présence est un 🔴 (force cachée de la ville).
 const POWER_CIVILS = new Set([

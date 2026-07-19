@@ -7,7 +7,6 @@ import {
   benignSurvivorCoWinners,
   entremetteurSurvivorCoWinners,
   photographeCoWinners,
-  poltergeistCoWinners,
   type WinResult,
 } from "@/engine/winConditions";
 import { supabase } from "@/integrations/supabase/client";
@@ -342,7 +341,6 @@ function computeGroups(
       tone: "text-orange-200",
     },
     { label: "Le Photographe mondain", sel: photographeCoWinners(players), tone: "text-sky-300" },
-    { label: "Le Poltergeist", sel: poltergeistCoWinners(players), tone: "text-violet-300" },
     // Repli survie de l'Entremetteur (couple brisé) — la victoire dure
     // « Amoureux » est déjà couverte dans le switch (sélecteur → [] si couple intact).
     {

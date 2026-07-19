@@ -472,9 +472,8 @@ function pickCapabilityTargets(
     case "bretteur":
     case "conjure":
     case "contrebandier":
-    // Lot 4 : Geôlier (les bots ne chattent pas) et Poltergeist (post-mortem).
+    // Lot 4 : Geôlier (les bots ne chattent pas).
     case "geolier":
-    case "poltergeist":
     // Lot 5 : le Ventriloque compose du texte — hors de portée des bots.
     case "ventriloque":
     case "archiviste":

@@ -1188,8 +1188,8 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
             body: "Boucliers, bénédiction du Saint, sacrifice du Majordome, parade du Bretteur : rien n'arrête ta balle gravée. Une seule — choisis un moment décisif.",
           },
           {
-            tag: "Le chat retombe",
-            body: "Seule exception : la vie de réserve du Chat du Manoir absorbe même ta balle.",
+            tag: "Même le chat n'y survit pas",
+            body: "La vie de réserve du Chat du Manoir ne l'arrête pas non plus : ta balle traverse tout, sans exception.",
           },
         ],
       },
@@ -1207,23 +1207,6 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
           {
             tag: "Tu restes anonyme",
             body: "Le prisonnier ne sait pas qui tu es — négocie, promets le Juge, intoxique : il ne pourra pas te dénoncer.",
-          },
-        ],
-      },
-    ],
-  },
-  poltergeist: {
-    pages: [
-      {
-        title: "Subtilités",
-        notes: [
-          {
-            tag: "Ta partie commence à ta mort",
-            body: "Vivant, tu n'es personne. Mort, tu déplaces un objet par Enquête — personne ne voit rien.",
-          },
-          {
-            tag: "Fais voyager les lames",
-            body: "Tu gagnes si un objet déplacé tue : glisse les couteaux dans les poches impulsives, les fioles de mort chez les paranoïaques.",
           },
         ],
       },

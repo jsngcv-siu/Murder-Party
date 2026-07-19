@@ -202,7 +202,10 @@ export async function grantItem(playerId: string, item: Item): Promise<void> {
     .eq("id", playerId)
     .select("id");
   if (error || !wrote?.length)
-    console.error(`[engine] grantItem(${item.slug}) REFUSÉ sur ${playerId} (RLS ?)`, error ?? "0 ligne");
+    console.error(
+      `[engine] grantItem(${item.slug}) REFUSÉ sur ${playerId} (RLS ?)`,
+      error ?? "0 ligne",
+    );
 }
 
 export function readInventory(roleMeta: Record<string, unknown> | null | undefined): Item[] {
@@ -536,16 +539,17 @@ export async function consumeItem(opts: {
         .eq("id", target.id)
         .maybeSingle();
       const meta0 = (row?.role_meta ?? {}) as Record<string, unknown>;
+      // Si un blocage couvre déjà le tour courant (Lettre scellée, Marionnettiste),
+      // on ne touche PAS à `blocked_from_cycle` : réécrire from=tour+1 LEVAIT le
+      // blocage en cours. On ne pose from que s'il n'y a aucun blocage actif/à venir.
+      const oldBlockedUntil = (meta0.blocked_until_cycle as number | undefined) ?? -1;
       await supabase
         .from("players")
         .update({
           role_meta: {
             ...meta0,
-            blocked_from_cycle: tour + 1,
-            blocked_until_cycle: Math.max(
-              (meta0.blocked_until_cycle as number | undefined) ?? -1,
-              tour + 1,
-            ),
+            ...(oldBlockedUntil >= tour ? {} : { blocked_from_cycle: tour + 1 }),
+            blocked_until_cycle: Math.max(oldBlockedUntil, tour + 1),
           } as never,
         })
         .eq("id", target.id);
@@ -567,8 +571,7 @@ export async function consumeItem(opts: {
         .select("role_meta")
         .eq("id", target.id)
         .maybeSingle();
-      const tInv = (((row?.role_meta ?? {}) as Record<string, unknown>).inventory ??
-        []) as Item[];
+      const tInv = (((row?.role_meta ?? {}) as Record<string, unknown>).inventory ?? []) as Item[];
       const names = tInv.filter((it) => !it.consumed).map((it) => `${it.icon} ${it.name}`);
       message =
         names.length === 0
@@ -599,9 +602,6 @@ export async function consumeItem(opts: {
         payload: {
           kill_reason: "fiole_mort",
           target_pseudo: target!.pseudo,
-          // Poltergeist (lot 4) : objet déplacé depuis l'au-delà → un kill par
-          // cet objet fait co-gagner le fantôme (marqué à la résolution).
-          ...(item.payload?.polt_moved === true ? { polt_moved: true } : {}),
         },
       });
       // Silencieux côté victime : elle ne sait pas qu'elle est empoisonnée
@@ -697,8 +697,6 @@ export async function consumeItem(opts: {
           target_pseudo: target!.pseudo,
           mechant_mechanic: mechantOrigin,
           weapon_from_slug: weaponFromSlug,
-          // Poltergeist (lot 4) : couteau déplacé depuis l'au-delà.
-          ...(item.payload?.polt_moved === true ? { polt_moved: true } : {}),
         },
       });
       // Si ce couteau a été remis par l'Armurier, on le prévient que SON arme a

@@ -440,7 +440,11 @@ async function applyAttack(
     // durée que la protection standard (tour de pose + le suivant).
     const innkeeperId = tMeta.innkeeper_by;
     const innkeeperCycle = tMeta.innkeeper_by_cycle ?? -1;
-    if (typeof innkeeperId === "string" && innkeeperId.length > 0 && intent.tour <= innkeeperCycle + 1) {
+    if (
+      typeof innkeeperId === "string" &&
+      innkeeperId.length > 0 &&
+      intent.tour <= innkeeperCycle + 1
+    ) {
       await notify({
         gameId: intent.game_id,
         playerId: innkeeperId,
@@ -601,12 +605,18 @@ async function applyAttack(
     }
   }
   const weaponFromSlug = (payload.weapon_from_slug as string | null | undefined) ?? null;
+  // `pierce` est propagé jusqu'à killPlayer : son double-check de protection
+  // interne doit aussi laisser passer la balle perforante.
+  const killExtra: Record<string, unknown> = {
+    ...(weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : {}),
+    ...(pierce ? { pierce: true } : {}),
+  };
   const ok = await killer(
     intent.game_id,
     targetId,
     reason,
     intent.actor_player_id,
-    weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : undefined,
+    Object.keys(killExtra).length ? killExtra : undefined,
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
@@ -626,33 +636,6 @@ async function applyAttack(
         .from("players")
         .update({ role_meta: { ...pm, pyro_kills: (pm.pyro_kills ?? 0) + 1 } as never })
         .eq("id", py.id);
-    }
-  }
-  // ── Poltergeist (lot 4) : la victime est morte d'un objet déplacé depuis
-  // l'au-delà → le fantôme tient sa co-victoire (drapeau lu par winConditions).
-  if (ok && payload.polt_moved === true) {
-    const { data: poltRow } = await supabase
-      .from("players")
-      .select("id, pseudo, role_meta")
-      .eq("game_id", intent.game_id)
-      .eq("role_slug", "poltergeist")
-      .maybeSingle();
-    const polt = poltRow as { id: string; pseudo: string; role_meta: unknown } | null;
-    if (polt) {
-      const pm = getMeta(polt as { role_meta?: unknown });
-      await supabase
-        .from("players")
-        .update({ role_meta: { ...pm, polt_win: true } as never })
-        .eq("id", polt.id);
-      await notify({
-        gameId: intent.game_id,
-        playerId: polt.id,
-        type: "polt_win",
-        title: "👻 L'objet a frappé",
-        body: "Un objet que tu as déplacé vient de tuer. Ta hantise est accomplie — victoire assurée à la fin.",
-        mjTitle: "👻 Poltergeist",
-        mjBody: `${polt.pseudo} (Poltergeist) : un objet déplacé a tué — co-victoire acquise.`,
-      });
     }
   }
   // ── Détrousseur (lot 3) : le kill ordinaire ne vole RIEN. Seul le braquage

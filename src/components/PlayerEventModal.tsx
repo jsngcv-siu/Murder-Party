@@ -306,6 +306,13 @@ export function PlayerEventModal({
     | { target_id: string; target_pseudo: string; tour: number }
     | null
     | undefined;
+  // Photo de la dernière offre non-nulle : après la réponse, pact_offer est
+  // effacé en base mais la carte doit encore afficher sa confirmation.
+  const lastOfferRef = useRef<typeof pactOffer>(null);
+  if (pactOffer) lastOfferRef.current = pactOffer;
+  // Carte pacte à laquelle le joueur vient de répondre DEPUIS la carte : on la
+  // garde affichée (message de confirmation) jusqu'au « Fermer » explicite.
+  const [answeredPactId, setAnsweredPactId] = useState<string | null>(null);
 
   // Cartes devenues sans objet → on les saute (hors rendu, jamais pendant) :
   //  · pacte déjà répondu depuis l'onglet Capacité (pact_offer effacé) ;
@@ -315,10 +322,14 @@ export function PlayerEventModal({
     (!me.is_imprisoned ||
       !me.is_alive ||
       (meMeta.parloir_open_cycle as number | undefined) !== game.current_tour);
-  const pactStale = current?.kind === "pact" && !pactOffer;
+  const pactStale = current?.kind === "pact" && !pactOffer && current.id !== answeredPactId;
   useEffect(() => {
     if (parloirStale || pactStale) setQueue((q) => q.slice(1));
-  }, [parloirStale, pactStale]);
+    // `current?.id` dans les deps : sans lui, deux cartes périmées CONSÉCUTIVES du
+    // même type laissaient le booléen à true (pas de re-déclenchement) et la file
+    // restait bloquée pour toute la session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parloirStale, pactStale, current?.id]);
 
   if (!current || !visible || parloirStale || pactStale) return null;
 
@@ -338,13 +349,24 @@ export function PlayerEventModal({
     );
   }
   if (current.kind === "pact") {
-    const target = pactOffer ? (players.find((p) => p.id === pactOffer.target_id) ?? null) : null;
+    // Après la réponse, pact_offer est null en base → on rend la photo prise
+    // avant (lastOfferRef) pour que la carte de confirmation reste stable.
+    const offerShown = pactOffer ?? lastOfferRef.current;
+    if (!offerShown) return null;
+    const target = players.find((p) => p.id === offerShown.target_id) ?? null;
     return createPortal(
       <PactCard
-        offer={pactOffer!}
+        offer={offerShown}
         target={target}
-        onAnswer={(accept) => respondPact(game.id, me.id, accept)}
-        onClose={close}
+        onAnswer={async (accept) => {
+          const r = await respondPact(game.id, me.id, accept);
+          setAnsweredPactId(current.id);
+          return r;
+        }}
+        onClose={() => {
+          setAnsweredPactId(null);
+          close();
+        }}
       />,
       document.body,
     );

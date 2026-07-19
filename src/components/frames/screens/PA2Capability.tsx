@@ -12,7 +12,6 @@ import {
   respondPact,
   armFrancTireurPierce,
   armDetrousseurBraquage,
-  poltergeistMove,
   pyromaneIgnite,
   ventriloqueForge,
   type CapabilityResult,
@@ -1003,9 +1002,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         if (!cancelled)
           setVautourPrey(
             new Set(
-              ((data ?? []) as Array<{ target_player_id: string }>).map(
-                (v) => v.target_player_id,
-              ),
+              ((data ?? []) as Array<{ target_player_id: string }>).map((v) => v.target_player_id),
             ),
           );
       });
@@ -1456,16 +1453,17 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         !!meMeta.parloir_with && (
           <PanelCard tone="amber" icon={KeyRound} label="Parloir ouvert">
             <div className="text-[11px] text-muted-foreground mb-2">
-              Tu parles au détenu sous le nom « Le Geôlier » — il ne sait pas qui tu es. Le
-              parloir ferme à la fin du tour.
+              Tu parles au détenu sous le nom « Le Geôlier » — il ne sait pas qui tu es. Le parloir
+              ferme à la fin du tour.
             </div>
+            {/* Anonymat : le pseudo ÉCRIT en base est « Le Geôlier » (c'est ce que
+                le détenu lit) ; côté Geôlier, on voit le vrai nom du détenu. */}
             <ChatPanel
               gameId={gameId}
               channel={`parloir-${meMeta.parloir_with as string}-${game.current_tour}`}
               meId={me.id}
-              mePseudo={me.pseudo}
+              mePseudo="Le Geôlier"
               canWrite
-              anonymous
               placeholder="Interroger le détenu…"
               emptyText="Le détenu n'a encore rien dit."
             />
@@ -1473,9 +1471,6 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         )}
       {/* (Le parloir côté PRISONNIER vit désormais dans l'écran Prison — un
           détenu ne voit pas l'onglet Capacité.) */}
-      {myRole?.slug === "poltergeist" && !me.is_alive && (
-        <PoltergeistPanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
-      )}
       {myRole?.slug === "pyromane" && (
         <PyromanePanel gameId={gameId} me={me} players={players} tour={game.current_tour} />
       )}
@@ -1519,9 +1514,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         <PactOfferPanel
           gameId={gameId}
           meId={me.id}
-          offer={
-            meMeta.pact_offer as { target_id: string; target_pseudo: string; tour: number }
-          }
+          offer={meMeta.pact_offer as { target_id: string; target_pseudo: string; tour: number }}
         />
       )}
       {isOraclePending && (
@@ -1860,6 +1853,22 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
             />
           );
         })()}
+      {/* Geôlier : panneau prison dédié (la grille standard exclut les prisonniers,
+          or SEULS les prisonniers sont des cibles valides). 1×/Enquête. */}
+      {myRole?.slug === "geolier" && (
+        <GeolierPrisonPanel
+          players={players}
+          currentTour={game.current_tour}
+          busy={busy}
+          blocked={!!blockedReason}
+          parloirOpenWith={
+            (meMeta.parloir_cycle as number | undefined) === game.current_tour
+              ? ((meMeta.parloir_with as string | undefined) ?? null)
+              : null
+          }
+          onOpen={(id) => void runCapacity({ targetIds: [id], skipTargetCheck: true })}
+        />
+      )}
       {/* Corrupteur : même panneau prison que le Juge (liste live des prisonniers,
           évasion après 1 tour complet). La capacité est 1×/partie. */}
       {myRole?.slug === "corrupteur" &&
@@ -2077,6 +2086,9 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         myRole?.slug !== "juge" &&
         myRole?.slug !== "corrupteur" &&
         myRole?.slug !== "executeur" &&
+        // Geôlier : ses cibles sont les PRISONNIERS (exclus de la grille standard,
+        // qui ne liste que les joueurs libres) → panneau prison dédié plus bas.
+        myRole?.slug !== "geolier" &&
         myRole?.slug !== "paranoiaque" &&
         !(myRole?.slug === "saint" && meMeta.saint_used === true) &&
         !(blockedReason != null && /^Déjà utilisé/.test(blockedReason)) && (
@@ -2085,6 +2097,15 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
               {myRole?.instruction_verb ?? "Cible"}{" "}
               {needed > 1 ? `(${targets.length}/${needed})` : ""}
             </div>
+            {/* Vautour : grille vide = état normal (tour 1 / aucune voix au dernier
+                Vote) — on l'explique au lieu de laisser une section muette. */}
+            {myRole?.slug === "vautour" && targetable.length === 0 && (
+              <div className="mt-1.5 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground italic">
+                {vautourPrey === null
+                  ? "Recherche des proies votées…"
+                  : "Aucune proie ce tour : personne n'a reçu de voix au dernier Vote."}
+              </div>
+            )}
             {/* Conjuré : le sélecteur double a un ORDRE qui compte — on l'affiche. */}
             {myRole?.slug === "conjure" && (
               <div className="mt-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -3398,123 +3419,6 @@ function AvocatPrisonPanel({
   );
 }
 
-// ───────── Poltergeist (lot 4, post-mortem) : hanter — déplacer un objet
-// entre deux vivants. Inventaires LIVE (props players, realtime), flux en 2
-// temps : choisir l'objet à prendre, puis le destinataire. 1×/Enquête.
-function PoltergeistPanel({
-  gameId,
-  me,
-  players,
-  tour,
-}: {
-  gameId: string;
-  me: import("@/engine/actions").PlayerRow;
-  players: import("@/engine/actions").PlayerRow[];
-  tour: number;
-}) {
-  const [pickedItem, setPickedItem] = useState<{ fromId: string; itemId: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const meMeta = (me.role_meta && typeof me.role_meta === "object" ? me.role_meta : {}) as Record<
-    string,
-    unknown
-  >;
-  const hauntedThisTour = (meMeta.polt_last_tour as number | undefined) === tour;
-  const won = meMeta.polt_win === true;
-  const living = players.filter((p) => p.is_alive && !p.is_mj);
-  const holders = living
-    .map((p) => {
-      const inv = (
-        ((p.role_meta ?? {}) as Record<string, unknown>).inventory as
-          | Array<Record<string, unknown>>
-          | undefined
-      )?.filter((it) => it.consumed !== true);
-      return { p, inv: inv ?? [] };
-    })
-    .filter((h) => h.inv.length > 0);
-  const move = async (toId: string) => {
-    if (!pickedItem) return;
-    setBusy(true);
-    const r = await poltergeistMove(gameId, me.id, pickedItem.fromId, pickedItem.itemId, toId);
-    setMsg(r.message);
-    setPickedItem(null);
-    setBusy(false);
-  };
-  return (
-    <PanelCard tone="fuchsia" icon={Drama} label="Hanter le manoir">
-      {won && (
-        <div className="mb-2 text-sm text-fuchsia-200">
-          👻 Un objet déplacé a tué — ta victoire est acquise, continue de hanter pour le plaisir.
-        </div>
-      )}
-      {hauntedThisTour ? (
-        <div className="text-sm text-muted-foreground">
-          Tu as déjà hanté ce tour. Reviens à la prochaine Enquête.
-        </div>
-      ) : holders.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          Aucun vivant ne transporte d'objet pour l'instant.
-        </div>
-      ) : !pickedItem ? (
-        <>
-          <div className="text-[11px] text-muted-foreground mb-2">
-            1/2 — Choisis l'objet à faire glisser hors d'une poche :
-          </div>
-          <div className="space-y-2">
-            {holders.map(({ p, inv }) => (
-              <div key={p.id} className="rounded-lg border border-border bg-background/40 p-2">
-                <div className="text-xs font-semibold mb-1.5">{p.pseudo}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {inv.map((it) => (
-                    <button
-                      key={it.id as string}
-                      disabled={busy}
-                      onClick={() =>
-                        setPickedItem({ fromId: p.id, itemId: it.id as string })
-                      }
-                      className="px-2 py-1 rounded-md bg-fuchsia-500/15 ring-1 ring-fuchsia-400/40 text-xs hover:bg-fuchsia-500/25 disabled:opacity-40"
-                    >
-                      {(it.icon as string) ?? "❔"} {(it.name as string) ?? "Objet"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="text-[11px] text-muted-foreground mb-2">
-            2/2 — Dans quelle poche le glisser ?
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {living
-              .filter((p) => p.id !== pickedItem.fromId)
-              .map((p) => (
-                <button
-                  key={p.id}
-                  disabled={busy}
-                  onClick={() => void move(p.id)}
-                  className="h-10 rounded-lg bg-card/60 ring-1 ring-border text-sm font-semibold hover:bg-fuchsia-500/20 disabled:opacity-40 truncate px-2"
-                >
-                  {p.pseudo}
-                </button>
-              ))}
-          </div>
-          <button
-            disabled={busy}
-            onClick={() => setPickedItem(null)}
-            className="mt-2 h-9 w-full rounded-lg bg-card/40 ring-1 ring-border text-xs text-muted-foreground"
-          >
-            ← Reprendre le choix de l'objet
-          </button>
-        </>
-      )}
-      {msg && <div className="mt-2 text-xs text-fuchsia-200">{msg}</div>}
-    </PanelCard>
-  );
-}
-
 // ───────── Pyromane (lot 5) : liste des aspergés + bouton ALLUMETTE
 // (illimitée, cooldown 2 tours pleins — craquée à T → re-dispo à T+3)
 function PyromanePanel({
@@ -3623,20 +3527,21 @@ function VentriloquePanel({
   >;
   const used = meMeta.vent_used === true;
   const living = players.filter((p) => p.is_alive && !p.is_mj && p.id !== me.id);
-  if (used && !msg) {
+  // Un échec (ok=false) ne doit PAS manger le formulaire : l'erreur s'affiche
+  // sous le bouton et le Ventriloque peut réessayer. Seul un envoi réussi
+  // (vent_used passe à true côté realtime) remplace le panneau.
+  if (used) {
     return (
       <PanelCard tone="rose" icon={Drama} label="La plume du Ventriloque">
-        <div className="text-sm text-muted-foreground">
-          Ta contrefaçon a été envoyée. La plume est rangée.
+        <div className="text-sm text-rose-200">
+          {msg ?? "Ta contrefaçon a été envoyée. La plume est rangée."}
         </div>
       </PanelCard>
     );
   }
   return (
     <PanelCard tone="rose" icon={Drama} label="La plume du Ventriloque">
-      {msg ? (
-        <div className="text-sm text-rose-200">{msg}</div>
-      ) : (
+      {
         <>
           <div className="text-[11px] text-muted-foreground mb-2">
             1×/partie : la lettre arrivera signée du nom choisi — indiscernable d'une vraie.
@@ -3694,8 +3599,9 @@ function VentriloquePanel({
           >
             🎙️ Envoyer la contrefaçon
           </button>
+          {msg && <div className="mt-2 text-xs text-rose-200">{msg}</div>}
         </>
-      )}
+      }
     </PanelCard>
   );
 }
@@ -4622,6 +4528,91 @@ function GuetteurWatchPanel({
 }
 
 // ───────── Juge : liste live des prisonniers, libération après 1 tour complet
+// ───────── Geôlier : liste live des prisonniers → ouvre le parloir (1×/Enquête).
+// Même grammaire que JugePrisonPanel, sans la contrainte « purger un tour » :
+// le moteur n'exige qu'un prisonnier VIVANT.
+function GeolierPrisonPanel({
+  players,
+  currentTour,
+  busy,
+  blocked,
+  parloirOpenWith,
+  onOpen,
+}: {
+  players: import("@/engine/actions").PlayerRow[];
+  currentTour: number;
+  busy: boolean;
+  blocked: boolean;
+  /** id du détenu si un parloir est déjà ouvert ce tour (null sinon). */
+  parloirOpenWith: string | null;
+  onOpen: (id: string) => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const prisoners = players.filter((p) => p.is_imprisoned && p.is_alive && !p.is_mj);
+
+  // Si le prisonnier sélectionné disparaît (libéré, mort), désélectionner.
+  useEffect(() => {
+    if (selected && !prisoners.some((p) => p.id === selected)) setSelected(null);
+  }, [prisoners, selected]);
+
+  const alreadyOpen = parloirOpenWith !== null;
+  return (
+    <PanelCard tone="amber" icon={KeyRound} label={`Parloir · Tour ${currentTour}`}>
+      <div className="text-[10px] text-amber-200/70 mb-2 italic">
+        Ouvre un chat privé avec un détenu — il ne saura pas qui tu es. Le parloir ferme à la fin du
+        tour.
+      </div>
+      {alreadyOpen ? (
+        <div className="text-muted-foreground italic">
+          Le parloir est déjà ouvert ce tour — la conversation vit dans le cadre « Parloir ouvert »
+          ci-dessous.
+        </div>
+      ) : prisoners.length === 0 ? (
+        <div className="text-muted-foreground italic">
+          Aucun joueur en prison actuellement — personne à convoquer.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {prisoners.map((p) => {
+              const isSel = selected === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelected(isSel ? null : p.id)}
+                  className={`h-12 rounded-lg text-sm transition px-2 flex flex-col items-center justify-center ${
+                    isSel
+                      ? "bg-primary/20 text-primary ring-1 ring-primary"
+                      : "bg-card/60 hover:bg-card text-foreground"
+                  }`}
+                  title="Sélectionner"
+                >
+                  <span className="font-medium flex items-center gap-2">
+                    <AvatarImg avatar={playerAvatar(p)} size={24} />
+                    <Lock className="size-3" aria-hidden /> {p.pseudo}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            disabled={!selected || busy || blocked}
+            onClick={() => {
+              if (selected) {
+                onOpen(selected);
+                setSelected(null);
+              }
+            }}
+            className="mt-3 h-12 w-full rounded-lg bg-gold text-primary-foreground font-semibold disabled:opacity-40"
+          >
+            {busy ? "…" : "🔐 Ouvrir le parloir"}
+          </button>
+        </>
+      )}
+    </PanelCard>
+  );
+}
+
 function JugePrisonPanel({
   players,
   currentTour,

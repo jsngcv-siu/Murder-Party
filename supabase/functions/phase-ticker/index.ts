@@ -173,11 +173,6 @@ function photographeCoWinners(players) {
     return deadOnFilm >= need;
   });
 }
-function poltergeistCoWinners(players) {
-  return players.filter(
-    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true
-  );
-}
 function withEntremetteurWinner(result, players) {
   if (!result.winner) return result;
   const survivors = entremetteurSurvivorCoWinners(players);
@@ -214,15 +209,6 @@ function withPhotographeWinners(result, players) {
   return {
     winner: result.winner,
     reason: `${result.reason} (\u{1F4F8} Le Photographe ${winners.map((w) => w.pseudo).join(", ")} tient son scoop \u2014 victoire aussi.)`
-  };
-}
-function withPoltergeistWinners(result, players) {
-  if (!result.winner) return result;
-  const winners = poltergeistCoWinners(players);
-  if (winners.length === 0) return result;
-  return {
-    winner: result.winner,
-    reason: `${result.reason} (\u{1F47B} Le Poltergeist ${winners.map((w) => w.pseudo).join(", ")} a fait frapper un objet \u2014 victoire aussi.)`
   };
 }
 async function evaluateWin(gameId) {
@@ -358,7 +344,6 @@ async function checkAndEndGame(gameId) {
   r = withEntremetteurWinner(r, ps2 ?? []);
   r = withBenignSurvivorWinners(r, ps2 ?? []);
   r = withPhotographeWinners(r, ps2 ?? []);
-  r = withPoltergeistWinners(r, ps2 ?? []);
   await cancelUnresolvedDeferredIntents(gameId, r);
   const { data: ps } = await supabase.from("players").select("id").eq("game_id", gameId);
   const rows = (ps ?? []).map((p) => ({
@@ -744,12 +729,16 @@ async function applyAttack(intent, killer) {
     }
   }
   const weaponFromSlug = payload.weapon_from_slug ?? null;
+  const killExtra = {
+    ...weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : {},
+    ...pierce ? { pierce: true } : {}
+  };
   const ok = await killer(
     intent.game_id,
     targetId,
     reason,
     intent.actor_player_id,
-    weaponFromSlug ? { weapon_from_slug: weaponFromSlug } : void 0
+    Object.keys(killExtra).length ? killExtra : void 0
   );
   await decrementCharge(intent.item_id);
   if (ok) await ripostePatrol();
@@ -759,23 +748,6 @@ async function applyAttack(intent, killer) {
     if (py) {
       const pm = getMeta(py);
       await supabase.from("players").update({ role_meta: { ...pm, pyro_kills: (pm.pyro_kills ?? 0) + 1 } }).eq("id", py.id);
-    }
-  }
-  if (ok && payload.polt_moved === true) {
-    const { data: poltRow } = await supabase.from("players").select("id, pseudo, role_meta").eq("game_id", intent.game_id).eq("role_slug", "poltergeist").maybeSingle();
-    const polt = poltRow;
-    if (polt) {
-      const pm = getMeta(polt);
-      await supabase.from("players").update({ role_meta: { ...pm, polt_win: true } }).eq("id", polt.id);
-      await notify({
-        gameId: intent.game_id,
-        playerId: polt.id,
-        type: "polt_win",
-        title: "\u{1F47B} L'objet a frapp\xE9",
-        body: "Un objet que tu as d\xE9plac\xE9 vient de tuer. Ta hantise est accomplie \u2014 victoire assur\xE9e \xE0 la fin.",
-        mjTitle: "\u{1F47B} Poltergeist",
-        mjBody: `${polt.pseudo} (Poltergeist) : un objet d\xE9plac\xE9 a tu\xE9 \u2014 co-victoire acquise.`
-      });
     }
   }
   if (ok && intent.source === "role:detrousseur" && payload.loot === "all") {
@@ -1167,7 +1139,7 @@ function buildDefaultPool(target) {
   let remaining = target - slots.length;
   let k = 0;
   while (remaining > 0) {
-    const t = CIVIL_FILL[k % CIVIL_FILL.length];
+    const t = CIVIL_FILL[Math.min(k, CIVIL_FILL.length - 1)];
     slots.push({ id: nextId(), faction: "Civil", type: t, slug: null });
     k++;
     remaining--;
@@ -1196,9 +1168,11 @@ var init_poolConfig = __esm({
     init_constants();
     ACOLYTE_FILL = [
       "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
-      "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
-      "INVESTIGATION/TROMPERIE/CONTR\xD4LE",
+      // k0 : souple (toutes tables, chaos)
+      "TROMPERIE/CONTR\xD4LE",
+      // k1 : 2e acolyte (12 j.+) → trompeur/contrôleur garanti
       "INVESTIGATION/TROMPERIE/CONTR\xD4LE"
+      // k2 : 3e acolyte (17 j.+) souple (dernière, répétée)
     ];
     NEUTRE_FILL = [
       // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
@@ -1208,7 +1182,28 @@ var init_poolConfig = __esm({
       "MAL/B\xC9NIN/CHAOS",
       "MAL/B\xC9NIN/CHAOS"
     ];
-    CIVIL_FILL = ["INVESTIGATION/SUPPORT/TUEUR"];
+    CIVIL_FILL = [
+      "TUEUR",
+      // k0
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k1
+      "SUPPORT",
+      // k2
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k3
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k4
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k5
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k6
+      "INVESTIGATION/SUPPORT/TUEUR",
+      // k7
+      "TUEUR",
+      // k8 : 2e tueur civil (16 j.+)
+      "INVESTIGATION/SUPPORT/TUEUR"
+      // k9 : souple (dernière → répétée pour tout le reste)
+    ];
   }
 });
 
@@ -1259,7 +1254,10 @@ async function grantItem(playerId, item) {
   const next = { ...meta2, inventory: [item, ...inv] };
   const { data: wrote, error } = await supabase.from("players").update({ role_meta: next }).eq("id", playerId).select("id");
   if (error || !wrote?.length)
-    console.error(`[engine] grantItem(${item.slug}) REFUS\xC9 sur ${playerId} (RLS ?)`, error ?? "0 ligne");
+    console.error(
+      `[engine] grantItem(${item.slug}) REFUS\xC9 sur ${playerId} (RLS ?)`,
+      error ?? "0 ligne"
+    );
 }
 function readInventory(roleMeta) {
   if (!roleMeta) return [];
@@ -1404,14 +1402,12 @@ async function consumeItem(opts) {
       }
       const { data: row2 } = await supabase.from("players").select("role_meta").eq("id", target.id).maybeSingle();
       const meta0 = row2?.role_meta ?? {};
+      const oldBlockedUntil = meta0.blocked_until_cycle ?? -1;
       await supabase.from("players").update({
         role_meta: {
           ...meta0,
-          blocked_from_cycle: tour + 1,
-          blocked_until_cycle: Math.max(
-            meta0.blocked_until_cycle ?? -1,
-            tour + 1
-          )
+          ...oldBlockedUntil >= tour ? {} : { blocked_from_cycle: tour + 1 },
+          blocked_until_cycle: Math.max(oldBlockedUntil, tour + 1)
         }
       }).eq("id", target.id);
       await notify2(
@@ -1453,10 +1449,7 @@ async function consumeItem(opts) {
         source: "item:fiole_mort",
         payload: {
           kill_reason: "fiole_mort",
-          target_pseudo: target.pseudo,
-          // Poltergeist (lot 4) : objet déplacé depuis l'au-delà → un kill par
-          // cet objet fait co-gagner le fantôme (marqué à la résolution).
-          ...item.payload?.polt_moved === true ? { polt_moved: true } : {}
+          target_pseudo: target.pseudo
         }
       });
       message = `${target.pseudo} : intention de mort \u2014 \xE0 l'Annonce.`;
@@ -1532,9 +1525,7 @@ async function consumeItem(opts) {
           kill_reason: "couteau",
           target_pseudo: target.pseudo,
           mechant_mechanic: mechantOrigin,
-          weapon_from_slug: weaponFromSlug,
-          // Poltergeist (lot 4) : couteau déplacé depuis l'au-delà.
-          ...item.payload?.polt_moved === true ? { polt_moved: true } : {}
+          weapon_from_slug: weaponFromSlug
         }
       });
       const giftedById = item.payload?.gifted_by_id;
@@ -2005,7 +1996,7 @@ var init_indices = __esm({
       "Bristol griffonn\xE9"
     ];
     FRAGMENT_CHANCE = 0.4;
-    ALWAYS_PRESENT = /* @__PURE__ */ new Set(["tueur", "majordome", "assistant_du_detective", "executeur"]);
+    ALWAYS_PRESENT = /* @__PURE__ */ new Set(["tueur", "majordome", "assistant_du_detective"]);
     POWER_CIVILS = /* @__PURE__ */ new Set([
       "policier",
       "medium",
@@ -2052,7 +2043,6 @@ __export(actions_exports, {
   openVote: () => openVote,
   parseTotalLimit: () => parseTotalLimit,
   policierVerdict: () => policierVerdict,
-  poltergeistMove: () => poltergeistMove,
   pyroThreshold: () => pyroThreshold,
   pyromaneIgnite: () => pyromaneIgnite,
   releasePlayer: () => releasePlayer,
@@ -3397,7 +3387,7 @@ async function killPlayer(gameId, playerId, reason = "engine", attackerId, extra
   const tour = gg?.current_tour ?? 1;
   const deathPhase = gg?.current_phase ?? "free";
   const prot = m.protected_until_cycle ?? -1;
-  if (prot >= tour && reason !== "vote") {
+  if (prot >= tour && reason !== "vote" && extra?.pierce !== true) {
     emit("kill_blocked", `${player.pseudo} prot\xE9g\xE9`, { playerId, reason });
     await notifyMJ({
       gameId,
@@ -4042,6 +4032,14 @@ async function ventriloqueForge(gameId, meId, signerId, recipientId, message) {
   if (!me || me.role_slug !== "ventriloque")
     return { ok: false, message: "R\xE9serv\xE9 au Ventriloque." };
   if (!me.is_alive) return { ok: false, message: "Les morts n'\xE9crivent plus." };
+  if (me.is_imprisoned) return { ok: false, message: "Pas de plume en cellule." };
+  const { data: gVent } = await supabase.from("games").select("current_tour, current_phase").eq("id", gameId).single();
+  const gv = gVent;
+  if (gv?.current_phase !== "free") return { ok: false, message: "\xC0 utiliser en Enqu\xEAte." };
+  const ventTour = gv?.current_tour ?? 1;
+  const mMe = meta(me);
+  if ((mMe.blocked_until_cycle ?? -1) >= ventTour && (mMe.blocked_from_cycle ?? -Infinity) <= ventTour)
+    return { ok: false, message: "Capacit\xE9 bloqu\xE9e ce tour." };
   if (meta(me).vent_used === true)
     return { ok: false, message: "Ta plume a d\xE9j\xE0 servi \u2014 une seule contrefa\xE7on par partie." };
   const { data: sRow } = await supabase.from("players").select("id, pseudo, is_alive").eq("id", signerId).single();
@@ -4075,64 +4073,25 @@ async function ventriloqueForge(gameId, meId, signerId, recipientId, message) {
     message: `\u{1F399}\uFE0F La lettre \xAB sign\xE9e ${signer.pseudo} \xBB est partie chez ${recipient.pseudo}.`
   };
 }
-async function poltergeistMove(gameId, meId, fromPlayerId, itemId, toPlayerId) {
-  const { data: meRow } = await supabase.from("players").select("id, pseudo, role_slug, is_alive, role_meta").eq("id", meId).single();
-  const me = meRow;
-  if (!me || me.role_slug !== "poltergeist")
-    return { ok: false, message: "Seul le Poltergeist hante." };
-  if (me.is_alive) return { ok: false, message: "Tu hantes seulement une fois mort." };
-  const { data: g } = await supabase.from("games").select("current_tour, current_phase").eq("id", gameId).single();
-  const game = g;
-  const tour = game?.current_tour ?? 1;
-  if (game?.current_phase !== "free")
-    return { ok: false, message: "Tu ne peux hanter que pendant l'Enqu\xEAte." };
-  const mm = meta(me);
-  if (mm.polt_last_tour === tour)
-    return { ok: false, message: "Tu as d\xE9j\xE0 hant\xE9 ce tour." };
-  if (fromPlayerId === toPlayerId)
-    return { ok: false, message: "Choisis deux joueurs diff\xE9rents." };
-  const { data: fromRow } = await supabase.from("players").select("id, pseudo, is_alive, role_meta").eq("id", fromPlayerId).single();
-  const { data: toRow } = await supabase.from("players").select("id, pseudo, is_alive, role_meta").eq("id", toPlayerId).single();
-  const from = fromRow;
-  const to = toRow;
-  if (!from?.is_alive || !to?.is_alive)
-    return { ok: false, message: "Source et destinataire doivent \xEAtre vivants." };
-  const fromMeta = meta(from);
-  const fromInv = fromMeta.inventory ?? [];
-  const idx = fromInv.findIndex((it) => it.id === itemId && it.consumed !== true);
-  if (idx < 0) return { ok: false, message: "Cet objet n'est plus l\xE0." };
-  const moved = {
-    ...fromInv[idx],
-    payload: { ...fromInv[idx].payload ?? {}, polt_moved: true }
-  };
-  await patchMeta(from.id, { inventory: fromInv.filter((_, i) => i !== idx) });
-  const toMeta = meta(to);
-  const toInv = toMeta.inventory ?? [];
-  await patchMeta(to.id, { inventory: [moved, ...toInv] });
-  await patchMeta(me.id, {
-    polt_last_tour: tour,
-    polt_moved: [...mm.polt_moved ?? [], itemId]
-  });
-  const itemName = moved.name ?? "un objet";
-  await notifyMJ({
-    gameId,
-    type: "polt_move",
-    title: "\u{1F47B} Poltergeist",
-    body: `${me.pseudo} (mort) d\xE9place ${itemName} : ${from.pseudo} \u2192 ${to.pseudo}.`
-  });
-  return { ok: true, message: `\u{1F47B} ${itemName} glisse de ${from.pseudo} vers ${to.pseudo}.` };
-}
 async function armFrancTireurPierce(playerId) {
-  const { data: row } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
-  const m = meta(row);
+  const { data: row } = await supabase.from("players").select("role_slug, is_alive, is_imprisoned, role_meta").eq("id", playerId).single();
+  const p = row;
+  if (p?.role_slug !== "franc_tireur") return { ok: false, message: "R\xE9serv\xE9 au Franc-tireur." };
+  if (!p.is_alive || p.is_imprisoned)
+    return { ok: false, message: "Impossible d'armer la balle maintenant." };
+  const m = meta(p);
   if (m.ft_pierce_used === true || m.ft_pierce_armed === true)
     return { ok: false, message: "Ta balle perforante est d\xE9j\xE0 arm\xE9e ou tir\xE9e." };
   await patchMeta(playerId, { ft_pierce_armed: true });
   return { ok: true, message: "\u{1F3AF} Balle perforante arm\xE9e : ton prochain tir percera tout." };
 }
 async function armDetrousseurBraquage(playerId) {
-  const { data: row } = await supabase.from("players").select("role_meta").eq("id", playerId).single();
-  const m = meta(row);
+  const { data: row } = await supabase.from("players").select("role_slug, is_alive, is_imprisoned, role_meta").eq("id", playerId).single();
+  const p = row;
+  if (p?.role_slug !== "detrousseur") return { ok: false, message: "R\xE9serv\xE9 au D\xE9trousseur." };
+  if (!p.is_alive || p.is_imprisoned)
+    return { ok: false, message: "Impossible d'armer le braquage maintenant." };
+  const m = meta(p);
   if (m.det_braquage_used === true || m.det_braquage_armed === true)
     return { ok: false, message: "Ton braquage est d\xE9j\xE0 arm\xE9 ou jou\xE9." };
   await patchMeta(playerId, { det_braquage_armed: true, det_braquage_used: true });
@@ -4142,6 +4101,7 @@ async function respondPact(gameId, playerId, accept) {
   const { data: meRow } = await supabase.from("players").select("id, pseudo, role_meta, is_alive").eq("id", playerId).single();
   const me = meRow;
   if (!me) return { ok: false, message: "Joueur introuvable" };
+  if (!me.is_alive) return { ok: false, message: "Les morts ne signent pas de pacte." };
   const offer = meta(me).pact_offer;
   if (!offer) return { ok: false, message: "Aucun pacte en attente." };
   await patchMeta(me.id, { pact_offer: null });
@@ -4724,8 +4684,7 @@ async function executeCapability(opts) {
           return { ok: false, message: "Tu ne peux \xEAtre ni le complice ni la victime." };
         if (complice.id === victime.id)
           return { ok: false, message: "Le complice et la victime doivent \xEAtre distincts." };
-        if (m.pact_spent === true)
-          return { ok: false, message: "Ton unique pacte est d\xE9j\xE0 jou\xE9." };
+        if (m.pact_spent === true) return { ok: false, message: "Ton unique pacte est d\xE9j\xE0 jou\xE9." };
         await patchMeta(actor.id, { pact_spent: true });
         await patchMeta(complice.id, {
           pact_offer: {
@@ -4783,9 +4742,7 @@ async function executeCapability(opts) {
           };
         const { data: lastVotes } = await supabase.from("votes").select("target_player_id").eq("game_id", opts.gameId).eq("tour", opts.tour - 1);
         const prey = new Set(
-          (lastVotes ?? []).map(
-            (v) => v.target_player_id
-          )
+          (lastVotes ?? []).map((v) => v.target_player_id)
         );
         if (!prey.has(t1.id))
           return {
@@ -5178,12 +5135,9 @@ async function executeCapability(opts) {
         return { ok: true, message: `Lettre d\xE9pos\xE9e \xE0 ${t1.pseudo}` };
       }
       // ── Passifs (consultation manuelle) ──
-      // (Poltergeist : inerte de son VIVANT — son pouvoir post-mortem passe par
-      // poltergeistMove(), hors executeCapability.)
       case "medecin_legiste":
       case "medium":
       case "archiviste":
-      case "poltergeist":
       case "chat_du_manoir": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacit\xE9 passive \u2014 voir notifications" };
@@ -5342,7 +5296,9 @@ async function executeCapability(opts) {
           playerId: t1.id,
           type: "dice_duel",
           title: meLoses ? "\u{1F3B2} Duel gagn\xE9" : "\u{1F3B2} Duel perdu",
-          body: `${actor.pseudo} : ${meBest} (3d6) \xB7 toi : ${themRoll}. ${loserPseudo} mourra \xE0 la prochaine annonce.`,
+          // Anonymat du Parieur : la cible ne doit jamais lire son pseudo — ni ici
+          // ni dans le verdict du modal (qui anonymise aussi côté cible).
+          body: `Ton adversaire : ${meBest} (3d6) \xB7 toi : ${themRoll}. ${meLoses ? "Ton adversaire mourra" : "Tu mourras"} \xE0 la prochaine annonce.`,
           payload: duelPayload
         });
         await notifyMJ({
@@ -5638,6 +5594,42 @@ async function executeCapability(opts) {
           message: `Lib\xE9ration de ${t1.pseudo} \u2014 au tour ${opts.tour + 1}`
         };
       }
+      // ── Corrupteur (Méchant/CONTRÔLE) : 1×/partie, fait évader un prisonnier.
+      // Réutilise EXACTEMENT le rail du Juge (`pending_release_for_cycle`) → la
+      // libération est appliquée par la même boucle et l'annonce Gazette publique +
+      // la notif au prisonnier (« Le Juge t'a libéré ») sont INDISCERNABLES d'une
+      // libération du Juge. Seul le message MJ dit la vérité (le MJ sait tout).
+      case "corrupteur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonn\xE9e" };
+        const tMeta = t1.role_meta ?? {};
+        const since = tMeta.imprisoned_since_cycle ?? opts.tour;
+        if (opts.tour <= since) {
+          return { ok: false, message: "Le prisonnier n'a pas encore purg\xE9 un tour complet." };
+        }
+        if (tMeta.pending_release_for_cycle === opts.tour + 1) {
+          return { ok: false, message: "\xC9vasion de ce prisonnier d\xE9j\xE0 pr\xE9vue." };
+        }
+        await patchMeta(t1.id, {
+          pending_release_for_cycle: opts.tour + 1,
+          pending_release_by: actor.id
+        });
+        await used({ effect: "corrupteur_release_scheduled" });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "release_scheduled",
+          // Notif au prisonnier VOLONTAIREMENT identique à celle du Juge (couverture).
+          title: "\u2696\uFE0F Lib\xE9ration programm\xE9e",
+          body: "Le Juge a ordonn\xE9 ta lib\xE9ration. Tu seras libre au d\xE9but du prochain tour.",
+          mjTitle: "\u{1F5DD}\uFE0F Corrupteur",
+          mjBody: `${actor.pseudo} (Corrupteur) fait \xE9vader ${t1.pseudo} pour le tour ${opts.tour + 1} \u2014 l'\xE9vasion passera pour une lib\xE9ration du Juge.`
+        });
+        return {
+          ok: true,
+          message: `\xC9vasion de ${t1.pseudo} \u2014 au tour ${opts.tour + 1}`
+        };
+      }
       // ── Oracle : verrouille une prophétie de faction (1×/partie). Gagne avec la faction prédite. ──
       case "oracle": {
         if (m.prophecy) return { ok: false, message: "Proph\xE9tie d\xE9j\xE0 lanc\xE9e" };
@@ -5729,6 +5721,8 @@ async function executeCapability(opts) {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (t1.id === actor.id)
           return { ok: false, message: "Pas d'autoportrait \u2014 photographie un invit\xE9." };
+        if (!t1.is_alive)
+          return { ok: false, message: "On ne photographie pas les morts \u2014 question de standing." };
         const film = [...m.photos ?? []];
         if (film.some((ph) => ph.id === t1.id)) {
           return { ok: false, message: `${t1.pseudo} est d\xE9j\xE0 sur ta pellicule.` };

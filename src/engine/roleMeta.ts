@@ -100,10 +100,6 @@ export interface RoleMeta {
   parloir_with?: string;
   parloir_cycle?: number;
   parloir_open_cycle?: number;
-  // ─── Poltergeist (lot 4, post-mortem) ───
-  polt_last_tour?: number;
-  polt_moved?: string[]; // ids d'objets déplacés depuis l'au-delà
-  polt_win?: boolean; // un mortel est mort d'un objet déplacé
   // ─── Pyromane (lot 5) ───
   pyro_doused?: string[]; // joueurs aspergés (silencieux)
   pyro_ignite_last_tour?: number; // tour de la dernière allumette (cooldown 2 tours pleins → re-dispo à +3)

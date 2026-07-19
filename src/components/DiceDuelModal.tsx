@@ -314,7 +314,14 @@ export function DuelScene({
 
   const iWon = duel.winnerId === meId;
   const iLost = duel.loserId === meId;
-  const loserPseudo = duel.loserId === duel.actorId ? duel.actorPseudo : duel.targetPseudo;
+  // Anonymat du Parieur : côté CIBLE (!iAmActor), son pseudo ne doit jamais
+  // apparaître — ni dans l'en-tête (géré par `anonymous`) ni dans le verdict.
+  const loserPseudo =
+    duel.loserId === duel.actorId
+      ? iAmActor
+        ? duel.actorPseudo
+        : "Ton adversaire"
+      : duel.targetPseudo;
 
   // ─── Orchestration de l'animation ───
   useEffect(() => {
@@ -424,7 +431,13 @@ export function DuelScene({
   const actorP = players.find((p) => p.id === duel.actorId);
   const targetP = players.find((p) => p.id === duel.targetId);
 
-  const winnerPseudo = duel.winnerId === duel.actorId ? duel.actorPseudo : duel.targetPseudo;
+  // Même règle d'anonymat que loserPseudo : jamais le pseudo du Parieur côté cible.
+  const winnerPseudo =
+    duel.winnerId === duel.actorId
+      ? iAmActor
+        ? duel.actorPseudo
+        : "Ton adversaire"
+      : duel.targetPseudo;
 
   return (
     <div

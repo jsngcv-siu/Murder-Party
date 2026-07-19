@@ -106,14 +106,6 @@ export function photographeCoWinners(players: PlayerRow[]): PlayerRow[] {
   });
 }
 
-// Poltergeist : quelqu'un est mort d'un objet déplacé depuis l'au-delà
-// (drapeau polt_win posé par le resolver). Mort ou vif.
-export function poltergeistCoWinners(players: PlayerRow[]): PlayerRow[] {
-  return players.filter(
-    (p) => p.role_slug === "poltergeist" && !p.is_mj && getMeta(p).polt_win === true,
-  );
-}
-
 // Entremetteur — REPLI SURVIE : si son couple est BRISÉ (au moins un amoureux
 // mort ou emprisonné), il ne peut plus gagner via les Amoureux. Il devient un
 // parasite qui co-gagne s'il est encore en vie et libre à la fin de la partie,
@@ -164,19 +156,6 @@ function withPhotographeWinners(result: WinResult, players: PlayerRow[]): WinRes
   return {
     winner: result.winner,
     reason: `${result.reason} (📸 Le Photographe ${winners.map((w) => w.pseudo).join(", ")} tient son scoop — victoire aussi.)`,
-  };
-}
-
-// Poltergeist (lot 4) : co-victoire au mérite — un mortel est mort d'un objet
-// qu'il a déplacé depuis l'au-delà (drapeau polt_win posé par le resolver).
-// Mort ou vif, la hantise accomplie paie.
-function withPoltergeistWinners(result: WinResult, players: PlayerRow[]): WinResult {
-  if (!result.winner) return result;
-  const winners = poltergeistCoWinners(players);
-  if (winners.length === 0) return result;
-  return {
-    winner: result.winner,
-    reason: `${result.reason} (👻 Le Poltergeist ${winners.map((w) => w.pseudo).join(", ")} a fait frapper un objet — victoire aussi.)`,
   };
 }
 
@@ -394,7 +373,6 @@ export async function checkAndEndGame(gameId: string): Promise<WinResult | null>
   r = withEntremetteurWinner(r, (ps2 ?? []) as PlayerRow[]);
   r = withBenignSurvivorWinners(r, (ps2 ?? []) as PlayerRow[]);
   r = withPhotographeWinners(r, (ps2 ?? []) as PlayerRow[]);
-  r = withPoltergeistWinners(r, (ps2 ?? []) as PlayerRow[]);
   await cancelUnresolvedDeferredIntents(gameId, r);
   // Émettre l'annonce de fin AVANT de basculer le statut. Ces deux écritures sont
   // distinctes : tout observateur qui réagit au passage à `ended` (écran de fin

@@ -2078,9 +2078,11 @@ export async function killPlayer(
   const tour = gg?.current_tour ?? 1;
   const deathPhase = gg?.current_phase ?? "free";
 
-  // Protection
+  // Protection — la balle perforante du Franc-tireur (extra.pierce, posée par le
+  // resolver) traverse aussi ce garde-fou : sans ça, le double-check annulait le
+  // kill que le resolver avait déjà décidé de laisser passer.
   const prot = (m.protected_until_cycle as number | undefined) ?? -1;
-  if (prot >= tour && reason !== "vote") {
+  if (prot >= tour && reason !== "vote" && extra?.pierce !== true) {
     emit("kill_blocked", `${player.pseudo} protégé`, { playerId, reason });
     // MJ-only : la cible ne doit pas savoir qu'elle a été protégée.
     await notifyMJ({
@@ -3074,6 +3076,23 @@ export async function ventriloqueForge(
   if (!me || me.role_slug !== "ventriloque")
     return { ok: false, message: "Réservé au Ventriloque." };
   if (!me.is_alive) return { ok: false, message: "Les morts n'écrivent plus." };
+  if (me.is_imprisoned) return { ok: false, message: "Pas de plume en cellule." };
+  // Mêmes gardes que les capacités du switch : phase Enquête + blocage (rhum,
+  // Lettre scellée, sabotage) — ce helper vit hors executeCapability.
+  const { data: gVent } = await supabase
+    .from("games")
+    .select("current_tour, current_phase")
+    .eq("id", gameId)
+    .single();
+  const gv = gVent as { current_tour: number; current_phase: string } | null;
+  if (gv?.current_phase !== "free") return { ok: false, message: "À utiliser en Enquête." };
+  const ventTour = gv?.current_tour ?? 1;
+  const mMe = meta(me);
+  if (
+    ((mMe.blocked_until_cycle as number | undefined) ?? -1) >= ventTour &&
+    ((mMe.blocked_from_cycle as number | undefined) ?? -Infinity) <= ventTour
+  )
+    return { ok: false, message: "Capacité bloquée ce tour." };
   if (meta(me).vent_used === true)
     return { ok: false, message: "Ta plume a déjà servi — une seule contrefaçon par partie." };
   const { data: sRow } = await supabase
@@ -3116,81 +3135,6 @@ export async function ventriloqueForge(
   };
 }
 
-// ── Poltergeist (lot 4) : déplacement d'objet depuis l'au-delà ──
-// Appelé par le panneau dédié (PA2) du Poltergeist MORT. 1 déplacement par
-// Enquête. Silencieux pour la source ET le receveur (l'objet garde sa fiche
-// d'origine) ; l'objet est marqué `polt_moved` — s'il tue plus tard, le
-// Poltergeist co-gagne (voir applyAttack + withPoltergeistWinners).
-export async function poltergeistMove(
-  gameId: string,
-  meId: string,
-  fromPlayerId: string,
-  itemId: string,
-  toPlayerId: string,
-): Promise<{ ok: boolean; message: string }> {
-  const { data: meRow } = await supabase
-    .from("players")
-    .select("id, pseudo, role_slug, is_alive, role_meta")
-    .eq("id", meId)
-    .single();
-  const me = meRow as PlayerRow | null;
-  if (!me || me.role_slug !== "poltergeist")
-    return { ok: false, message: "Seul le Poltergeist hante." };
-  if (me.is_alive) return { ok: false, message: "Tu hantes seulement une fois mort." };
-  const { data: g } = await supabase
-    .from("games")
-    .select("current_tour, current_phase")
-    .eq("id", gameId)
-    .single();
-  const game = g as { current_tour: number; current_phase: string } | null;
-  const tour = game?.current_tour ?? 1;
-  if (game?.current_phase !== "free")
-    return { ok: false, message: "Tu ne peux hanter que pendant l'Enquête." };
-  const mm = meta(me);
-  if ((mm.polt_last_tour as number | undefined) === tour)
-    return { ok: false, message: "Tu as déjà hanté ce tour." };
-  if (fromPlayerId === toPlayerId)
-    return { ok: false, message: "Choisis deux joueurs différents." };
-  const { data: fromRow } = await supabase
-    .from("players")
-    .select("id, pseudo, is_alive, role_meta")
-    .eq("id", fromPlayerId)
-    .single();
-  const { data: toRow } = await supabase
-    .from("players")
-    .select("id, pseudo, is_alive, role_meta")
-    .eq("id", toPlayerId)
-    .single();
-  const from = fromRow as PlayerRow | null;
-  const to = toRow as PlayerRow | null;
-  if (!from?.is_alive || !to?.is_alive)
-    return { ok: false, message: "Source et destinataire doivent être vivants." };
-  const fromMeta = meta(from);
-  const fromInv = (fromMeta.inventory as Array<Record<string, unknown>> | undefined) ?? [];
-  const idx = fromInv.findIndex((it) => it.id === itemId && it.consumed !== true);
-  if (idx < 0) return { ok: false, message: "Cet objet n'est plus là." };
-  const moved: Record<string, unknown> = {
-    ...fromInv[idx],
-    payload: { ...((fromInv[idx].payload as Record<string, unknown>) ?? {}), polt_moved: true },
-  };
-  await patchMeta(from.id, { inventory: fromInv.filter((_, i) => i !== idx) });
-  const toMeta = meta(to);
-  const toInv = (toMeta.inventory as Array<Record<string, unknown>> | undefined) ?? [];
-  await patchMeta(to.id, { inventory: [moved, ...toInv] });
-  await patchMeta(me.id, {
-    polt_last_tour: tour,
-    polt_moved: [...((mm.polt_moved as string[] | undefined) ?? []), itemId],
-  });
-  const itemName = (moved.name as string | undefined) ?? "un objet";
-  await notifyMJ({
-    gameId,
-    type: "polt_move",
-    title: "👻 Poltergeist",
-    body: `${me.pseudo} (mort) déplace ${itemName} : ${from.pseudo} → ${to.pseudo}.`,
-  });
-  return { ok: true, message: `👻 ${itemName} glisse de ${from.pseudo} vers ${to.pseudo}.` };
-}
-
 // ── Franc-tireur / Détrousseur (lot 3) : armement des capacités 1×/partie ──
 // Boutons dédiés dans PA2 : arme le PROCHAIN tir/kill (balle perforante /
 // braquage total). Consommé par le handler au moment du tir.
@@ -3199,10 +3143,14 @@ export async function armFrancTireurPierce(
 ): Promise<{ ok: boolean; message: string }> {
   const { data: row } = await supabase
     .from("players")
-    .select("role_meta")
+    .select("role_slug, is_alive, is_imprisoned, role_meta")
     .eq("id", playerId)
     .single();
-  const m = meta(row as { role_meta: unknown });
+  const p = row as Pick<PlayerRow, "role_slug" | "is_alive" | "is_imprisoned" | "role_meta"> | null;
+  if (p?.role_slug !== "franc_tireur") return { ok: false, message: "Réservé au Franc-tireur." };
+  if (!p.is_alive || p.is_imprisoned)
+    return { ok: false, message: "Impossible d'armer la balle maintenant." };
+  const m = meta(p as { role_meta: unknown });
   if (m.ft_pierce_used === true || m.ft_pierce_armed === true)
     return { ok: false, message: "Ta balle perforante est déjà armée ou tirée." };
   await patchMeta(playerId, { ft_pierce_armed: true });
@@ -3214,10 +3162,14 @@ export async function armDetrousseurBraquage(
 ): Promise<{ ok: boolean; message: string }> {
   const { data: row } = await supabase
     .from("players")
-    .select("role_meta")
+    .select("role_slug, is_alive, is_imprisoned, role_meta")
     .eq("id", playerId)
     .single();
-  const m = meta(row as { role_meta: unknown });
+  const p = row as Pick<PlayerRow, "role_slug" | "is_alive" | "is_imprisoned" | "role_meta"> | null;
+  if (p?.role_slug !== "detrousseur") return { ok: false, message: "Réservé au Détrousseur." };
+  if (!p.is_alive || p.is_imprisoned)
+    return { ok: false, message: "Impossible d'armer le braquage maintenant." };
+  const m = meta(p as { role_meta: unknown });
   if (m.det_braquage_used === true || m.det_braquage_armed === true)
     return { ok: false, message: "Ton braquage est déjà armé ou joué." };
   await patchMeta(playerId, { det_braquage_armed: true, det_braquage_used: true });
@@ -3242,6 +3194,7 @@ export async function respondPact(
     .single();
   const me = meRow as PlayerRow | null;
   if (!me) return { ok: false, message: "Joueur introuvable" };
+  if (!me.is_alive) return { ok: false, message: "Les morts ne signent pas de pacte." };
   const offer = meta(me).pact_offer as
     | { from: string; target_id: string; target_pseudo: string; tour: number }
     | null
@@ -3260,11 +3213,7 @@ export async function respondPact(
     });
     return { ok: true, message: "Tu as refusé. Quelqu'un, ici, voulait un meurtre…" };
   }
-  const { data: g } = await supabase
-    .from("games")
-    .select("current_tour")
-    .eq("id", gameId)
-    .single();
+  const { data: g } = await supabase.from("games").select("current_tour").eq("id", gameId).single();
   const tour = (g as { current_tour: number } | null)?.current_tour ?? offer.tour;
   await submitIntent({
     gameId,
@@ -4020,8 +3969,7 @@ export async function executeCapability(opts: {
           return { ok: false, message: "Tu ne peux être ni le complice ni la victime." };
         if (complice.id === victime.id)
           return { ok: false, message: "Le complice et la victime doivent être distincts." };
-        if (m.pact_spent === true)
-          return { ok: false, message: "Ton unique pacte est déjà joué." };
+        if (m.pact_spent === true) return { ok: false, message: "Ton unique pacte est déjà joué." };
         await patchMeta(actor.id, { pact_spent: true });
         await patchMeta(complice.id, {
           pact_offer: {
@@ -4089,9 +4037,7 @@ export async function executeCapability(opts: {
           .eq("game_id", opts.gameId)
           .eq("tour", opts.tour - 1);
         const prey = new Set(
-          ((lastVotes ?? []) as Array<{ target_player_id: string }>).map(
-            (v) => v.target_player_id,
-          ),
+          ((lastVotes ?? []) as Array<{ target_player_id: string }>).map((v) => v.target_player_id),
         );
         if (!prey.has(t1.id))
           return {
@@ -4156,9 +4102,9 @@ export async function executeCapability(opts: {
           .select("role_meta")
           .eq("id", t1.id)
           .single();
-        const tInv =
-          ((tFresh as { role_meta: unknown } | null)?.role_meta as Record<string, unknown> | null)
-            ?.inventory as Array<Record<string, unknown>> | undefined;
+        const tInv = (
+          (tFresh as { role_meta: unknown } | null)?.role_meta as Record<string, unknown> | null
+        )?.inventory as Array<Record<string, unknown>> | undefined;
         // « Dernier objet reçu » = le plus récent non consommé (grantItem empile
         // en tête → inventory[0]).
         const last = (tInv ?? []).find((it) => it.consumed !== true);
@@ -4523,12 +4469,9 @@ export async function executeCapability(opts: {
       }
 
       // ── Passifs (consultation manuelle) ──
-      // (Poltergeist : inerte de son VIVANT — son pouvoir post-mortem passe par
-      // poltergeistMove(), hors executeCapability.)
       case "medecin_legiste":
       case "medium":
       case "archiviste":
-      case "poltergeist":
       case "chat_du_manoir": {
         await log({ effect: "passive_use" });
         return { ok: true, message: "Capacité passive — voir notifications" };
@@ -4707,7 +4650,9 @@ export async function executeCapability(opts: {
           playerId: t1.id,
           type: "dice_duel",
           title: meLoses ? "🎲 Duel gagné" : "🎲 Duel perdu",
-          body: `${actor.pseudo} : ${meBest} (3d6) · toi : ${themRoll}. ${loserPseudo} mourra à la prochaine annonce.`,
+          // Anonymat du Parieur : la cible ne doit jamais lire son pseudo — ni ici
+          // ni dans le verdict du modal (qui anonymise aussi côté cible).
+          body: `Ton adversaire : ${meBest} (3d6) · toi : ${themRoll}. ${meLoses ? "Ton adversaire mourra" : "Tu mourras"} à la prochaine annonce.`,
           payload: duelPayload,
         });
         await notifyMJ({
@@ -5188,6 +5133,10 @@ export async function executeCapability(opts: {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (t1.id === actor.id)
           return { ok: false, message: "Pas d'autoportrait — photographie un invité." };
+        // La co-victoire (winConditions) repose sur « photographié DE SON VIVANT » :
+        // le moteur doit donc refuser les cadavres, pas seulement l'UI.
+        if (!t1.is_alive)
+          return { ok: false, message: "On ne photographie pas les morts — question de standing." };
         const film = [...((m.photos as Array<{ id: string; tour: number }> | undefined) ?? [])];
         if (film.some((ph) => ph.id === t1.id)) {
           return { ok: false, message: `${t1.pseudo} est déjà sur ta pellicule.` };
