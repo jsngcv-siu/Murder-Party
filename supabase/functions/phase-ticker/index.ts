@@ -1028,7 +1028,7 @@ var init_phaseTiming = __esm({
     "use strict";
     INTRO_MS = 3e3;
     INTRO_S = INTRO_MS / 1e3;
-    VOTE_RESULT_MS = 8e3;
+    VOTE_RESULT_MS = 3e3;
     VOTE_RESULT_S = VOTE_RESULT_MS / 1e3;
   }
 });
