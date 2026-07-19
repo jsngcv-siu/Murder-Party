@@ -1127,6 +1127,22 @@ const TICK_LOCK_TTL_MS = 30_000;
 const _tickInFlight = new Map<string, number>();
 const MAX_TICK_TRANSITIONS = 6;
 
+/** Retard maximal qu'on accepte de faire porter à la phase SUIVANTE (ms).
+ *  Cf. `nextPhaseStartMs`. 2 s : absorbe le jitter normal (~200 ms) sans jamais
+ *  rogner visiblement une phase. */
+const MAX_BACKDATE_MS = 2000;
+
+/** Instant de départ à écrire pour la phase suivante.
+ *  `boundaryMs` = frontière théorique (départ de la phase courante + sa durée).
+ *  Tick à l'heure → on garde la frontière exacte, donc zéro dérive cumulée.
+ *  Tick très en retard → la frontière est loin dans le passé et l'utiliser
+ *  amputerait la phase suivante d'autant ; on repart alors de maintenant moins
+ *  MAX_BACKDATE_MS. La phase suivante démarre ainsi toujours avec au moins
+ *  `durée - 2 s` devant elle, quel que soit le retard du tick. */
+function nextPhaseStartMs(boundaryMs: number): number {
+  return Math.max(boundaryMs, serverNow() - MAX_BACKDATE_MS);
+}
+
 /** Lecture seule : une transition est-elle due maintenant ? Pré-contrôle bon
  *  marché pour ne PAS solliciter le verrou serveur à chaque sondage de chaque
  *  client (seulement à l'approche d'une frontière de phase). */
@@ -1201,8 +1217,16 @@ export async function tickPhase(gameId: string): Promise<void> {
         const elapsed = (serverNow() - started) / 1000 - introS;
         if (elapsed < game.phase_duration_s) return;
 
+        // Antidatage BORNÉ. La phase suivante démarre à la frontière THÉORIQUE (et
+        // non à `now`) pour ne pas accumuler de dérive tour après tour. Mais quand le
+        // tick arrive très en retard — onglet endormi, cron serveur à 5 s — cet
+        // antidatage rogne d'autant la phase suivante : l'écran se fige à 00:00, puis
+        // la phase d'après démarre DÉJÀ ENTAMÉE et les joueurs perdent ce temps.
+        // On borne donc la perte à MAX_BACKDATE_MS : en deçà (cas normal, ~200 ms de
+        // retard) l'alignement exact est conservé ; au-delà, on repart de maintenant
+        // moins cette tolérance, quitte à décaler légèrement le calendrier.
         const nextPhaseStartedAt = new Date(
-          started + (introS + game.phase_duration_s) * 1000,
+          nextPhaseStartMs(started + (introS + game.phase_duration_s) * 1000),
         ).toISOString();
 
         if (game.current_phase === "free") {
@@ -1221,7 +1245,7 @@ export async function tickPhase(gameId: string): Promise<void> {
           await nextCycle(
             gameId,
             new Date(
-              started + (introS + game.phase_duration_s + VOTE_RESULT_S) * 1000,
+              nextPhaseStartMs(started + (introS + game.phase_duration_s + VOTE_RESULT_S) * 1000),
             ).toISOString(),
           );
         } else {
@@ -1640,6 +1664,101 @@ async function autoPickVengeur(gameId: string, tour: number): Promise<void> {
   });
 }
 
+/** Entremetteur : lie 2 joueurs au hasard si le choix manuel n'a pas été fait à
+ *  la 1ère Enquête. Sans ce repli, `linked_pair` restait null POUR TOUJOURS (la
+ *  capacité n'est ouverte qu'au tour 1) : aucun couple, aucune cascade de mort,
+ *  et une condition de victoire impossible à remplir — l'Entremetteur ne pouvait
+ *  alors plus gagner. Même rail que les autres rôles SETUP (Mouchard, Oracle,
+ *  Vengeur, Usurpateur), appelé depuis ringGathering. */
+async function autoPickEntremetteur(gameId: string, tour: number): Promise<void> {
+  if (tour !== 1) return;
+  const { data: eRow } = await supabase
+    .from("players")
+    .select()
+    .eq("game_id", gameId)
+    .eq("role_slug", "entremetteur")
+    .maybeSingle();
+  const entremetteur = eRow as PlayerRow | null;
+  if (!entremetteur || !entremetteur.is_alive) return;
+  const m = meta(entremetteur);
+  // Choix déjà fait (manuellement) → ne rien écraser.
+  if (m.pending_link_choice !== true) return;
+  if (Array.isArray(m.linked_pair)) return;
+
+  const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
+  const all = (ps ?? []) as PlayerRow[];
+  // Cibles valides : vivantes, non-MJ, autres que l'Entremetteur — et pas déjà
+  // liées par ailleurs (un joueur ne porte qu'un seul `linked_with`).
+  const pool = all.filter(
+    (p) => p.is_alive && !p.is_mj && p.id !== entremetteur.id && !meta(p).linked_with,
+  );
+  if (pool.length < 2) return;
+
+  const i = Math.floor(Math.random() * pool.length);
+  const t1 = pool[i];
+  const rest = pool.filter((p) => p.id !== t1.id);
+  const t2 = rest[Math.floor(Math.random() * rest.length)];
+
+  await patchMeta(t1.id, { linked_with: t2.id });
+  await patchMeta(t2.id, { linked_with: t1.id });
+  await patchMeta(entremetteur.id, {
+    linked_pair: [t1.id, t2.id],
+    pending_link_choice: false,
+  });
+
+  const newUses = { ...((m.uses as Record<string, number> | undefined) ?? {}), entremetteur: 1 };
+  const newLast = {
+    ...((m.last_use as Record<string, number> | undefined) ?? {}),
+    entremetteur: tour,
+  };
+  await patchMeta(entremetteur.id, { uses: newUses, last_use: newLast });
+
+  await supabase.from("role_actions").insert({
+    game_id: gameId,
+    actor_player_id: entremetteur.id,
+    tour,
+    phase: "free",
+    target_player_id: t1.id,
+    target_player_id_2: t2.id,
+    payload: { effect: "link_setup", auto: true, target: t1.id, target2: t2.id } as never,
+    result: {
+      message: `Couple auto : ${t1.pseudo} ↔ ${t2.pseudo}`,
+      summary: `Couple auto : ${t1.pseudo} ↔ ${t2.pseudo}`,
+    } as never,
+  });
+
+  // Les deux liés reçoivent la MÊME notif que sur un choix manuel : rien ne doit
+  // trahir que le couple a été tiré au sort (sinon on déduit que l'Entremetteur
+  // était absent, et le lien perd sa valeur d'information sociale).
+  await notify({
+    gameId,
+    playerId: t1.id,
+    type: "linked_partner",
+    title: "💞 Lien noué",
+    body: `Ton âme sœur secrète : ${t2.pseudo}. Si l'un meurt, l'autre suit.`,
+    mjTitle: "💞 Lien",
+    mjBody: `Lien AUTO noué entre ${t1.pseudo} et ${t2.pseudo}.`,
+  });
+  await notify({
+    gameId,
+    playerId: t2.id,
+    type: "linked_partner",
+    title: "💞 Lien noué",
+    body: `Ton âme sœur secrète : ${t1.pseudo}. Si l'un meurt, l'autre suit.`,
+    mjTitle: "💞 Lien",
+    mjBody: `Lien AUTO noué entre ${t2.pseudo} et ${t1.pseudo}.`,
+  });
+  await notify({
+    gameId,
+    playerId: entremetteur.id,
+    type: "entremetteur_setup",
+    title: "💞 Couple lié (auto)",
+    body: `Tu n'as pas choisi à temps. Couple tiré au sort : ${t1.pseudo} ↔ ${t2.pseudo}.`,
+    mjTitle: "💞 Entremetteur auto",
+    mjBody: `${entremetteur.pseudo} (Entremetteur) → couple auto : ${t1.pseudo} ↔ ${t2.pseudo}.`,
+  });
+}
+
 async function autoPickUsurpateur(gameId: string, tour: number): Promise<void> {
   if (tour !== 1) return;
   const { data: uRow } = await supabase
@@ -1706,6 +1825,7 @@ export async function ringGathering(
   await autoPickOracle(gameId, tour);
   await autoPickVengeur(gameId, tour);
   await autoPickUsurpateur(gameId, tour);
+  await autoPickEntremetteur(gameId, tour);
   const { data: gc, error } = await supabase
     .from("gathering_calls")
     .insert({ game_id: gameId, tour, reason })
@@ -4968,6 +5088,10 @@ export async function executeCapability(opts: {
       case "juge": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonnée" };
+        // La mort ne remet PAS `is_imprisoned` à false : sans ce garde, le Juge
+        // programmait la libération d'un mort, consommait sa charge, et
+        // resolveCycleTransition ignorait ensuite la libération en silence.
+        if (!t1.is_alive) return { ok: false, message: "Ce détenu est mort." };
         const tMeta = (t1.role_meta ?? {}) as Record<string, unknown>;
         const since = (tMeta.imprisoned_since_cycle as number | undefined) ?? opts.tour;
         if (opts.tour <= since) {
@@ -5004,6 +5128,8 @@ export async function executeCapability(opts: {
       case "corrupteur": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonnée" };
+        // Même garde que le Juge (rail de libération partagé).
+        if (!t1.is_alive) return { ok: false, message: "Ce détenu est mort." };
         const tMeta = (t1.role_meta ?? {}) as Record<string, unknown>;
         const since = (tMeta.imprisoned_since_cycle as number | undefined) ?? opts.tour;
         if (opts.tour <= since) {

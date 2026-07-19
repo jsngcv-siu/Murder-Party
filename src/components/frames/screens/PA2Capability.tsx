@@ -4638,7 +4638,12 @@ function JugePrisonPanel({
   onRelease: (id: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const prisoners = players.filter((p) => p.is_imprisoned && !p.is_mj);
+  // `is_alive` OBLIGATOIRE : la mort ne remet pas `is_imprisoned` à false, donc un
+  // détenu mort restait listé et sélectionnable. Le Juge y brûlait son unique charge
+  // (1 seule jusqu'à 10 joueurs) et la libération était ensuite ignorée en silence
+  // par resolveCycleTransition (`if (!p.is_alive) continue`) → « le Juge ne libère
+  // pas ». Même panneau pour le Corrupteur, donc même bug.
+  const prisoners = players.filter((p) => p.is_imprisoned && p.is_alive && !p.is_mj);
 
   // Si le prisonnier sélectionné disparaît (libéré, mort), désélectionner.
   useEffect(() => {
@@ -4764,7 +4769,9 @@ function ExecuteurPrisonPanel({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const prisoners = players.filter((p) => p.is_imprisoned && !p.is_mj);
+  // `is_alive` : même raison que le panneau du Juge — exécuter un détenu déjà mort
+  // consommait la charge pour rien.
+  const prisoners = players.filter((p) => p.is_imprisoned && p.is_alive && !p.is_mj);
 
   useEffect(() => {
     if (selected && !prisoners.some((p) => p.id === selected)) {

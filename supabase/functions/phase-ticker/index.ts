@@ -2775,6 +2775,9 @@ async function nextCycle(gameId, phaseStartedAt = serverNowISO()) {
   emit("tour", `Tour ${tour}`, { gameId, tour });
   await checkAndEndGame(gameId);
 }
+function nextPhaseStartMs(boundaryMs) {
+  return Math.max(boundaryMs, serverNow() - MAX_BACKDATE_MS);
+}
 async function phaseTickDue(gameId) {
   const { data: g } = await supabase.from("games").select("current_phase, phase_started_at, phase_duration_s, status, paused").eq("id", gameId).single();
   const game = g;
@@ -2813,7 +2816,7 @@ async function tickPhase(gameId) {
         const elapsed = (serverNow() - started) / 1e3 - introS;
         if (elapsed < game.phase_duration_s) return;
         const nextPhaseStartedAt = new Date(
-          started + (introS + game.phase_duration_s) * 1e3
+          nextPhaseStartMs(started + (introS + game.phase_duration_s) * 1e3)
         ).toISOString();
         if (game.current_phase === "free") {
           await ringGathering(gameId, "Auto", nextPhaseStartedAt);
@@ -2827,7 +2830,7 @@ async function tickPhase(gameId) {
           await nextCycle(
             gameId,
             new Date(
-              started + (introS + game.phase_duration_s + VOTE_RESULT_S) * 1e3
+              nextPhaseStartMs(started + (introS + game.phase_duration_s + VOTE_RESULT_S) * 1e3)
             ).toISOString()
           );
         } else {
@@ -3151,6 +3154,77 @@ async function autoPickVengeur(gameId, tour) {
     mjBody: `${vengeur.pseudo} (Vengeur) \u2192 \xEAtre cher auto : ${target.pseudo}.`
   });
 }
+async function autoPickEntremetteur(gameId, tour) {
+  if (tour !== 1) return;
+  const { data: eRow } = await supabase.from("players").select().eq("game_id", gameId).eq("role_slug", "entremetteur").maybeSingle();
+  const entremetteur = eRow;
+  if (!entremetteur || !entremetteur.is_alive) return;
+  const m = meta(entremetteur);
+  if (m.pending_link_choice !== true) return;
+  if (Array.isArray(m.linked_pair)) return;
+  const { data: ps } = await supabase.from("players").select().eq("game_id", gameId);
+  const all = ps ?? [];
+  const pool = all.filter(
+    (p) => p.is_alive && !p.is_mj && p.id !== entremetteur.id && !meta(p).linked_with
+  );
+  if (pool.length < 2) return;
+  const i = Math.floor(Math.random() * pool.length);
+  const t1 = pool[i];
+  const rest = pool.filter((p) => p.id !== t1.id);
+  const t2 = rest[Math.floor(Math.random() * rest.length)];
+  await patchMeta(t1.id, { linked_with: t2.id });
+  await patchMeta(t2.id, { linked_with: t1.id });
+  await patchMeta(entremetteur.id, {
+    linked_pair: [t1.id, t2.id],
+    pending_link_choice: false
+  });
+  const newUses = { ...m.uses ?? {}, entremetteur: 1 };
+  const newLast = {
+    ...m.last_use ?? {},
+    entremetteur: tour
+  };
+  await patchMeta(entremetteur.id, { uses: newUses, last_use: newLast });
+  await supabase.from("role_actions").insert({
+    game_id: gameId,
+    actor_player_id: entremetteur.id,
+    tour,
+    phase: "free",
+    target_player_id: t1.id,
+    target_player_id_2: t2.id,
+    payload: { effect: "link_setup", auto: true, target: t1.id, target2: t2.id },
+    result: {
+      message: `Couple auto : ${t1.pseudo} \u2194 ${t2.pseudo}`,
+      summary: `Couple auto : ${t1.pseudo} \u2194 ${t2.pseudo}`
+    }
+  });
+  await notify({
+    gameId,
+    playerId: t1.id,
+    type: "linked_partner",
+    title: "\u{1F49E} Lien nou\xE9",
+    body: `Ton \xE2me s\u0153ur secr\xE8te : ${t2.pseudo}. Si l'un meurt, l'autre suit.`,
+    mjTitle: "\u{1F49E} Lien",
+    mjBody: `Lien AUTO nou\xE9 entre ${t1.pseudo} et ${t2.pseudo}.`
+  });
+  await notify({
+    gameId,
+    playerId: t2.id,
+    type: "linked_partner",
+    title: "\u{1F49E} Lien nou\xE9",
+    body: `Ton \xE2me s\u0153ur secr\xE8te : ${t1.pseudo}. Si l'un meurt, l'autre suit.`,
+    mjTitle: "\u{1F49E} Lien",
+    mjBody: `Lien AUTO nou\xE9 entre ${t2.pseudo} et ${t1.pseudo}.`
+  });
+  await notify({
+    gameId,
+    playerId: entremetteur.id,
+    type: "entremetteur_setup",
+    title: "\u{1F49E} Couple li\xE9 (auto)",
+    body: `Tu n'as pas choisi \xE0 temps. Couple tir\xE9 au sort : ${t1.pseudo} \u2194 ${t2.pseudo}.`,
+    mjTitle: "\u{1F49E} Entremetteur auto",
+    mjBody: `${entremetteur.pseudo} (Entremetteur) \u2192 couple auto : ${t1.pseudo} \u2194 ${t2.pseudo}.`
+  });
+}
 async function autoPickUsurpateur(gameId, tour) {
   if (tour !== 1) return;
   const { data: uRow } = await supabase.from("players").select().eq("game_id", gameId).eq("role_slug", "usurpateur").maybeSingle();
@@ -3196,6 +3270,7 @@ async function ringGathering(gameId, reason = "MJ", phaseStartedAt) {
   await autoPickOracle(gameId, tour);
   await autoPickVengeur(gameId, tour);
   await autoPickUsurpateur(gameId, tour);
+  await autoPickEntremetteur(gameId, tour);
   const { data: gc, error } = await supabase.from("gathering_calls").insert({ game_id: gameId, tour, reason }).select().single();
   if (error) throw error;
   await resolveDeferredIntents(gameId, tour, killPlayer, applyVampireConversion);
@@ -5586,6 +5661,7 @@ async function executeCapability(opts) {
       case "juge": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonn\xE9e" };
+        if (!t1.is_alive) return { ok: false, message: "Ce d\xE9tenu est mort." };
         const tMeta = t1.role_meta ?? {};
         const since = tMeta.imprisoned_since_cycle ?? opts.tour;
         if (opts.tour <= since) {
@@ -5621,6 +5697,7 @@ async function executeCapability(opts) {
       case "corrupteur": {
         if (!t1) return { ok: false, message: "Cible requise" };
         if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonn\xE9e" };
+        if (!t1.is_alive) return { ok: false, message: "Ce d\xE9tenu est mort." };
         const tMeta = t1.role_meta ?? {};
         const since = tMeta.imprisoned_since_cycle ?? opts.tour;
         if (opts.tour <= since) {
@@ -6198,7 +6275,7 @@ async function resetGame(gameId) {
   }).eq("id", gameId);
   emit("reset", "\u267B\uFE0F Partie r\xE9initialis\xE9e");
 }
-var listeners, meta, PHASE_IDX, SCHEDULES_NEXT_TOUR, FALSIFIED_MSG, PHASE_DURATIONS, TICK_LOCK_TTL_MS, _tickInFlight, MAX_TICK_TRANSITIONS, PYRO_IGNITE_COOLDOWN, BOT_PSEUDOS_POOL, BOT_AVATAR_COUNT;
+var listeners, meta, PHASE_IDX, SCHEDULES_NEXT_TOUR, FALSIFIED_MSG, PHASE_DURATIONS, TICK_LOCK_TTL_MS, _tickInFlight, MAX_TICK_TRANSITIONS, MAX_BACKDATE_MS, PYRO_IGNITE_COOLDOWN, BOT_PSEUDOS_POOL, BOT_AVATAR_COUNT;
 var init_actions = __esm({
   "src/engine/actions.ts"() {
     "use strict";
@@ -6234,6 +6311,7 @@ var init_actions = __esm({
     TICK_LOCK_TTL_MS = 3e4;
     _tickInFlight = /* @__PURE__ */ new Map();
     MAX_TICK_TRANSITIONS = 6;
+    MAX_BACKDATE_MS = 2e3;
     PYRO_IGNITE_COOLDOWN = 3;
     BOT_PSEUDOS_POOL = [
       "Bot Alice",
