@@ -1,7 +1,7 @@
 # Idées — la table des ÉVÉNEMENTS du Manoir
 
 > **Statut : IDÉES SEULEMENT — à ne PAS implémenter** (décision Jason 2026-07-18).
-> Extrait de `docs/NOUVEAUX_ROLES.md` pour garder le fichier des rôles centré sur
+> Extrait de `docs/archive/NOUVEAUX_ROLES.md` pour garder le fichier des rôles centré sur
 > les rôles. À ressortir le jour où le chantier événements s'ouvre.
 
 > Origine : remplace l'idée « Vigilante masqué rôle émergent » — faire émerger un

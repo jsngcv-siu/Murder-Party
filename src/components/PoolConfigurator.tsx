@@ -366,15 +366,26 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
                   </h3>
                   <ul className="space-y-1.5">
                     {list.map((slot) => {
-                      // Rôles candidats pour ce slot : même faction+type, non bannis, non émergents.
+                      // Rôles RÉELLEMENT tirables pour ce slot : mêmes règles que le
+                      // moteur (`eligible` dans actions.ts) et que le garde-fou de ban
+                      // ci-dessus — même faction+type, non bannis, min_players ≤ cible,
+                      // hors Chasseur de vampire. `roles` est déjà filtré emergent/disabled.
+                      // Ainsi « X possibles » ne compte que ce qui peut vraiment sortir au
+                      // tirage à la taille de table courante (bans ET min_players reflétés).
                       const acceptedTypes = expandSlotTypes(slot.type);
                       const candidates = roles.filter(
                         (r) =>
                           r.faction === faction &&
                           acceptedTypes.includes(r.type) &&
+                          r.slug !== "chasseur_de_vampire" &&
+                          (r.min_players ?? 6) <= config.targetPlayers &&
                           !banned.has(r.slug),
                       );
                       const lockedSingle = slot.locked && candidates.length <= 1;
+                      // Slot en Auto (aucun rôle épinglé) mais plus aucun candidat
+                      // tirable : signalé en rouge pour que le lead voie tout de suite
+                      // le trou (tous bannis, ou min. joueurs au-dessus de la cible).
+                      const noDraw = !slot.slug && candidates.length === 0;
                       const tm = roleTypeMeta(slot.type);
                       const selected = slot.slug ? roleBySlug.get(slot.slug) : null;
                       const tok = FACTION_TOKEN[faction] ?? "var(--muted-foreground)";
@@ -415,12 +426,20 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
                             value={slot.slug ?? ""}
                             onChange={(e) => updateSlot(slot.id, { slug: e.target.value || null })}
                             disabled={lockedSingle}
-                            className="flex-1 min-w-0 text-xs bg-input/60 border border-border rounded px-2 py-1.5 disabled:opacity-70"
+                            title={
+                              noDraw
+                                ? "Aucun rôle de ce type n'est tirable (tous bannis ou min. joueurs trop élevé)."
+                                : undefined
+                            }
+                            className={`flex-1 min-w-0 text-xs bg-input/60 border rounded px-2 py-1.5 disabled:opacity-70 ${
+                              noDraw ? "border-destructive text-destructive" : "border-border"
+                            }`}
                           >
                             {!slot.locked && (
                               <option value="">
-                                Auto ({candidates.length} possible{candidates.length > 1 ? "s" : ""}
-                                )
+                                {noDraw
+                                  ? "⚠ Auto — aucun rôle tirable"
+                                  : `Auto (${candidates.length} possible${candidates.length > 1 ? "s" : ""})`}
                               </option>
                             )}
                             {candidates.map((r) => (

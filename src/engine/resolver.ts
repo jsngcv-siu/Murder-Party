@@ -425,7 +425,7 @@ async function applyAttack(
   const isBlessed = tMeta.blessed_by_saint === true && blessedUntil >= intent.tour;
   // Balle perforante (lot 3) : ignore boucliers, bénédiction ET le sacrifice du
   // Majordome (la protection ne se déclenche pas — la cible meurt, le Majordome
-  // survit sans riposter). Décision actée docs/NOUVEAUX_ROLES.md §11.
+  // survit sans riposter). Décision actée docs/archive/NOUVEAUX_ROLES.md §11.
   if (!pierce && (prot >= intent.tour || isBlessed)) {
     await decrementCharge(intent.item_id); // fiole consommée même si protégée
     // MJ-only : la cible ne doit pas savoir qu'elle a été protégée.

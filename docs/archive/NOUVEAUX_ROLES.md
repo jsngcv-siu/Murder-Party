@@ -1,3 +1,9 @@
+> ⚠️ **ARCHIVÉ / OBSOLÈTE (2026-07-19).** Document de travail de la mise en place des
+> nouveaux rôles. Les 18 rôles sont **implémentés, activés en prod et stabilisés**
+> (commit `9f99bc6`, edge redéployé). La source de vérité vivante des rôles est la table
+> `public.roles` + les migrations `supabase/migrations/` ; conservé ici pour l'historique
+> de design uniquement. NE PAS s'y fier pour l'état courant.
+
 # Nouveaux rôles — shortlist retenue
 
 > **Statut : ✅ LES 6 LOTS SONT IMPLÉMENTÉS** (branche `ajout-de-roles`, 2026-07-18) —
