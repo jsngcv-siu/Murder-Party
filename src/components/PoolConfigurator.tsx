@@ -11,6 +11,7 @@ import {
   asPoolConfig,
   buildDefaultPool,
   expandSlotTypes,
+  type Faction,
   type PoolConfig,
   type PoolSlot,
 } from "@/lib/poolConfig";
@@ -186,6 +187,26 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
       .eq("id", game.id);
     if (error) {
       toast.error("Impossible de mettre à jour les bannis.");
+      setBanned(new Set(game.banned_roles ?? []));
+    }
+  }
+
+  // Réactive (débannit) TOUS les rôles d'une faction d'un coup. Débannir est
+  // toujours sûr (aucun garde-fou : ça ne peut pas vider un slot obligatoire).
+  async function resetFactionBans(faction: Faction) {
+    const next = new Set(banned);
+    let changed = false;
+    for (const r of roles) {
+      if (r.faction === faction && next.delete(r.slug)) changed = true;
+    }
+    if (!changed) return;
+    setBanned(next);
+    const { error } = await supabase
+      .from("games")
+      .update({ banned_roles: Array.from(next) as never })
+      .eq("id", game.id);
+    if (error) {
+      toast.error("Impossible de réactiver les rôles.");
       setBanned(new Set(game.banned_roles ?? []));
     }
   }
@@ -479,15 +500,27 @@ export function PoolConfigurator({ game }: { game: GameRow }) {
               const bannedHere = list.filter((r) => banned.has(r.slug)).length;
               return (
                 <div key={faction} className="space-y-2">
-                  <h3
-                    className="text-xs font-bold uppercase tracking-widest inline-flex items-center gap-1.5"
-                    style={{ color: tok }}
-                  >
-                    {F && <F.Icon className="size-3.5" aria-hidden />} {F?.label ?? faction}
-                    <span className="text-muted-foreground">
-                      ({list.length - bannedHere}/{list.length})
-                    </span>
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3
+                      className="text-xs font-bold uppercase tracking-widest inline-flex items-center gap-1.5"
+                      style={{ color: tok }}
+                    >
+                      {F && <F.Icon className="size-3.5" aria-hidden />} {F?.label ?? faction}
+                      <span className="text-muted-foreground">
+                        ({list.length - bannedHere}/{list.length})
+                      </span>
+                    </h3>
+                    {bannedHere > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => resetFactionBans(faction)}
+                        title={`Réactiver les ${bannedHere} rôle(s) banni(s) de cette faction`}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition"
+                      >
+                        <RefreshCw className="size-3" /> Tout réactiver
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {list.map((r) => {
                       const isBan = banned.has(r.slug);

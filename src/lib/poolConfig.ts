@@ -29,15 +29,20 @@ export function expandSlotTypes(t: string): string[] {
 }
 
 // Patterns de slots non-verrouillés à dérouler dans l'ordre selon la taille cible.
-// Acolytes : Méchant/SUPPORT n'existe plus (migré vers CONTRÔLE). Tous les slots
-// acolytes sont des UNIONS souples INVESTIGATION/TROMPERIE/CONTRÔLE → Tromperie et
-// Contrôle sont tirables dès la 1ʳᵉ table (2026-07-18), plus seulement à 18 j.
-// (aucun type méchant garanti : c'est un jeu de variété/chaos).
+// Chaque slot est indexé par sa position `k` ; au-delà de la longueur du tableau on
+// répète la DERNIÈRE entrée (via Math.min) → les entrées de tête « épinglent » un
+// type garanti, la queue reste souple.
+//
+// Acolytes (Méchant/SUPPORT n'existe plus → CONTRÔLE) : calibrage 2026-07-19 (Jason).
+// Le 1er acolyte (présent dès 6 j.) reste une UNION souple → chaos préservé aux
+// petites tables. Dès le 2e acolyte (12 j.+, 3 méchants) on GARANTIT un
+// trompeur/contrôleur (TROMPERIE/CONTRÔLE) pour éviter une équipe méchante 100 %
+// info. Le 3e acolyte (17 j.+) repasse souple. Revient sur la décision « aucun type
+// méchant garanti » du 2026-07-18, sur demande explicite de Jason.
 const ACOLYTE_FILL: string[] = [
-  "INVESTIGATION/TROMPERIE/CONTRÔLE",
-  "INVESTIGATION/TROMPERIE/CONTRÔLE",
-  "INVESTIGATION/TROMPERIE/CONTRÔLE",
-  "INVESTIGATION/TROMPERIE/CONTRÔLE",
+  "INVESTIGATION/TROMPERIE/CONTRÔLE", // k0 : souple (toutes tables, chaos)
+  "TROMPERIE/CONTRÔLE", // k1 : 2e acolyte (12 j.+) → trompeur/contrôleur garanti
+  "INVESTIGATION/TROMPERIE/CONTRÔLE", // k2 : 3e acolyte (17 j.+) souple (dernière, répétée)
 ];
 const NEUTRE_FILL: string[] = [
   // Chaque neutre : tous types possibles (pondérés à l'exécution : BÉNIN ≫ MAL ≫ CHAOS).
@@ -50,11 +55,28 @@ const NEUTRE_FILL: string[] = [
 
 // Civils non-verrouillés (les MUSTs majordome[PROTECTEUR]/assistant[INVESTIGATION]
 // ne sont pas listés ici — ils garantissent déjà 1 protecteur + 1 enquêteur).
-// Refonte 2026-07-18 : au lieu de types RIGIDES (1 slot = 1 type fixe), chaque slot
-// civil ajouté est une UNION souple ENQUÊTE/SUPPORT/TUEUR → plus de variété, fin de
-// la séquence figée. Le Protecteur reste garanti par le Majordome (MUST) et n'entre
-// PAS dans le pool souple (on ne veut qu'un protecteur sûr, pas une avalanche).
-const CIVIL_FILL: string[] = ["INVESTIGATION/SUPPORT/TUEUR"];
+// Calibrage 2026-07-19 (Jason) : au lieu de N slots TOUS souples (qui pouvaient tous
+// tomber enquêteur, sans jamais un tueur civil), on ÉPINGLE quelques types en tête
+// de séquence, la queue restant souple (variété). Indexé par position `k` (Math.min).
+//  • k0        → TUEUR : un civil qui peut tuer, GARANTI à toutes les tables
+//                (à 6 j., seul l'Exécuteur est éligible → ~ l'ancien MUST Exécuteur).
+//  • k2        → SUPPORT : 1 support garanti dès 8 j. (3e slot de remplissage).
+//  • k8        → TUEUR : 2e tueur civil, atteint seulement quand il y a ≥9 slots de
+//                remplissage → 16 j.+ (à 15 j. et moins, un seul tueur civil garanti).
+//  • le reste  → UNION souple INVESTIGATION/SUPPORT/TUEUR (dernière entrée, répétée).
+// Le Protecteur reste hors pool souple (un seul, sûr, via le Majordome MUST).
+const CIVIL_FILL: string[] = [
+  "TUEUR", // k0
+  "INVESTIGATION/SUPPORT/TUEUR", // k1
+  "SUPPORT", // k2
+  "INVESTIGATION/SUPPORT/TUEUR", // k3
+  "INVESTIGATION/SUPPORT/TUEUR", // k4
+  "INVESTIGATION/SUPPORT/TUEUR", // k5
+  "INVESTIGATION/SUPPORT/TUEUR", // k6
+  "INVESTIGATION/SUPPORT/TUEUR", // k7
+  "TUEUR", // k8 : 2e tueur civil (16 j.+)
+  "INVESTIGATION/SUPPORT/TUEUR", // k9 : souple (dernière → répétée pour tout le reste)
+];
 
 /**
  * Construit un pool par défaut pour `target` joueurs.
@@ -112,7 +134,9 @@ export function buildDefaultPool(target: number): PoolConfig {
   let remaining = target - slots.length;
   let k = 0;
   while (remaining > 0) {
-    const t = CIVIL_FILL[k % CIVIL_FILL.length];
+    // Math.min (et non modulo) : les types épinglés en tête n'apparaissent qu'une
+    // fois, puis on répète la DERNIÈRE entrée (souple) pour tous les slots restants.
+    const t = CIVIL_FILL[Math.min(k, CIVIL_FILL.length - 1)];
     slots.push({ id: nextId(), faction: "Civil", type: t, slug: null });
     k++;
     remaining--;
