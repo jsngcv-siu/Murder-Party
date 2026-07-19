@@ -134,7 +134,9 @@ export function collectAnnouncements(players: AnyPlayer[]): Event[] {
       variant: "cat",
       icon: <Cat className="size-5" aria-hidden />,
       heading: "★ UN MIAULEMENT DANS LA NUIT",
-      text: "Un chat a sept vies — il vient d'en perdre une.",
+      // Coupé après la virgule (whiteSpace: pre-line côté GazetteCard) pour que le
+      // texte ne déborde pas sur l'illustration du chat à droite.
+      text: "Un chat a sept vies,\nil vient d'en perdre une.",
     });
   }
   // Indices distribués au setup → annonce générique au tour 1 (jamais QUI).

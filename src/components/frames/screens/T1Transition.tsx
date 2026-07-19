@@ -2403,9 +2403,13 @@ export function GazetteCard({
             style={{
               marginTop: 7,
               fontFamily: "var(--font-display)",
-              fontSize: 18,
-              lineHeight: 1.1,
+              fontSize: 15,
+              lineHeight: 1.15,
               color: bodyColor,
+              // pre-line : respecte les retours à la ligne explicites du texte
+              // (ex. Chat du Manoir, coupé après la virgule pour ne pas couvrir
+              // l'illustration à droite).
+              whiteSpace: "pre-line",
             }}
           >
             {event.text}
