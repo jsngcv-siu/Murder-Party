@@ -1207,6 +1207,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
     myRole?.slug !== "cuisinier" &&
     myRole?.slug !== "vengeur" &&
     myRole?.slug !== "juge" &&
+    myRole?.slug !== "corrupteur" &&
     myRole?.slug !== "executeur" &&
     myRole?.slug !== "paranoiaque" &&
     !(myRole?.slug === "saint" && meMeta.saint_used === true);
@@ -1876,6 +1877,25 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
             />
           );
         })()}
+      {/* Corrupteur : même panneau prison que le Juge (liste live des prisonniers,
+          évasion après 1 tour complet). La capacité est 1×/partie. */}
+      {myRole?.slug === "corrupteur" &&
+        (() => {
+          const used = usesOf(meMeta, "corrupteur");
+          const total = parseTotalLimit(myRole, playerCount);
+          const remaining = Math.max(0, total - used);
+          return (
+            <JugePrisonPanel
+              players={players}
+              currentTour={game.current_tour}
+              busy={busy}
+              blocked={!!blockedReason}
+              remaining={remaining}
+              total={total === Infinity ? null : total}
+              onRelease={(id) => void runCapacity({ targetIds: [id], skipTargetCheck: true })}
+            />
+          );
+        })()}
       {myRole?.slug === "executeur" &&
         (() => {
           const used = usesOf(meMeta, "executeur");
@@ -2072,6 +2092,7 @@ function RoleTab({ ctx }: { ctx: FrameContext }) {
         myRole?.slug !== "cuisinier" &&
         myRole?.slug !== "vengeur" &&
         myRole?.slug !== "juge" &&
+        myRole?.slug !== "corrupteur" &&
         myRole?.slug !== "executeur" &&
         myRole?.slug !== "paranoiaque" &&
         !(myRole?.slug === "saint" && meMeta.saint_used === true) &&
@@ -2461,6 +2482,7 @@ const NO_LAST_RESULT_ROLES = new Set<string>([
   "guetteur",
   "cuisinier",
   "juge",
+  "corrupteur",
   "medecin_legiste",
   "medium",
   "cartomancien",
@@ -2509,6 +2531,7 @@ const ACTION_DESCRIPTIONS: Record<string, (t1?: string, t2?: string) => string> 
   chasseur_de_vampire: (t) => `Tu as traqué ${t ?? "un joueur"}.`,
   cleaner: (t) => `Tu as nettoyé les traces de ${t ?? "un joueur"}.`,
   conservateur: (t) => `Tu as confié une relique à ${t ?? "un joueur"}.`,
+  corrupteur: (t) => `Tu as fait évader ${t ?? "un prisonnier"}.`,
   croque_mitaine: (t) => `Tu as effrayé ${t ?? "un joueur"}.`,
   cuisinier: () => `Tu as préparé ton plat.`,
   empoisonneur: (t) => `Tu as empoisonné ${t ?? "un joueur"}.`,

@@ -88,6 +88,8 @@ const EFFECT_BY_SLUG: Record<string, EffectCategory> = {
   pyromane: "kill",
   // ── Ajout post-lots (2026-07-18) : jumeau Civil du Physionomiste ──
   portraitiste: "investigate",
+  // ── Ajout 2026-07-19 : Méchant/CONTRÔLE qui fait évader un prisonnier ──
+  corrupteur: "manipulate",
 };
 
 function effectFor(role: RoleRow): EffectCategory {

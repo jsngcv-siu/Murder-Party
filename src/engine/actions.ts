@@ -5051,6 +5051,43 @@ export async function executeCapability(opts: {
         };
       }
 
+      // ── Corrupteur (Méchant/CONTRÔLE) : 1×/partie, fait évader un prisonnier.
+      // Réutilise EXACTEMENT le rail du Juge (`pending_release_for_cycle`) → la
+      // libération est appliquée par la même boucle et l'annonce Gazette publique +
+      // la notif au prisonnier (« Le Juge t'a libéré ») sont INDISCERNABLES d'une
+      // libération du Juge. Seul le message MJ dit la vérité (le MJ sait tout).
+      case "corrupteur": {
+        if (!t1) return { ok: false, message: "Cible requise" };
+        if (!t1.is_imprisoned) return { ok: false, message: "Cible non emprisonnée" };
+        const tMeta = (t1.role_meta ?? {}) as Record<string, unknown>;
+        const since = (tMeta.imprisoned_since_cycle as number | undefined) ?? opts.tour;
+        if (opts.tour <= since) {
+          return { ok: false, message: "Le prisonnier n'a pas encore purgé un tour complet." };
+        }
+        if ((tMeta.pending_release_for_cycle as number | undefined) === opts.tour + 1) {
+          return { ok: false, message: "Évasion de ce prisonnier déjà prévue." };
+        }
+        await patchMeta(t1.id, {
+          pending_release_for_cycle: opts.tour + 1,
+          pending_release_by: actor.id,
+        });
+        await used({ effect: "corrupteur_release_scheduled" });
+        await notify({
+          gameId: opts.gameId,
+          playerId: t1.id,
+          type: "release_scheduled",
+          // Notif au prisonnier VOLONTAIREMENT identique à celle du Juge (couverture).
+          title: "⚖️ Libération programmée",
+          body: "Le Juge a ordonné ta libération. Tu seras libre au début du prochain tour.",
+          mjTitle: "🗝️ Corrupteur",
+          mjBody: `${actor.pseudo} (Corrupteur) fait évader ${t1.pseudo} pour le tour ${opts.tour + 1} — l'évasion passera pour une libération du Juge.`,
+        });
+        return {
+          ok: true,
+          message: `Évasion de ${t1.pseudo} — au tour ${opts.tour + 1}`,
+        };
+      }
+
       // ── Oracle : verrouille une prophétie de faction (1×/partie). Gagne avec la faction prédite. ──
       case "oracle": {
         if (m.prophecy) return { ok: false, message: "Prophétie déjà lancée" };

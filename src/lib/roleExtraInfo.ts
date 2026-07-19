@@ -283,6 +283,27 @@ export const ROLE_EXTRA_INFO: Record<string, RoleExtraInfo> = {
       },
     ],
   },
+  corrupteur: {
+    pages: [
+      {
+        title: "Subtilités",
+        notes: [
+          {
+            tag: "Une évasion indiscernable",
+            body: "L'évasion est annoncée exactement comme une libération du Juge : la ville peut croire que c'est lui qui a agi. Ton évadé n'apprend jamais que c'est toi.",
+          },
+          {
+            tag: "Un prisonnier ayant purgé un tour",
+            body: "Comme le Juge, tu ne peux faire évader qu'un joueur emprisonné depuis au moins un tour complet — jamais le tour même du vote.",
+          },
+          {
+            tag: "Une seule fois",
+            body: "Strictement 1×/partie. Garde-la pour sortir un complice coincé par la ville… ou pour brouiller les pistes en libérant un civil.",
+          },
+        ],
+      },
+    ],
+  },
   juge: {
     pages: [
       {
