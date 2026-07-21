@@ -31,6 +31,16 @@ Le PDF décide du style. Le code existant décide du comportement et des donnée
 - Matière vintage sans fonction, accumulation de cadres imbriqués ou sceau de cire sur une nouvelle ordinaire.
 - Animation purement décorative ou action inventée sur un écran informatif.
 
+## Environnement local (le projet est développé depuis plusieurs postes)
+
+Installer les dépendances avec **`npm ci`**, jamais `npm install`, sauf pour ajouter ou mettre à jour une dépendance volontairement.
+
+**Pourquoi** : `npm install` recalcule l'arbre et réécrit `package-lock.json` selon la version de npm locale. Les postes n'ont pas la même (npm 10 ne connaît pas les champs `libc` des dépendances optionnelles Linux, npm ≥ 11 les écrit), donc chaque `npm install` sur une machine annule ce qu'a écrit l'autre : diff de ~90 lignes, aucun changement de version réel, et des conflits pénibles sur un fichier de 10 000 lignes. `npm ci` installe exactement le lockfile et ne le réécrit jamais.
+
+Si un diff `package-lock.json` ne contient que des ajouts/retraits de blocs `libc`, c'est ce bruit : le jeter (`git checkout package-lock.json`), ne pas le committer.
+
+Rappel : `.env` et `node_modules` sont gitignorés et ne voyagent donc pas d'un poste à l'autre. Repartir de `.env.example` ; les valeurs Supabase sont dans le dashboard du projet `eqcfagjvbiwhsofzmqtg`.
+
 ## Déploiement & migrations (l'agent peut le faire lui-même)
 
 Le CLI Supabase est **lié au projet prod** `eqcfagjvbiwhsofzmqtg` (org `buenckmwhbleofjvhona`) avec des identifiants stockés fonctionnels. Inutile de demander à l'utilisateur de préparer/coller le SQL : appliquer les migrations directement.

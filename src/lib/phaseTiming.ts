@@ -25,6 +25,10 @@ export function introSFor(phase: string | null | undefined): number {
 }
 
 /** Écran de résultat du vote (« X part en prison »), joué à la FIN de la phase
- *  Vote — après la fenêtre de vote, avant de passer au tour suivant. */
-export const VOTE_RESULT_MS = 8000;
+ *  Vote — après la fenêtre de vote, avant de passer au tour suivant.
+ *  8000 → 3000 (2026-07-19) : 8 s d'écran figé à 0:00 chaque tour, ressenti
+ *  « bloqué » par les joueurs. ⚠️ Consommé aussi par le ticker serveur : tout
+ *  changement ici doit être suivi de `npm run deploy:edge`, sinon serveur et
+ *  clients arbitrent la fin du vote avec deux durées différentes. */
+export const VOTE_RESULT_MS = 3000;
 export const VOTE_RESULT_S = VOTE_RESULT_MS / 1000;

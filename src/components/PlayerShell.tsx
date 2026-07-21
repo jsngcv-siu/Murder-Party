@@ -262,15 +262,47 @@ export function PlayerShell({
     };
 
     scheduleBoundaries();
-    // Filet de sécurité : re-tente au cas où un réveil calé rate. On ne sonde la
-    // base QUE si la frontière est réellement franchie — le test se fait ici, en
-    // mémoire, sur des valeurs qu'on a déjà (`started`/`boundariesS` viennent du
-    // Realtime, cf. deps). Sans ce garde, chaque client appelait tickPhase toutes
-    // les 3 s pendant TOUTE la phase, et chaque appel coûtait un SELECT `games`
-    // pour s'entendre répondre « pas encore » (≈940 k requêtes en 12 j).
-    const safety = setInterval(() => {
-      if (serverNow() >= started + boundariesS[0] * 1000) void tickPhase(game.id);
-    }, 3000);
+    // Filet de sécurité ADAPTATIF : re-tente au cas où un réveil calé rate (timer
+    // gelé en arrière-plan, dérive d'horloge). On ne sonde la base QUE si la
+    // frontière est réellement franchie — le test se fait ici, en mémoire, sur des
+    // valeurs qu'on a déjà (`started`/`boundariesS` viennent du Realtime, cf. deps).
+    // Sans ce garde, chaque client appelait tickPhase toutes les 3 s pendant TOUTE
+    // la phase, chaque appel coûtant un SELECT `games` pour s'entendre répondre
+    // « pas encore » (≈940 k requêtes en 12 j).
+    //
+    // Comme le test est en mémoire, resserrer la cadence à l'APPROCHE d'une
+    // frontière ne coûte qu'un timer, pas une requête : on passe donc à 500 ms
+    // dans les 5 dernières secondes (rattrapage ≤ 0,5 s au lieu de ≤ 3 s si le
+    // réveil calé rate), et on reste à 3 s le reste du temps.
+    const WARM_WINDOW_MS = 5000; // fenêtre « bientôt la frontière »
+    const WARM_TICK_MS = 500; // cadence dedans
+    const IDLE_TICK_MS = 3000; // cadence en dehors
+    let safety: ReturnType<typeof setTimeout> | null = null;
+    const pollSafety = () => {
+      const now = serverNow();
+      // Prochaine frontière encore À VENIR (null = toutes franchies).
+      let nextAt: number | null = null;
+      for (const bS of boundariesS) {
+        const t = started + bS * 1000;
+        if (t > now) {
+          nextAt = t;
+          break;
+        }
+      }
+      if (nextAt === null) {
+        // Frontière dépassée sans que la phase ait changé → le réveil calé a raté.
+        // On rattrape ; le verrou serveur (claim_phase_tick) dédoublonne entre clients.
+        void tickPhase(game.id);
+        safety = setTimeout(pollSafety, IDLE_TICK_MS);
+        return;
+      }
+      const untilWarm = nextAt - now - WARM_WINDOW_MS;
+      safety = setTimeout(
+        pollSafety,
+        untilWarm > 0 ? Math.min(IDLE_TICK_MS, untilWarm) : WARM_TICK_MS,
+      );
+    };
+    pollSafety();
     // Au retour de veille / bascule d'onglet : les timers ont pu être gelés — on
     // ré-arme les frontières et on rattrape immédiatement.
     const onVisible = () => {
@@ -282,7 +314,7 @@ export function PlayerShell({
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       boundaryTimers.forEach(clearTimeout);
-      clearInterval(safety);
+      if (safety) clearTimeout(safety);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [
